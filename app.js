@@ -806,6 +806,200 @@ function renderCustomersPage(content) {
 
 function renderCustomerTable(search = "") {
 
+function showAddCustomerForm() {
+
+  const modal = document.createElement("div");
+
+  modal.className = "modal show";
+
+  modal.innerHTML = `
+    <div class="modal-content">
+
+      <div class="modal-header">
+
+        <div>
+          <h2>Add Customer</h2>
+          <p>Create a customer record.</p>
+        </div>
+
+        <button
+          type="button"
+          class="close"
+          aria-label="Close"
+        >
+          ×
+        </button>
+
+      </div>
+
+      <form id="customerForm">
+
+        <label>Name *</label>
+
+        <input
+          id="customerName"
+          type="text"
+          required
+        >
+
+        <label>Phone</label>
+
+        <input
+          id="customerPhone"
+          type="tel"
+        >
+
+        <label>Email</label>
+
+        <input
+          id="customerEmail"
+          type="email"
+        >
+
+        <label>Address</label>
+
+        <input
+          id="customerAddress"
+          type="text"
+        >
+
+        <label>Town / City</label>
+
+        <input
+          id="customerCity"
+          type="text"
+        >
+
+        <label>Postcode</label>
+
+        <input
+          id="customerPostcode"
+          type="text"
+        >
+
+        <label>Notes</label>
+
+        <textarea
+          id="customerNotes"
+        ></textarea>
+
+        <div class="modal-actions">
+
+          <button
+            type="button"
+            class="button secondary close"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="button primary"
+          >
+            Save Customer
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal
+    .querySelectorAll(".close")
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () => modal.remove()
+      );
+
+    });
+
+  modal
+    .querySelector("#customerForm")
+    .addEventListener(
+      "submit",
+      async event => {
+
+        event.preventDefault();
+
+        const customer = {
+
+          user_id: currentUser.id,
+
+          name:
+            document
+              .getElementById("customerName")
+              .value
+              .trim(),
+
+          phone:
+            document
+              .getElementById("customerPhone")
+              .value
+              .trim(),
+
+          email:
+            document
+              .getElementById("customerEmail")
+              .value
+              .trim(),
+
+          address_line1:
+            document
+              .getElementById("customerAddress")
+              .value
+              .trim(),
+
+          city:
+            document
+              .getElementById("customerCity")
+              .value
+              .trim(),
+
+          postcode:
+            document
+              .getElementById("customerPostcode")
+              .value
+              .trim(),
+
+          notes:
+            document
+              .getElementById("customerNotes")
+              .value
+              .trim()
+
+        };
+
+        const { error } =
+          await supabase
+            .from("customers")
+            .insert(customer);
+
+        if (error) {
+
+          alert(error.message);
+
+          return;
+
+        }
+
+        modal.remove();
+
+        await loadCustomers();
+
+        renderCustomersPage(
+          document.getElementById("pageContent")
+        );
+
+      }
+    );
+
+}
   const container =
     document.getElementById("customerTable");
 

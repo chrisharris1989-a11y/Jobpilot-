@@ -811,18 +811,24 @@ function renderCustomerTable(search = "") {
 
   if (!container) return;
 
-
   const term =
     search.toLowerCase();
 
-
   const filtered =
     customers.filter(customer =>
-      customer.name
+      (customer.name || "")
+        .toLowerCase()
+        .includes(term) ||
+      (customer.phone || "")
+        .toLowerCase()
+        .includes(term) ||
+      (customer.email || "")
+        .toLowerCase()
+        .includes(term) ||
+      (customer.postcode || "")
         .toLowerCase()
         .includes(term)
     );
-
 
   if (!filtered.length) {
 
@@ -850,7 +856,6 @@ function renderCustomerTable(search = "") {
 
   }
 
-
   container.innerHTML = `
 
     <table>
@@ -858,19 +863,14 @@ function renderCustomerTable(search = "") {
       <thead>
 
         <tr>
-
           <th>Name</th>
-
           <th>Phone</th>
-
           <th>Email</th>
-
           <th>Postcode</th>
-
+          <th></th>
         </tr>
 
       </thead>
-
 
       <tbody>
 
@@ -879,9 +879,14 @@ function renderCustomerTable(search = "") {
           <tr>
 
             <td>
-              <strong>
+
+              <button
+                class="customer-link"
+                data-customer-id="${customer.id}"
+              >
                 ${escapeHtml(customer.name)}
-              </strong>
+              </button>
+
             </td>
 
             <td>
@@ -896,6 +901,17 @@ function renderCustomerTable(search = "") {
               ${escapeHtml(customer.postcode || "—")}
             </td>
 
+            <td>
+
+              <button
+                class="small-button"
+                data-edit-customer="${customer.id}"
+              >
+                Edit
+              </button>
+
+            </td>
+
           </tr>
 
         `).join("")}
@@ -906,6 +922,34 @@ function renderCustomerTable(search = "") {
 
   `;
 
+
+  document
+    .querySelectorAll("[data-customer-id]")
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () => showCustomerProfile(
+          button.dataset.customerId
+        )
+      );
+
+    });
+
+
+  document
+    .querySelectorAll("[data-edit-customer]")
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () => showEditCustomerForm(
+          button.dataset.editCustomer
+        )
+      );
+
+    });
+
 }
 
 
@@ -913,7 +957,305 @@ function renderCustomerTable(search = "") {
 // ADD CUSTOMER FORM
 // ===============================
 
-function showAddCustomerForm() {
+function showCustomerProfile(customerId) {
+
+  const customer =
+    customers.find(
+      item => String(item.id) === String(customerId)
+    );
+
+  if (!customer) return;
+
+
+  const customerJobs =
+    jobs.filter(
+      job =>
+        String(job.customer_id) ===
+        String(customer.id)
+    );
+
+
+  const totalValue =
+    customerJobs.reduce(
+      (total, job) =>
+        total + Number(job.price || 0),
+      0
+    );
+
+
+  const content =
+    document.getElementById("pageContent");
+
+
+  document.getElementById("pageTitle").textContent =
+    customer.name;
+
+  document.getElementById("pageSubtitle").textContent =
+    "Customer profile";
+
+
+  content.innerHTML = `
+
+    <div class="page-actions">
+
+      <div>
+
+        <button
+          id="backCustomers"
+          class="button secondary"
+        >
+          ← Customers
+        </button>
+
+      </div>
+
+
+      <div>
+
+        <button
+          id="editCustomer"
+          class="button primary"
+        >
+          Edit Customer
+        </button>
+
+        <button
+          id="deleteCustomer"
+          class="button danger"
+        >
+          Delete
+        </button>
+
+      </div>
+
+    </div>
+
+
+    <div class="content-grid">
+
+      <div class="panel">
+
+        <h2>
+          Customer Details
+        </h2>
+
+
+        <div class="detail-list">
+
+          <div>
+            <span>Name</span>
+            <strong>
+              ${escapeHtml(customer.name)}
+            </strong>
+          </div>
+
+
+          <div>
+            <span>Phone</span>
+            <strong>
+              ${escapeHtml(customer.phone || "—")}
+            </strong>
+          </div>
+
+
+          <div>
+            <span>Email</span>
+            <strong>
+              ${escapeHtml(customer.email || "—")}
+            </strong>
+          </div>
+
+
+          <div>
+            <span>Address</span>
+            <strong>
+              ${escapeHtml(customer.address_line1 || "—")}
+            </strong>
+          </div>
+
+
+          <div>
+            <span>Town / City</span>
+            <strong>
+              ${escapeHtml(customer.city || "—")}
+            </strong>
+          </div>
+
+
+          <div>
+            <span>Postcode</span>
+            <strong>
+              ${escapeHtml(customer.postcode || "—")}
+            </strong>
+          </div>
+
+
+          <div>
+            <span>Notes</span>
+            <strong>
+              ${escapeHtml(customer.notes || "—")}
+            </strong>
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div class="panel">
+
+        <h2>
+          Customer Summary
+        </h2>
+
+
+        <div class="stats">
+
+          <div class="stat-card">
+
+            <div>
+
+              <span>
+                Jobs
+              </span>
+
+              <strong>
+                ${customerJobs.length}
+              </strong>
+
+            </div>
+
+          </div>
+
+
+          <div class="stat-card">
+
+            <div>
+
+              <span>
+                Job Value
+              </span>
+
+              <strong>
+                £${totalValue.toFixed(2)}
+              </strong>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div class="panel customer-jobs">
+
+      <div class="panel-header">
+
+        <div>
+
+          <h2>
+            Job History
+          </h2>
+
+          <p>
+            Previous and upcoming work.
+          </p>
+
+        </div>
+
+      </div>
+
+
+      ${
+        customerJobs.length
+
+          ? customerJobs.map(job => `
+
+              <div class="job-row">
+
+                <div>
+
+                  <strong>
+                    ${escapeHtml(job.title)}
+                  </strong>
+
+                  <div class="muted">
+                    ${job.scheduled_date || "No date"}
+                  </div>
+
+                </div>
+
+                <strong>
+                  £${Number(job.price || 0).toFixed(2)}
+                </strong>
+
+              </div>
+
+            `).join("")
+
+          : `
+
+            <div class="empty-state">
+
+              <div class="empty-icon">
+                📋
+              </div>
+
+              <h3>
+                No jobs yet
+              </h3>
+
+              <p>
+                This customer doesn't have any jobs.
+              </p>
+
+            </div>
+
+          `
+      }
+
+    </div>
+
+  `;
+
+
+  document
+    .getElementById("backCustomers")
+    .addEventListener(
+      "click",
+      () => showPage("customers")
+    );
+
+
+  document
+    .getElementById("editCustomer")
+    .addEventListener(
+      "click",
+      () => showEditCustomerForm(customer.id)
+    );
+
+
+  document
+    .getElementById("deleteCustomer")
+    .addEventListener(
+      "click",
+      () => deleteCustomer(customer.id)
+    );
+
+}
+
+function showEditCustomerForm(customerId) {
+
+  const customer =
+    customers.find(
+      item => String(item.id) === String(customerId)
+    );
+
+  if (!customer) return;
 
   const modal =
     document.createElement("div");
@@ -928,29 +1270,24 @@ function showAddCustomerForm() {
 
         <div>
 
-          <h2>
-            Add Customer
-          </h2>
+          <h2>Edit Customer</h2>
 
-          <p>
-            Create a customer record.
-          </p>
+          <p>Update customer details.</p>
 
         </div>
 
-        <button class="close">
-          ×
-        </button>
+        <button class="close">×</button>
 
       </div>
 
 
-      <form id="customerForm">
+      <form id="editCustomerForm">
 
         <label>Name *</label>
 
         <input
-          id="customerName"
+          id="editCustomerName"
+          value="${escapeHtml(customer.name || "")}"
           required
         >
 
@@ -958,44 +1295,49 @@ function showAddCustomerForm() {
         <label>Phone</label>
 
         <input
-          id="customerPhone"
+          id="editCustomerPhone"
+          value="${escapeHtml(customer.phone || "")}"
         >
 
 
         <label>Email</label>
 
         <input
-          id="customerEmail"
+          id="editCustomerEmail"
           type="email"
+          value="${escapeHtml(customer.email || "")}"
         >
 
 
         <label>Address</label>
 
         <input
-          id="customerAddress"
+          id="editCustomerAddress"
+          value="${escapeHtml(customer.address_line1 || "")}"
         >
 
 
         <label>Town / City</label>
 
         <input
-          id="customerCity"
+          id="editCustomerCity"
+          value="${escapeHtml(customer.city || "")}"
         >
 
 
         <label>Postcode</label>
 
         <input
-          id="customerPostcode"
+          id="editCustomerPostcode"
+          value="${escapeHtml(customer.postcode || "")}"
         >
 
 
         <label>Notes</label>
 
         <textarea
-          id="customerNotes"
-        ></textarea>
+          id="editCustomerNotes"
+        >${escapeHtml(customer.notes || "")}</textarea>
 
 
         <div class="modal-actions">
@@ -1011,7 +1353,7 @@ function showAddCustomerForm() {
             type="submit"
             class="button primary"
           >
-            Save Customer
+            Save Changes
           </button>
 
         </div>
@@ -1021,7 +1363,6 @@ function showAddCustomerForm() {
     </div>
 
   `;
-
 
   document.body.appendChild(modal);
 
@@ -1037,56 +1378,55 @@ function showAddCustomerForm() {
 
 
   modal
-    .querySelector("#customerForm")
+    .querySelector("#editCustomerForm")
     .addEventListener(
       "submit",
       async event => {
 
         event.preventDefault();
 
-        const customer = {
 
-          user_id: currentUser.id,
+        const updates = {
 
           name:
             document
-              .getElementById("customerName")
+              .getElementById("editCustomerName")
               .value
               .trim(),
 
           phone:
             document
-              .getElementById("customerPhone")
+              .getElementById("editCustomerPhone")
               .value
               .trim(),
 
           email:
             document
-              .getElementById("customerEmail")
+              .getElementById("editCustomerEmail")
               .value
               .trim(),
 
           address_line1:
             document
-              .getElementById("customerAddress")
+              .getElementById("editCustomerAddress")
               .value
               .trim(),
 
           city:
             document
-              .getElementById("customerCity")
+              .getElementById("editCustomerCity")
               .value
               .trim(),
 
           postcode:
             document
-              .getElementById("customerPostcode")
+              .getElementById("editCustomerPostcode")
               .value
               .trim(),
 
           notes:
             document
-              .getElementById("customerNotes")
+              .getElementById("editCustomerNotes")
               .value
               .trim()
 
@@ -1096,7 +1436,8 @@ function showAddCustomerForm() {
         const { error } =
           await supabase
             .from("customers")
-            .insert(customer);
+            .update(updates)
+            .eq("id", customer.id);
 
 
         if (error) {
@@ -1112,15 +1453,55 @@ function showAddCustomerForm() {
 
         await loadCustomers();
 
-        renderCustomersPage(
-          document.getElementById("pageContent")
-        );
+        showCustomerProfile(customer.id);
 
       }
     );
 
 }
 
+async function deleteCustomer(customerId) {
+
+  const customer =
+    customers.find(
+      item => String(item.id) === String(customerId)
+    );
+
+  if (!customer) return;
+
+
+  const confirmed =
+    confirm(
+      `Delete ${customer.name}? This cannot be undone.`
+    );
+
+
+  if (!confirmed) return;
+
+
+  const { error } =
+    await supabase
+      .from("customers")
+      .delete()
+      .eq("id", customer.id);
+
+
+  if (error) {
+
+    alert(error.message);
+
+    return;
+
+  }
+
+
+  await loadCustomers();
+
+  await loadJobs();
+
+  showPage("customers");
+
+}
 
 // ===============================
 // JOBS

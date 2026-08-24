@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JobPilot</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">J</div>
+      <div>
+        <strong>JobPilot</strong>
+        <span>Trades CRM</span>
+      </div>
+    </div>
+
+    <nav>
+      <button class="nav-item active" onclick="showPage('dashboard')">
+        <span>⌂</span> Dashboard
+      </button>
+
+      <button class="nav-item" onclick="showPage('customers')">
+        <span>👥</span> Customers
+      </button>
+
+      <button class="nav-item" onclick="showPage('jobs')">
+        <span>📋</span> Jobs
+      </button>
+
+      <button class="nav-item" onclick="showPage('quotes')">
+        <span>💷</span> Quotes
+      </button>
+
+      <button class="nav-item" onclick="showPage('invoices')">
+        <span>🧾</span> Invoices
+      </button>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <button class="nav-item" onclick="showPage('settings')">
+        <span>⚙️</span> Settings
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <header class="topbar">
+      <button class="mobile-menu" onclick="toggleSidebar()">☰</button>
+
+      <div>
+        <h1 id="page-title">Dashboard</h1>
+        <p id="page-subtitle">Here's what's happening with your business.</p>
+      </div>
+
+      <div class="profile">
+        <div class="avatar">JP</div>
+      </div>
+    </header>
+
+    <!-- DASHBOARD -->
+
+    <section id="dashboard" class="page active-page">
+
+      <div class="stats">
+
+        <div class="stat-card">
+          <div class="stat-icon">📋</div>
+          <div>
+            <span>Today's Jobs</span>
+            <strong id="todayJobs">0</strong>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">💷</div>
+          <div>
+            <span>Outstanding Quotes</span>
+            <strong id="outstandingQuotes">£0</strong>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">🧾</div>
+          <div>
+            <span>Unpaid Invoices</span>
+            <strong id="unpaidInvoices">£0</strong>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">📈</div>
+          <div>
+            <span>This Month</span>
+            <strong id="monthlyRevenue">£0</strong>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="content-grid">
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Today's Jobs</h2>
+              <p>Your scheduled work</p>
+            </div>
+
+            <button class="button secondary" onclick="showPage('jobs')">
+              View all
+            </button>
+          </div>
+
+          <div id="dashboardJobs" class="empty-state">
+            <div class="empty-icon">📋</div>
+            <h3>No jobs yet</h3>
+            <p>Add your first job to get started.</p>
+            <button class="button primary" onclick="showPage('jobs')">
+              Add Job
+            </button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Quick Actions</h2>
+              <p>Common tasks</p>
+            </div>
+          </div>
+
+          <div class="quick-actions">
+
+            <button onclick="showPage('customers')">
+              <span>👤</span>
+              <div>
+                <strong>Add Customer</strong>
+                <small>Create a new customer</small>
+              </div>
+            </button>
+
+            <button onclick="showPage('jobs')">
+              <span>📋</span>
+              <div>
+                <strong>Add Job</strong>
+                <small>Schedule some work</small>
+              </div>
+            </button>
+
+            <button onclick="showPage('quotes')">
+              <span>💷</span>
+              <div>
+                <strong>Create Quote</strong>
+                <small>Send a new quotation</small>
+              </div>
+            </button>
+
+            <button onclick="showPage('invoices')">
+              <span>🧾</span>
+              <div>
+                <strong>Create Invoice</strong>
+                <small>Bill a customer</small>
+              </div>
+            </button>
+
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- CUSTOMERS -->
+
+    <section id="customers" class="page">
+
+      <div class="page-actions">
+        <div>
+          <h2>Customers</h2>
+          <p>Manage your customers and their details.</p>
+        </div>
+
+        <button class="button primary" onclick="openModal('customerModal')">
+          + Add Customer
+        </button>
+      </div>
+
+      <div class="panel">
+
+        <div class="search-box">
+          <input
+            type="search"
+            id="customerSearch"
+            placeholder="Search customers..."
+            oninput="renderCustomers()"
+          >
+        </div>
+
+        <div class="table-container">
+
+          <table>
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Location</th>
+              </tr>
+            </thead>
+
+            <tbody id="customersTable">
+            </tbody>
+
+          </table>
+
+        </div>
+
+        <div id="customersEmpty" class="empty-state">
+          <div class="empty-icon">👥</div>
+          <h3>No customers yet</h3>
+          <p>Add your first customer to JobPilot.</p>
+          <button class="button primary" onclick="openModal('customerModal')">
+            Add Customer
+          </button>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- JOBS -->
+
+    <section id="jobs" class="page">
+
+      <div class="page-actions">
+        <div>
+          <h2>Jobs</h2>
+          <p>Schedule and manage your work.</p>
+        </div>
+
+        <button class="button primary">
+          + Add Job
+        </button>
+      </div>
+
+      <div class="panel">
+
+        <div id="jobsEmpty" class="empty-state">
+          <div class="empty-icon">📋</div>
+          <h3>No jobs yet</h3>
+          <p>Your scheduled jobs will appear here.</p>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- QUOTES -->
+
+    <section id="quotes" class="page">
+
+      <div class="page-actions">
+        <div>
+          <h2>Quotes</h2>
+          <p>Create and track customer quotations.</p>
+        </div>
+
+        <button class="button primary">
+          + Create Quote
+        </button>
+      </div>
+
+      <div class="panel">
+
+        <div class="empty-state">
+          <div class="empty-icon">💷</div>
+          <h3>No quotes yet</h3>
+          <p>Your quotes will appear here.</p>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- INVOICES -->
+
+    <section id="invoices" class="page">
+
+      <div class="page-actions">
+        <div>
+          <h2>Invoices</h2>
+          <p>Create and track customer invoices.</p>
+        </div>
+
+        <button class="button primary">
+          + Create Invoice
+        </button>
+      </div>
+
+      <div class="panel">
+
+        <div class="empty-state">
+          <div class="empty-icon">🧾</div>
+          <h3>No invoices yet</h3>
+          <p>Your invoices will appear here.</p>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- SETTINGS -->
+
+    <section id="settings" class="page">
+
+      <div class="page-actions">
+        <div>
+          <h2>Settings</h2>
+          <p>Manage your JobPilot business settings.</p>
+        </div>
+      </div>
+
+      <div class="panel settings-panel">
+
+        <h3>Business Details</h3>
+
+        <label>Business Name</label>
+        <input type="text" placeholder="Your business name">
+
+        <label>Phone</label>
+        <input type="text" placeholder="Your phone number">
+
+        <label>Email</label>
+        <input type="email" placeholder="Your email address">
+
+        <button class="button primary">
+          Save Settings
+        </button>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- CUSTOMER MODAL -->
+
+  <div id="customerModal" class="modal">
+
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <div>
+          <h2>Add Customer</h2>
+          <p>Create a new customer record.</p>
+        </div>
+
+        <button class="close" onclick="closeModal('customerModal')">
+          ×
+        </button>
+      </div>
+
+      <form onsubmit="addCustomer(event)">
+
+        <label>Customer Name *</label>
+        <input id="customerName" required placeholder="e.g. John Smith">
+
+        <label>Phone</label>
+        <input id="customerPhone" placeholder="e.g. 07700 900000">
+
+        <label>Email</label>
+        <input id="customerEmail" type="email" placeholder="john@example.com">
+
+        <label>Address</label>
+        <input id="customerAddress" placeholder="House number and street">
+
+        <label>Town / City</label>
+        <input id="customerCity" placeholder="e.g. Newmarket">
+
+        <label>Postcode</label>
+        <input id="customerPostcode" placeholder="e.g. CB8 1AA">
+
+        <label>Notes</label>
+        <textarea id="customerNotes" placeholder="Anything you need to remember..."></textarea>
+
+        <div class="modal-actions">
+          <button type="button" class="button secondary" onclick="closeModal('customerModal')">
+            Cancel
+          </button>
+
+          <button type="submit" class="button primary">
+            Add Customer
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+
+  </div>
+
+
+  <script src="app.js"></script>
+
+</body>
+</html>

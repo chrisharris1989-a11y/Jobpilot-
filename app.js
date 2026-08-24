@@ -2278,9 +2278,283 @@ async function deleteCustomer(
 // JOBS PAGE
 // =====================================================
 
-function renderJobsPage(
-  content
-) {
+// ===============================
+// JOBS
+// ===============================
+
+function renderJobsPage(content) {
+
+  content.innerHTML = `
+
+    <div class="page-actions">
+
+      <div>
+        <h2>Jobs</h2>
+        <p>Schedule and manage your work.</p>
+      </div>
+
+      <button
+        id="addJobButton"
+        class="button primary"
+      >
+        + Add Job
+      </button>
+
+    </div>
+
+    <div class="panel">
+
+      <div class="job-filters">
+
+        <input
+          id="jobSearch"
+          class="search-input"
+          placeholder="Search jobs..."
+        >
+
+        <select id="jobStatusFilter">
+          <option value="">All statuses</option>
+          <option value="Quoted">Quoted</option>
+          <option value="Scheduled">Scheduled</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Completed">Completed</option>
+          <option value="Cancelled">Cancelled</option>
+        </select>
+
+      </div>
+
+      <div id="jobsTable"></div>
+
+    </div>
+
+  `;
+
+  document
+    .getElementById("addJobButton")
+    .addEventListener(
+      "click",
+      showAddJobForm
+    );
+
+  document
+    .getElementById("jobSearch")
+    .addEventListener(
+      "input",
+      renderJobsTableFromFilters
+    );
+
+  document
+    .getElementById("jobStatusFilter")
+    .addEventListener(
+      "change",
+      renderJobsTableFromFilters
+    );
+
+  renderJobsTableFromFilters();
+}
+
+
+// ===============================
+// JOB TABLE
+// ===============================
+
+function renderJobsTableFromFilters() {
+
+  const search =
+    document
+      .getElementById("jobSearch")
+      ?.value
+      .toLowerCase()
+      .trim() || "";
+
+  const status =
+    document
+      .getElementById("jobStatusFilter")
+      ?.value || "";
+
+  const filteredJobs =
+    jobs.filter(job => {
+
+      const customer =
+        customers.find(
+          customer =>
+            String(customer.id) ===
+            String(job.customer_id)
+        );
+
+      const customerName =
+        customer?.name || "";
+
+      const searchable =
+        `
+          ${job.title || ""}
+          ${customerName}
+          ${job.notes || ""}
+          ${job.status || ""}
+        `.toLowerCase();
+
+      const matchesSearch =
+        !search ||
+        searchable.includes(search);
+
+      const matchesStatus =
+        !status ||
+        (job.status || "Scheduled") === status;
+
+      return matchesSearch && matchesStatus;
+
+    });
+
+
+  const container =
+    document.getElementById("jobsTable");
+
+  if (!container) return;
+
+
+  if (!filteredJobs.length) {
+
+    container.innerHTML = `
+
+      <div class="empty-state">
+
+        <div class="empty-icon">
+          📋
+        </div>
+
+        <h3>
+          No jobs found
+        </h3>
+
+        <p>
+          Try changing your search or filters.
+        </p>
+
+      </div>
+
+    `;
+
+    return;
+
+  }
+
+
+  container.innerHTML = `
+
+    <div class="jobs-list">
+
+      ${filteredJobs.map(job => {
+
+        const customer =
+          customers.find(
+            customer =>
+              String(customer.id) ===
+              String(job.customer_id)
+          );
+
+        const customerName =
+          customer?.name || "Unknown customer";
+
+        const status =
+          job.status || "Scheduled";
+
+        return `
+
+          <button
+            class="job-card"
+            data-job-id="${job.id}"
+          >
+
+            <div class="job-card-main">
+
+              <strong>
+                ${escapeHtml(job.title || "Untitled job")}
+              </strong>
+
+              <span>
+                ${escapeHtml(customerName)}
+              </span>
+
+            </div>
+
+            <div class="job-card-details">
+
+              <span>
+                📅 ${job.scheduled_date || "No date"}
+              </span>
+
+              <span>
+                £${Number(job.price || 0).toFixed(2)}
+              </span>
+
+              <span class="status-badge">
+                ${escapeHtml(status)}
+              </span>
+
+            </div>
+
+          </button>
+
+        `;
+
+      }).join("")}
+
+    </div>
+
+  `;
+
+
+  container
+    .querySelectorAll(".job-card")
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () =>
+          showJobProfile(
+            button.dataset.jobId
+          )
+      );
+
+    });
+
+}
+
+
+// ===============================
+// JOB PROFILE
+// ===============================
+
+function showJobProfile(jobId) {
+
+  const job =
+    jobs.find(
+      item =>
+        String(item.id) ===
+        String(jobId)
+    );
+
+  if (!job) return;
+
+
+  const customer =
+    customers.find(
+      item =>
+        String(item.id) ===
+        String(job.customer_id)
+    );
+
+
+  const content =
+    document.getElementById("pageContent");
+
+
+  document.getElementById("pageTitle").textContent =
+    job.title || "Job";
+
+  document.getElementById("pageSubtitle").textContent =
+    "Job details";
+
 
   content.innerHTML = `
 
@@ -2288,100 +2562,135 @@ function renderJobsPage(
 
       <div>
 
-        <h2>
-          Jobs
-        </h2>
-
-        <p>
-          Schedule and manage your work.
-        </p>
+        <button
+          id="backJobs"
+          class="button secondary"
+        >
+          ← Jobs
+        </button>
 
       </div>
 
+      <div>
 
-      <button
-        id="addJobButton"
-        class="button primary"
-        type="button"
-      >
-        + Add Job
-      </button>
+        <button
+          id="editJob"
+          class="button primary"
+        >
+          Edit Job
+        </button>
+
+        <button
+          id="deleteJob"
+          class="button danger"
+        >
+          Delete
+        </button>
+
+      </div>
 
     </div>
 
 
-    <div class="panel">
+    <div class="content-grid">
 
-      ${
-        jobs.length
+      <div class="panel">
 
-          ? jobs
-              .map(job => `
+        <h2>
+          Job Details
+        </h2>
 
-                <div class="job-row">
+        <div class="detail-list">
 
-                  <div>
+          <div>
+            <span>Job</span>
+            <strong>
+              ${escapeHtml(job.title || "—")}
+            </strong>
+          </div>
 
-                    <strong>
-                      ${escapeHtml(
-                        job.title
-                      )}
-                    </strong>
+          <div>
+            <span>Customer</span>
+            <strong>
+              ${escapeHtml(customer?.name || "—")}
+            </strong>
+          </div>
 
-                    <div class="muted">
-                      ${
-                        job.scheduled_date ||
-                        "No date"
-                      }
-                    </div>
+          <div>
+            <span>Date</span>
+            <strong>
+              ${job.scheduled_date || "—"}
+            </strong>
+          </div>
 
-                  </div>
+          <div>
+            <span>Price</span>
+            <strong>
+              £${Number(job.price || 0).toFixed(2)}
+            </strong>
+          </div>
+
+          <div>
+            <span>Status</span>
+            <strong>
+              ${escapeHtml(job.status || "Scheduled")}
+            </strong>
+          </div>
+
+          <div>
+            <span>Notes</span>
+            <strong>
+              ${escapeHtml(job.notes || "—")}
+            </strong>
+          </div>
+
+        </div>
+
+      </div>
 
 
-                  <div>
+      <div class="panel">
 
-                    <strong>
-                      £${Number(
-                        job.price || 0
-                      ).toFixed(2)}
-                    </strong>
+        <h2>
+          Customer
+        </h2>
 
-                    <div class="muted">
-                      ${
-                        escapeHtml(
-                          job.status ||
-                          "Scheduled"
-                        )
-                      }
-                    </div>
+        ${
+          customer
+            ? `
+              <div class="detail-list">
 
-                  </div>
-
+                <div>
+                  <span>Name</span>
+                  <strong>
+                    ${escapeHtml(customer.name)}
+                  </strong>
                 </div>
 
-              `)
-              .join("")
-
-          : `
-
-              <div class="empty-state">
-
-                <div class="empty-icon">
-                  📋
+                <div>
+                  <span>Phone</span>
+                  <strong>
+                    ${escapeHtml(customer.phone || "—")}
+                  </strong>
                 </div>
 
-                <h3>
-                  No jobs yet
-                </h3>
-
-                <p>
-                  Add your first job.
-                </p>
+                <div>
+                  <span>Email</span>
+                  <strong>
+                    ${escapeHtml(customer.email || "—")}
+                  </strong>
+                </div>
 
               </div>
-
             `
-      }
+            : `
+              <p class="muted">
+                Customer not found.
+              </p>
+            `
+        }
+
+      </div>
 
     </div>
 
@@ -2389,30 +2698,345 @@ function renderJobsPage(
 
 
   document
-    .getElementById(
-      "addJobButton"
-    )
+    .getElementById("backJobs")
     .addEventListener(
       "click",
-      showAddJobForm
+      () => showPage("jobs")
+    );
+
+
+  document
+    .getElementById("editJob")
+    .addEventListener(
+      "click",
+      () => showEditJobForm(job.id)
+    );
+
+
+  document
+    .getElementById("deleteJob")
+    .addEventListener(
+      "click",
+      () => deleteJob(job.id)
     );
 
 }
 
 
-// =====================================================
+// ===============================
+// EDIT JOB
+// ===============================
+
+function showEditJobForm(jobId) {
+
+  const job =
+    jobs.find(
+      item =>
+        String(item.id) ===
+        String(jobId)
+    );
+
+  if (!job) return;
+
+
+  const modal =
+    document.createElement("div");
+
+  modal.className = "modal show";
+
+
+  modal.innerHTML = `
+
+    <div class="modal-content">
+
+      <div class="modal-header">
+
+        <div>
+
+          <h2>
+            Edit Job
+          </h2>
+
+          <p>
+            Update the job details.
+          </p>
+
+        </div>
+
+        <button class="close">
+          ×
+        </button>
+
+      </div>
+
+
+      <form id="editJobForm">
+
+        <label>Customer *</label>
+
+        <select
+          id="editJobCustomer"
+          required
+        >
+
+          ${customers.map(customer => `
+
+            <option
+              value="${customer.id}"
+              ${
+                String(customer.id) ===
+                String(job.customer_id)
+                  ? "selected"
+                  : ""
+              }
+            >
+              ${escapeHtml(customer.name)}
+            </option>
+
+          `).join("")}
+
+        </select>
+
+
+        <label>Job Title *</label>
+
+        <input
+          id="editJobTitle"
+          required
+          value="${escapeHtml(job.title || "")}"
+        >
+
+
+        <label>Date</label>
+
+        <input
+          id="editJobDate"
+          type="date"
+          value="${job.scheduled_date || ""}"
+        >
+
+
+        <label>Price</label>
+
+        <input
+          id="editJobPrice"
+          type="number"
+          step="0.01"
+          value="${job.price || 0}"
+        >
+
+
+        <label>Status</label>
+
+        <select id="editJobStatus">
+
+          <option value="Quoted"
+            ${job.status === "Quoted" ? "selected" : ""}>
+            Quoted
+          </option>
+
+          <option value="Scheduled"
+            ${job.status === "Scheduled" ? "selected" : ""}>
+            Scheduled
+          </option>
+
+          <option value="In Progress"
+            ${job.status === "In Progress" ? "selected" : ""}>
+            In Progress
+          </option>
+
+          <option value="Completed"
+            ${job.status === "Completed" ? "selected" : ""}>
+            Completed
+          </option>
+
+          <option value="Cancelled"
+            ${job.status === "Cancelled" ? "selected" : ""}>
+            Cancelled
+          </option>
+
+        </select>
+
+
+        <label>Notes</label>
+
+        <textarea
+          id="editJobNotes"
+        >${escapeHtml(job.notes || "")}</textarea>
+
+
+        <div class="modal-actions">
+
+          <button
+            type="button"
+            class="button secondary close"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="button primary"
+          >
+            Save Changes
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+
+  `;
+
+
+  document.body.appendChild(modal);
+
+
+  modal
+    .querySelectorAll(".close")
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        () => modal.remove()
+      )
+    );
+
+
+  modal
+    .querySelector("#editJobForm")
+    .addEventListener(
+      "submit",
+      async event => {
+
+        event.preventDefault();
+
+
+        const updates = {
+
+          customer_id:
+            document
+              .getElementById("editJobCustomer")
+              .value,
+
+          title:
+            document
+              .getElementById("editJobTitle")
+              .value
+              .trim(),
+
+          scheduled_date:
+            document
+              .getElementById("editJobDate")
+              .value || null,
+
+          price:
+            Number(
+              document
+                .getElementById("editJobPrice")
+                .value
+            ) || 0,
+
+          status:
+            document
+              .getElementById("editJobStatus")
+              .value,
+
+          notes:
+            document
+              .getElementById("editJobNotes")
+              .value
+              .trim()
+
+        };
+
+
+        const { error } =
+          await supabase
+            .from("jobs")
+            .update(updates)
+            .eq("id", job.id);
+
+
+        if (error) {
+
+          alert(error.message);
+
+          return;
+
+        }
+
+
+        modal.remove();
+
+        await loadJobs();
+
+        showJobProfile(job.id);
+
+      }
+    );
+
+}
+
+
+// ===============================
+// DELETE JOB
+// ===============================
+
+async function deleteJob(jobId) {
+
+  const job =
+    jobs.find(
+      item =>
+        String(item.id) ===
+        String(jobId)
+    );
+
+  if (!job) return;
+
+
+  const confirmed =
+    confirm(
+      `Delete "${job.title}"? This cannot be undone.`
+    );
+
+
+  if (!confirmed) return;
+
+
+  const { error } =
+    await supabase
+      .from("jobs")
+      .delete()
+      .eq("id", job.id);
+
+
+  if (error) {
+
+    alert(error.message);
+
+    return;
+
+  }
+
+
+  await loadJobs();
+
+  showPage("jobs");
+
+}
+
+
+// ===============================
 // ADD JOB
-// =====================================================
+// ===============================
 
 function showAddJobForm() {
 
   const modal =
-    document.createElement(
-      "div"
-    );
+    document.createElement("div");
 
-  modal.className =
-    "modal";
+  modal.className = "modal show";
 
 
   modal.innerHTML = `
@@ -2433,11 +3057,7 @@ function showAddJobForm() {
 
         </div>
 
-
-        <button
-          type="button"
-          class="close"
-        >
+        <button class="close">
           ×
         </button>
 
@@ -2446,9 +3066,7 @@ function showAddJobForm() {
 
       <form id="jobForm">
 
-        <label>
-          Customer *
-        </label>
+        <label>Customer *</label>
 
         <select
           id="jobCustomer"
@@ -2459,26 +3077,18 @@ function showAddJobForm() {
             Select customer
           </option>
 
-          ${customers
-            .map(customer => `
+          ${customers.map(customer => `
 
-              <option
-                value="${customer.id}"
-              >
-                ${escapeHtml(
-                  customer.name
-                )}
-              </option>
+            <option value="${customer.id}">
+              ${escapeHtml(customer.name)}
+            </option>
 
-            `)
-            .join("")}
+          `).join("")}
 
         </select>
 
 
-        <label>
-          Job Title *
-        </label>
+        <label>Job Title *</label>
 
         <input
           id="jobTitle"
@@ -2487,9 +3097,7 @@ function showAddJobForm() {
         >
 
 
-        <label>
-          Date
-        </label>
+        <label>Date</label>
 
         <input
           id="jobDate"
@@ -2497,9 +3105,7 @@ function showAddJobForm() {
         >
 
 
-        <label>
-          Price
-        </label>
+        <label>Price</label>
 
         <input
           id="jobPrice"
@@ -2509,9 +3115,34 @@ function showAddJobForm() {
         >
 
 
-        <label>
-          Notes
-        </label>
+        <label>Status</label>
+
+        <select id="jobStatus">
+
+          <option value="Scheduled">
+            Scheduled
+          </option>
+
+          <option value="Quoted">
+            Quoted
+          </option>
+
+          <option value="In Progress">
+            In Progress
+          </option>
+
+          <option value="Completed">
+            Completed
+          </option>
+
+          <option value="Cancelled">
+            Cancelled
+          </option>
+
+        </select>
+
+
+        <label>Notes</label>
 
         <textarea
           id="jobNotes"
@@ -2526,7 +3157,6 @@ function showAddJobForm() {
           >
             Cancel
           </button>
-
 
           <button
             type="submit"
@@ -2544,166 +3174,96 @@ function showAddJobForm() {
   `;
 
 
-  document.body.appendChild(
-    modal
-  );
+  document.body.appendChild(modal);
 
 
   modal
-    .querySelectorAll(
-      ".close"
-    )
-    .forEach(button => {
-
+    .querySelectorAll(".close")
+    .forEach(button =>
       button.addEventListener(
         "click",
-        () =>
-          modal.remove()
-      );
-
-    });
+        () => modal.remove()
+      )
+    );
 
 
   modal
-    .querySelector(
-      "#jobForm"
-    )
+    .querySelector("#jobForm")
     .addEventListener(
       "submit",
-      saveJob
+      async event => {
+
+        event.preventDefault();
+
+
+        const job = {
+
+          user_id: currentUser.id,
+
+          customer_id:
+            document
+              .getElementById("jobCustomer")
+              .value,
+
+          title:
+            document
+              .getElementById("jobTitle")
+              .value
+              .trim(),
+
+          scheduled_date:
+            document
+              .getElementById("jobDate")
+              .value || null,
+
+          price:
+            Number(
+              document
+                .getElementById("jobPrice")
+                .value
+            ) || 0,
+
+          status:
+            document
+              .getElementById("jobStatus")
+              .value,
+
+          notes:
+            document
+              .getElementById("jobNotes")
+              .value
+              .trim()
+
+        };
+
+
+        const { error } =
+          await supabase
+            .from("jobs")
+            .insert(job);
+
+
+        if (error) {
+
+          alert(error.message);
+
+          return;
+
+        }
+
+
+        modal.remove();
+
+        await loadJobs();
+
+        renderJobsPage(
+          document.getElementById("pageContent")
+        );
+
+      }
     );
 
 }
-
-
-// =====================================================
-// SAVE JOB
-// =====================================================
-
-async function saveJob(
-  event
-) {
-
-  event.preventDefault();
-
-
-  const job = {
-
-    user_id:
-      currentUser.id,
-
-    customer_id:
-      document
-        .getElementById(
-          "jobCustomer"
-        )
-        .value,
-
-    title:
-      document
-        .getElementById(
-          "jobTitle"
-        )
-        .value
-        .trim(),
-
-    scheduled_date:
-      document
-        .getElementById(
-          "jobDate"
-        )
-        .value ||
-      null,
-
-    price:
-      Number(
-        document
-          .getElementById(
-            "jobPrice"
-          )
-          .value
-      ) || 0,
-
-    notes:
-      document
-        .getElementById(
-          "jobNotes"
-        )
-        .value
-        .trim()
-
-  };
-
-
-  if (
-    !job.customer_id
-  ) {
-
-    alert(
-      "Please select a customer."
-    );
-
-    return;
-
-  }
-
-
-  if (!job.title) {
-
-    alert(
-      "Please enter a job title."
-    );
-
-    return;
-
-  }
-
-
-  const { error } =
-    await supabase
-      .from("jobs")
-      .insert(job);
-
-
-  if (error) {
-
-    alert(
-      error.message
-    );
-
-    return;
-
-  }
-
-
-  modalClose();
-
-  await loadJobs();
-
-  showPage(
-    "jobs"
-  );
-
-}
-
-
-// =====================================================
-// CLOSE ANY MODAL
-// =====================================================
-
-function modalClose() {
-
-  const modal =
-    document.querySelector(
-      ".modal"
-    );
-
-  if (modal) {
-    modal.remove();
-  }
-
-}
-
 
 // =====================================================
 // SETTINGS

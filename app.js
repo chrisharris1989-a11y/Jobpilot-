@@ -9,7 +9,7 @@ const app = document.getElementById("app");
 
 
 // =====================================================
-// INIT
+// INITIALISE
 // =====================================================
 
 async function init() {
@@ -108,11 +108,8 @@ function showLogin() {
 async function login(event) {
   event.preventDefault();
 
-  const email =
-    document.getElementById("email").value.trim();
-
-  const password =
-    document.getElementById("password").value;
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
 
   showAuthMessage("Signing in...");
 
@@ -129,11 +126,8 @@ async function login(event) {
 
 
 async function signup() {
-  const email =
-    document.getElementById("email").value.trim();
-
-  const password =
-    document.getElementById("password").value;
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
 
   if (!email || password.length < 6) {
     showAuthMessage(
@@ -163,14 +157,12 @@ async function signup() {
 
 
 function showAuthMessage(message, error = false) {
-  const element =
-    document.getElementById("authMessage");
+  const element = document.getElementById("authMessage");
 
   if (!element) return;
 
   element.textContent = message;
-  element.style.color =
-    error ? "#dc2626" : "#2563eb";
+  element.style.color = error ? "#dc2626" : "#2563eb";
 }
 
 
@@ -192,16 +184,15 @@ async function loadApp() {
 // =====================================================
 
 async function loadCustomers() {
-  const { data, error } =
-    await supabase
-      .from("customers")
-      .select("*")
-      .order("created_at", {
-        ascending: false
-      });
+  const { data, error } = await supabase
+    .from("customers")
+    .select("*")
+    .order("created_at", {
+      ascending: false
+    });
 
   if (error) {
-    console.error(error);
+    console.error("Customers:", error);
     return;
   }
 
@@ -214,16 +205,16 @@ async function loadCustomers() {
 // =====================================================
 
 async function loadJobs() {
-  const { data, error } =
-    await supabase
-      .from("jobs")
-      .select("*")
-      .order("scheduled_date", {
-        ascending: true
-      });
+  const { data, error } = await supabase
+    .from("jobs")
+    .select("*")
+    .order("scheduled_date", {
+      ascending: true,
+      nullsFirst: false
+    });
 
   if (error) {
-    console.error(error);
+    console.error("Jobs:", error);
     return;
   }
 
@@ -236,16 +227,15 @@ async function loadJobs() {
 // =====================================================
 
 async function loadQuotes() {
-  const { data, error } =
-    await supabase
-      .from("quotes")
-      .select("*")
-      .order("created_at", {
-        ascending: false
-      });
+  const { data, error } = await supabase
+    .from("quotes")
+    .select("*")
+    .order("created_at", {
+      ascending: false
+    });
 
   if (error) {
-    console.error("Quote loading error:", error);
+    console.error("Quotes:", error);
     return;
   }
 
@@ -458,6 +448,7 @@ function showPage(page) {
 
 function renderDashboard(content) {
   content.innerHTML = `
+
     <div class="stats">
 
       <div class="stat-card">
@@ -480,7 +471,7 @@ function renderDashboard(content) {
         <div class="stat-icon">💷</div>
         <div>
           <span>Quotes</span>
-          <strong>£${quoteValue().toFixed(2)}</strong>
+          <strong>${quotes.length}</strong>
         </div>
       </div>
 
@@ -499,31 +490,44 @@ function renderDashboard(content) {
       <div class="panel">
 
         <div class="panel-header">
+
           <div>
             <h2>Upcoming Jobs</h2>
             <p>Your scheduled work</p>
           </div>
+
         </div>
 
         ${
           jobs.length
-            ? jobs.slice(0, 5).map(job => `
-                <div class="job-row">
+            ? jobs
+                .slice(0, 5)
+                .map(job => `
+                  <div class="job-row">
 
-                  <strong>
-                    ${escapeHtml(job.title)}
-                  </strong>
+                    <div>
+                      <strong>
+                        ${escapeHtml(job.title)}
+                      </strong>
 
-                  <span>
-                    ${job.scheduled_date || "No date"}
-                  </span>
+                      <div class="muted">
+                        ${job.scheduled_date || "No date"}
+                      </div>
+                    </div>
 
-                </div>
-              `).join("")
+                    <span>
+                      £${Number(job.price || 0).toFixed(2)}
+                    </span>
+
+                  </div>
+                `)
+                .join("")
             : `
               <div class="empty-state">
 
-                <div class="empty-icon">📋</div>
+                <div class="empty-icon">
+                  📋
+                </div>
 
                 <h3>No jobs yet</h3>
 
@@ -593,11 +597,12 @@ function renderDashboard(content) {
 
 
 // =====================================================
-// CUSTOMER PAGE
+// CUSTOMERS PAGE
 // =====================================================
 
 function renderCustomersPage(content) {
   content.innerHTML = `
+
     <div class="page-actions">
 
       <div>
@@ -654,35 +659,43 @@ function renderCustomersPage(content) {
 // =====================================================
 
 function renderCustomerTable(search = "") {
-  const container =
+  const table =
     document.getElementById("customerTable");
 
-  if (!container) return;
+  if (!table) return;
 
   const term =
-    search.trim().toLowerCase();
+    search.toLowerCase().trim();
 
   const filtered =
-    customers.filter(customer =>
-      `${customer.name || ""}
-       ${customer.phone || ""}
-       ${customer.email || ""}
-       ${customer.city || ""}
-       ${customer.postcode || ""}`
-        .toLowerCase()
-        .includes(term)
-    );
+    customers.filter(customer => {
+
+      const text = [
+        customer.name,
+        customer.phone,
+        customer.email,
+        customer.city,
+        customer.postcode
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return text.includes(term);
+    });
 
   if (!filtered.length) {
-    container.innerHTML = `
+    table.innerHTML = `
       <div class="empty-state">
 
-        <div class="empty-icon">👥</div>
+        <div class="empty-icon">
+          👥
+        </div>
 
         <h3>No customers found</h3>
 
         <p>
-          Add a customer to get started.
+          Add your first customer to get started.
         </p>
 
       </div>
@@ -691,13 +704,15 @@ function renderCustomerTable(search = "") {
     return;
   }
 
-  container.innerHTML = `
-    <div class="customer-table">
+  table.innerHTML = `
+    <div class="customer-list">
 
       ${filtered.map(customer => `
+
         <div
           class="job-row customer-row"
           data-customer-id="${customer.id}"
+          style="cursor:pointer;"
         >
 
           <div>
@@ -707,25 +722,28 @@ function renderCustomerTable(search = "") {
             </strong>
 
             <div class="muted">
-              ${escapeHtml(customer.phone || "")}
-              ${customer.email
-                ? " • " + escapeHtml(customer.email)
-                : ""}
+              ${escapeHtml(
+                customer.phone ||
+                customer.email ||
+                customer.city ||
+                ""
+              )}
             </div>
 
           </div>
 
           <span>
-            ${escapeHtml(customer.city || "")}
+            View →
           </span>
 
         </div>
+
       `).join("")}
 
     </div>
   `;
 
-  container
+  table
     .querySelectorAll("[data-customer-id]")
     .forEach(row => {
       row.addEventListener(
@@ -750,6 +768,7 @@ function showAddCustomerForm() {
   modal.className = "modal show";
 
   modal.innerHTML = `
+
     <div class="modal-content">
 
       <div class="modal-header">
@@ -836,12 +855,12 @@ function showAddCustomerForm() {
 
   modal
     .querySelectorAll(".close")
-    .forEach(button =>
+    .forEach(button => {
       button.addEventListener(
         "click",
         () => modal.remove()
-      )
-    );
+      );
+    });
 
   modal
     .querySelector("#customerForm")
@@ -927,7 +946,8 @@ function showCustomerProfile(customerId) {
   const customer =
     customers.find(
       item =>
-        String(item.id) === String(customerId)
+        String(item.id) ===
+        String(customerId)
     );
 
   if (!customer) return;
@@ -936,13 +956,6 @@ function showCustomerProfile(customerId) {
     jobs.filter(
       job =>
         String(job.customer_id) ===
-        String(customer.id)
-    );
-
-  const customerQuotes =
-    quotes.filter(
-      quote =>
-        String(quote.customer_id) ===
         String(customer.id)
     );
 
@@ -963,16 +976,15 @@ function showCustomerProfile(customerId) {
     "Customer profile";
 
   content.innerHTML = `
+
     <div class="page-actions">
 
-      <div>
-        <button
-          id="backCustomers"
-          class="button secondary"
-        >
-          ← Customers
-        </button>
-      </div>
+      <button
+        id="backCustomers"
+        class="button secondary"
+      >
+        ← Customers
+      </button>
 
       <div>
 
@@ -1062,26 +1074,23 @@ function showCustomerProfile(customerId) {
         <div class="stats">
 
           <div class="stat-card">
+
             <div>
               <span>Jobs</span>
               <strong>${customerJobs.length}</strong>
             </div>
+
           </div>
 
           <div class="stat-card">
+
             <div>
               <span>Job Value</span>
               <strong>
                 £${totalValue.toFixed(2)}
               </strong>
             </div>
-          </div>
 
-          <div class="stat-card">
-            <div>
-              <span>Quotes</span>
-              <strong>${customerQuotes.length}</strong>
-            </div>
           </div>
 
         </div>
@@ -1090,7 +1099,7 @@ function showCustomerProfile(customerId) {
 
     </div>
 
-    <div class="panel customer-jobs">
+    <div class="panel">
 
       <div class="panel-header">
 
@@ -1127,66 +1136,14 @@ function showCustomerProfile(customerId) {
           : `
             <div class="empty-state">
 
-              <div class="empty-icon">📋</div>
+              <div class="empty-icon">
+                📋
+              </div>
 
               <h3>No jobs yet</h3>
 
               <p>
                 This customer doesn't have any jobs.
-              </p>
-
-            </div>
-          `
-      }
-
-    </div>
-
-    <div class="panel customer-jobs">
-
-      <div class="panel-header">
-
-        <div>
-          <h2>Quotes</h2>
-          <p>Quotes created for this customer.</p>
-        </div>
-
-      </div>
-
-      ${
-        customerQuotes.length
-          ? customerQuotes.map(quote => `
-              <div
-                class="job-row"
-                data-customer-quote="${quote.id}"
-              >
-
-                <div>
-
-                  <strong>
-                    ${escapeHtml(quote.quote_number)}
-                  </strong>
-
-                  <div class="muted">
-                    ${formatQuoteStatus(quote.status)}
-                  </div>
-
-                </div>
-
-                <strong>
-                  £${Number(quote.total || 0).toFixed(2)}
-                </strong>
-
-              </div>
-            `).join("")
-          : `
-            <div class="empty-state">
-
-              <div class="empty-icon">💷</div>
-
-              <h3>No quotes yet</h3>
-
-              <p>
-                No quotes have been created for this customer.
               </p>
 
             </div>
@@ -1207,27 +1164,17 @@ function showCustomerProfile(customerId) {
     .getElementById("editCustomer")
     .addEventListener(
       "click",
-      () => showEditCustomerForm(customer.id)
+      () =>
+        showEditCustomerForm(customer.id)
     );
 
   document
     .getElementById("deleteCustomer")
     .addEventListener(
       "click",
-      () => deleteCustomer(customer.id)
+      () =>
+        deleteCustomer(customer.id)
     );
-
-  content
-    .querySelectorAll("[data-customer-quote]")
-    .forEach(row => {
-      row.addEventListener(
-        "click",
-        () =>
-          showQuote(
-            row.dataset.customerQuote
-          )
-      );
-    });
 }
 
 
@@ -1239,7 +1186,8 @@ function showEditCustomerForm(customerId) {
   const customer =
     customers.find(
       item =>
-        String(item.id) === String(customerId)
+        String(item.id) ===
+        String(customerId)
     );
 
   if (!customer) return;
@@ -1250,6 +1198,7 @@ function showEditCustomerForm(customerId) {
   modal.className = "modal show";
 
   modal.innerHTML = `
+
     <div class="modal-content">
 
       <div class="modal-header">
@@ -1358,6 +1307,7 @@ function showEditCustomerForm(customerId) {
         event.preventDefault();
 
         const updates = {
+
           name:
             document
               .getElementById("editCustomerName")
@@ -1423,7 +1373,8 @@ async function deleteCustomer(customerId) {
   const customer =
     customers.find(
       item =>
-        String(item.id) === String(customerId)
+        String(item.id) ===
+        String(customerId)
     );
 
   if (!customer) return;
@@ -1448,7 +1399,6 @@ async function deleteCustomer(customerId) {
 
   await loadCustomers();
   await loadJobs();
-  await loadQuotes();
 
   showPage("customers");
 }
@@ -1460,6 +1410,7 @@ async function deleteCustomer(customerId) {
 
 function renderJobsPage(content) {
   content.innerHTML = `
+
     <div class="page-actions">
 
       <div>
@@ -1481,6 +1432,7 @@ function renderJobsPage(content) {
       ${
         jobs.length
           ? jobs.map(job => `
+
               <div class="job-row">
 
                 <div>
@@ -1490,21 +1442,49 @@ function renderJobsPage(content) {
                   </strong>
 
                   <div class="muted">
-                    ${job.scheduled_date || "No date"}
+
+                    ${
+                      getCustomerName(
+                        job.customer_id
+                      )
+                    }
+
+                    ${
+                      job.scheduled_date
+                        ? " • " + job.scheduled_date
+                        : ""
+                    }
+
                   </div>
 
                 </div>
 
-                <span>
-                  ${escapeHtml(job.status || "Scheduled")}
-                </span>
+                <div>
+
+                  <span>
+                    ${escapeHtml(
+                      job.status || "pending"
+                    )}
+                  </span>
+
+                  <strong>
+                    £${Number(
+                      job.price || 0
+                    ).toFixed(2)}
+                  </strong>
+
+                </div>
 
               </div>
+
             `).join("")
           : `
+
             <div class="empty-state">
 
-              <div class="empty-icon">📋</div>
+              <div class="empty-icon">
+                📋
+              </div>
 
               <h3>No jobs yet</h3>
 
@@ -1513,6 +1493,7 @@ function renderJobsPage(content) {
               </p>
 
             </div>
+
           `
       }
 
@@ -1539,6 +1520,7 @@ function showAddJobForm() {
   modal.className = "modal show";
 
   modal.innerHTML = `
+
     <div class="modal-content">
 
       <div class="modal-header">
@@ -1556,10 +1538,7 @@ function showAddJobForm() {
 
         <label>Customer *</label>
 
-        <select
-          id="jobCustomer"
-          required
-        >
+        <select id="jobCustomer" required>
 
           <option value="">
             Select customer
@@ -1581,11 +1560,24 @@ function showAddJobForm() {
           placeholder="e.g. Window cleaning"
         >
 
+        <label>Description</label>
+
+        <textarea
+          id="jobDescription"
+        ></textarea>
+
         <label>Date</label>
 
         <input
           id="jobDate"
           type="date"
+        >
+
+        <label>Time</label>
+
+        <input
+          id="jobTime"
+          type="time"
         >
 
         <label>Price</label>
@@ -1599,7 +1591,9 @@ function showAddJobForm() {
 
         <label>Notes</label>
 
-        <textarea id="jobNotes"></textarea>
+        <textarea
+          id="jobNotes"
+        ></textarea>
 
         <div class="modal-actions">
 
@@ -1644,7 +1638,9 @@ function showAddJobForm() {
         event.preventDefault();
 
         const job = {
-          user_id: currentUser.id,
+
+          user_id:
+            currentUser.id,
 
           customer_id:
             document
@@ -1654,13 +1650,25 @@ function showAddJobForm() {
           title:
             document
               .getElementById("jobTitle")
-              .value
-              .trim(),
+              .value.trim(),
+
+          description:
+            document
+              .getElementById("jobDescription")
+              .value.trim(),
 
           scheduled_date:
             document
               .getElementById("jobDate")
               .value || null,
+
+          scheduled_time:
+            document
+              .getElementById("jobTime")
+              .value || null,
+
+          status:
+            "pending",
 
           price:
             Number(
@@ -1672,8 +1680,7 @@ function showAddJobForm() {
           notes:
             document
               .getElementById("jobNotes")
-              .value
-              .trim()
+              .value.trim()
         };
 
         const { error } =
@@ -1690,9 +1697,7 @@ function showAddJobForm() {
 
         await loadJobs();
 
-        renderJobsPage(
-          document.getElementById("pageContent")
-        );
+        showPage("jobs");
       }
     );
 }
@@ -1704,6 +1709,7 @@ function showAddJobForm() {
 
 function renderQuotesPage(content) {
   content.innerHTML = `
+
     <div class="page-actions">
 
       <div>
@@ -1715,33 +1721,100 @@ function renderQuotesPage(content) {
         id="addQuoteButton"
         class="button primary"
       >
-        + Create Quote
+        + New Quote
       </button>
 
     </div>
 
     <div class="panel">
 
-      <div class="quote-filters">
+      ${
+        quotes.length
+          ? quotes.map(quote => {
 
-        <input
-          id="quoteSearch"
-          class="search-input"
-          placeholder="Search quotes..."
-        >
+              const customer =
+                customers.find(
+                  c =>
+                    String(c.id) ===
+                    String(quote.customer_id)
+                );
 
-        <select id="quoteStatusFilter">
-          <option value="">All statuses</option>
-          <option value="draft">Draft</option>
-          <option value="sent">Sent</option>
-          <option value="accepted">Accepted</option>
-          <option value="declined">Declined</option>
-          <option value="expired">Expired</option>
-        </select>
+              return `
 
-      </div>
+                <div class="job-row">
 
-      <div id="quoteTable"></div>
+                  <div>
+
+                    <strong>
+                      Quote #${escapeHtml(
+                        quote.quote_number || "—"
+                      )}
+                    </strong>
+
+                    <div class="muted">
+
+                      ${
+                        customer
+                          ? escapeHtml(customer.name)
+                          : "Unknown customer"
+                      }
+
+                      ${
+                        quote.valid_until
+                          ? " • Valid until " +
+                            quote.valid_until
+                          : ""
+                      }
+
+                    </div>
+
+                  </div>
+
+                  <div>
+
+                    <strong>
+                      £${Number(
+                        quote.total || 0
+                      ).toFixed(2)}
+                    </strong>
+
+                    <span class="muted">
+                      ${escapeHtml(
+                        quote.status || "draft"
+                      )}
+                    </span>
+
+                    <button
+                      class="button secondary quote-view"
+                      data-quote-id="${quote.id}"
+                    >
+                      View
+                    </button>
+
+                  </div>
+
+                </div>
+
+              `;
+            }).join("")
+          : `
+
+            <div class="empty-state">
+
+              <div class="empty-icon">
+                💷
+              </div>
+
+              <h3>No quotes yet</h3>
+
+              <p>
+                Create your first quote.
+              </p>
+
+            </div>
+
+          `
+      }
 
     </div>
   `;
@@ -1753,185 +1826,17 @@ function renderQuotesPage(content) {
       showAddQuoteForm
     );
 
-  document
-    .getElementById("quoteSearch")
-    .addEventListener(
-      "input",
-      renderQuoteTable
-    );
-
-  document
-    .getElementById("quoteStatusFilter")
-    .addEventListener(
-      "change",
-      renderQuoteTable
-    );
-
-  renderQuoteTable();
-}
-
-
-// =====================================================
-// QUOTE TABLE
-// =====================================================
-
-function renderQuoteTable() {
-  const container =
-    document.getElementById("quoteTable");
-
-  if (!container) return;
-
-  const search =
-    document
-      .getElementById("quoteSearch")
-      ?.value
-      .trim()
-      .toLowerCase() || "";
-
-  const status =
-    document
-      .getElementById("quoteStatusFilter")
-      ?.value || "";
-
-  const filtered =
-    quotes.filter(quote => {
-
-      const customer =
-        customers.find(
-          c =>
-            String(c.id) ===
-            String(quote.customer_id)
-        );
-
-      const customerName =
-        customer?.name || "";
-
-      const matchesSearch =
-        !search ||
-        `${quote.quote_number || ""}
-         ${customerName}
-         ${quote.notes || ""}`
-          .toLowerCase()
-          .includes(search);
-
-      const matchesStatus =
-        !status ||
-        String(quote.status || "").toLowerCase() ===
-        status.toLowerCase();
-
-      return matchesSearch && matchesStatus;
-    });
-
-  if (!filtered.length) {
-    container.innerHTML = `
-      <div class="empty-state">
-
-        <div class="empty-icon">💷</div>
-
-        <h3>No quotes found</h3>
-
-        <p>
-          Create your first quote to get started.
-        </p>
-
-      </div>
-    `;
-
-    return;
-  }
-
-  container.innerHTML = `
-    <div>
-
-      ${filtered.map(quote => {
-
-        const customer =
-          customers.find(
-            c =>
-              String(c.id) ===
-              String(quote.customer_id)
-          );
-
-        return `
-          <div
-            class="job-row quote-row"
-            data-quote-id="${quote.id}"
-          >
-
-            <div>
-
-              <strong>
-                ${escapeHtml(
-                  quote.quote_number || "Quote"
-                )}
-              </strong>
-
-              <div class="muted">
-                ${escapeHtml(
-                  customer?.name || "Unknown customer"
-                )}
-              </div>
-
-            </div>
-
-            <div>
-
-              <span class="status-badge">
-                ${formatQuoteStatus(quote.status)}
-              </span>
-
-            </div>
-
-            <strong>
-              £${Number(quote.total || 0).toFixed(2)}
-            </strong>
-
-          </div>
-        `;
-      }).join("")}
-
-    </div>
-  `;
-
-  container
-    .querySelectorAll("[data-quote-id]")
-    .forEach(row => {
-      row.addEventListener(
+  content
+    .querySelectorAll(".quote-view")
+    .forEach(button => {
+      button.addEventListener(
         "click",
         () =>
-          showQuote(row.dataset.quoteId)
+          showQuoteProfile(
+            button.dataset.quoteId
+          )
       );
     });
-}
-
-
-// =====================================================
-// QUOTE NUMBER
-// =====================================================
-
-function generateQuoteNumber() {
-  const year =
-    new Date().getFullYear();
-
-  const numbers =
-    quotes
-      .map(q => {
-        const match =
-          String(q.quote_number || "")
-            .match(/(\d+)$/);
-
-        return match
-          ? Number(match[1])
-          : 0;
-      })
-      .filter(Boolean);
-
-  const next =
-    numbers.length
-      ? Math.max(...numbers) + 1
-      : 1;
-
-  return `Q-${year}-${String(next).padStart(4, "0")}`;
 }
 
 
@@ -1945,24 +1850,18 @@ function showAddQuoteForm() {
 
   modal.className = "modal show";
 
-  const today =
-    new Date().toISOString().split("T")[0];
-
-  const validUntil =
-    new Date(
-      Date.now() + 30 * 24 * 60 * 60 * 1000
-    )
-      .toISOString()
-      .split("T")[0];
+  const quoteNumber =
+    generateQuoteNumber();
 
   modal.innerHTML = `
+
     <div class="modal-content">
 
       <div class="modal-header">
 
         <div>
-          <h2>Create Quote</h2>
-          <p>Create a quotation for your customer.</p>
+          <h2>New Quote</h2>
+          <p>Create a quotation for a customer.</p>
         </div>
 
         <button class="close">×</button>
@@ -1990,20 +1889,40 @@ function showAddQuoteForm() {
 
         </select>
 
-        <label>Quote Number</label>
+        <label>Quote Number *</label>
 
         <input
           id="quoteNumber"
-          value="${generateQuoteNumber()}"
-          readonly
+          value="${escapeHtml(quoteNumber)}"
+          required
         >
 
-        <label>Quote Date</label>
+        <label>Subtotal</label>
 
         <input
-          id="quoteDate"
-          type="date"
-          value="${today}"
+          id="quoteSubtotal"
+          type="number"
+          step="0.01"
+          value="0"
+        >
+
+        <label>VAT</label>
+
+        <input
+          id="quoteVat"
+          type="number"
+          step="0.01"
+          value="0"
+        >
+
+        <label>Total</label>
+
+        <input
+          id="quoteTotal"
+          type="number"
+          step="0.01"
+          value="0"
+          required
         >
 
         <label>Valid Until</label>
@@ -2011,83 +1930,13 @@ function showAddQuoteForm() {
         <input
           id="quoteValidUntil"
           type="date"
-          value="${validUntil}"
         >
 
-        <label>Description / Notes</label>
+        <label>Notes</label>
 
         <textarea
           id="quoteNotes"
-          placeholder="Describe the work or add notes..."
         ></textarea>
-
-        <label>Subtotal (£)</label>
-
-        <input
-          id="quoteSubtotal"
-          type="number"
-          min="0"
-          step="0.01"
-          value="0"
-        >
-
-        <label>VAT</label>
-
-        <select id="quoteVatRate">
-
-          <option value="0">
-            No VAT
-          </option>
-
-          <option value="5">
-            5%
-          </option>
-
-          <option value="20">
-            20%
-          </option>
-
-        </select>
-
-        <div class="quote-total-preview">
-
-          <div>
-            <span>VAT</span>
-            <strong id="quoteVatAmount">
-              £0.00
-            </strong>
-          </div>
-
-          <div>
-            <span>Total</span>
-            <strong id="quoteTotal">
-              £0.00
-            </strong>
-          </div>
-
-        </div>
-
-        <label>Status</label>
-
-        <select id="quoteStatus">
-
-          <option value="draft">
-            Draft
-          </option>
-
-          <option value="sent">
-            Sent
-          </option>
-
-          <option value="accepted">
-            Accepted
-          </option>
-
-          <option value="declined">
-            Declined
-          </option>
-
-        </select>
 
         <div class="modal-actions">
 
@@ -2126,29 +1975,21 @@ function showAddQuoteForm() {
   const subtotalInput =
     modal.querySelector("#quoteSubtotal");
 
-  const vatRateInput =
-    modal.querySelector("#quoteVatRate");
+  const vatInput =
+    modal.querySelector("#quoteVat");
+
+  const totalInput =
+    modal.querySelector("#quoteTotal");
 
   function updateQuoteTotal() {
     const subtotal =
       Number(subtotalInput.value) || 0;
 
-    const vatRate =
-      Number(vatRateInput.value) || 0;
+    const vat =
+      Number(vatInput.value) || 0;
 
-    const vatAmount =
-      subtotal * vatRate / 100;
-
-    const total =
-      subtotal + vatAmount;
-
-    modal.querySelector("#quoteVatAmount")
-      .textContent =
-        `£${vatAmount.toFixed(2)}`;
-
-    modal.querySelector("#quoteTotal")
-      .textContent =
-        `£${total.toFixed(2)}`;
+    totalInput.value =
+      (subtotal + vat).toFixed(2);
   }
 
   subtotalInput.addEventListener(
@@ -2156,12 +1997,10 @@ function showAddQuoteForm() {
     updateQuoteTotal
   );
 
-  vatRateInput.addEventListener(
-    "change",
+  vatInput.addEventListener(
+    "input",
     updateQuoteTotal
   );
-
-  updateQuoteTotal();
 
   modal
     .querySelector("#quoteForm")
@@ -2170,32 +2009,6 @@ function showAddQuoteForm() {
       async event => {
 
         event.preventDefault();
-
-        const subtotal =
-          Number(
-            document
-              .getElementById("quoteSubtotal")
-              .value
-          ) || 0;
-
-        const vatRate =
-          Number(
-            document
-              .getElementById("quoteVatRate")
-              .value
-          ) || 0;
-
-        const vatAmount =
-          Number(
-            (subtotal * vatRate / 100)
-              .toFixed(2)
-          );
-
-        const total =
-          Number(
-            (subtotal + vatAmount)
-              .toFixed(2)
-          );
 
         const quote = {
 
@@ -2210,36 +2023,42 @@ function showAddQuoteForm() {
           quote_number:
             document
               .getElementById("quoteNumber")
-              .value,
+              .value.trim(),
 
           status:
-            document
-              .getElementById("quoteStatus")
-              .value,
+            "draft",
 
-          subtotal,
+          subtotal:
+            Number(
+              document
+                .getElementById("quoteSubtotal")
+                .value
+            ) || 0,
 
-          // Supabase column is lowercase "vat"
-          vat: vatAmount,
+          vat:
+            Number(
+              document
+                .getElementById("quoteVat")
+                .value
+            ) || 0,
 
-          total,
+          total:
+            Number(
+              document
+                .getElementById("quoteTotal")
+                .value
+            ) || 0,
 
           notes:
             document
               .getElementById("quoteNotes")
-              .value
-              .trim(),
+              .value.trim(),
 
           valid_until:
             document
               .getElementById("quoteValidUntil")
               .value || null
         };
-
-        if (!quote.customer_id) {
-          alert("Please select a customer.");
-          return;
-        }
 
         const { error } =
           await supabase
@@ -2248,7 +2067,6 @@ function showAddQuoteForm() {
 
         if (error) {
           alert(error.message);
-          console.error(error);
           return;
         }
 
@@ -2256,23 +2074,22 @@ function showAddQuoteForm() {
 
         await loadQuotes();
 
-        renderQuotesPage(
-          document.getElementById("pageContent")
-        );
+        showPage("quotes");
       }
     );
 }
 
 
 // =====================================================
-// VIEW QUOTE
+// QUOTE PROFILE
 // =====================================================
 
-function showQuote(quoteId) {
+function showQuoteProfile(quoteId) {
   const quote =
     quotes.find(
       q =>
-        String(q.id) === String(quoteId)
+        String(q.id) ===
+        String(quoteId)
     );
 
   if (!quote) return;
@@ -2288,33 +2105,40 @@ function showQuote(quoteId) {
     document.getElementById("pageContent");
 
   document.getElementById("pageTitle").textContent =
-    quote.quote_number;
+    `Quote #${quote.quote_number || "—"}`;
 
   document.getElementById("pageSubtitle").textContent =
     "Quote details";
 
   content.innerHTML = `
+
     <div class="page-actions">
 
-      <div>
-
-        <button
-          id="backQuotes"
-          class="button secondary"
-        >
-          ← Quotes
-        </button>
-
-      </div>
+      <button
+        id="backQuotes"
+        class="button secondary"
+      >
+        ← Quotes
+      </button>
 
       <div>
 
-        <button
-          id="editQuote"
-          class="button primary"
-        >
-          Edit Quote
-        </button>
+        ${
+          quote.status !== "converted"
+            ? `
+              <button
+                id="convertQuote"
+                class="button primary"
+              >
+                Convert to Job
+              </button>
+            `
+            : `
+              <span>
+                ✓ Converted to Job
+              </span>
+            `
+        }
 
         <button
           id="deleteQuote"
@@ -2331,33 +2155,41 @@ function showQuote(quoteId) {
 
       <div class="panel">
 
-        <h2>
-          ${escapeHtml(quote.quote_number)}
-        </h2>
+        <h2>Quote Details</h2>
 
         <div class="detail-list">
 
           <div>
-            <span>Customer</span>
-
+            <span>Quote Number</span>
             <strong>
               ${escapeHtml(
-                customer?.name || "Unknown customer"
+                quote.quote_number || "—"
               )}
             </strong>
           </div>
 
           <div>
-            <span>Status</span>
-
+            <span>Customer</span>
             <strong>
-              ${formatQuoteStatus(quote.status)}
+              ${
+                customer
+                  ? escapeHtml(customer.name)
+                  : "Unknown customer"
+              }
+            </strong>
+          </div>
+
+          <div>
+            <span>Status</span>
+            <strong>
+              ${escapeHtml(
+                quote.status || "draft"
+              )}
             </strong>
           </div>
 
           <div>
             <span>Valid Until</span>
-
             <strong>
               ${quote.valid_until || "—"}
             </strong>
@@ -2365,9 +2197,10 @@ function showQuote(quoteId) {
 
           <div>
             <span>Notes</span>
-
             <strong>
-              ${escapeHtml(quote.notes || "—")}
+              ${escapeHtml(
+                quote.notes || "—"
+              )}
             </strong>
           </div>
 
@@ -2377,13 +2210,12 @@ function showQuote(quoteId) {
 
       <div class="panel">
 
-        <h2>Quote Summary</h2>
+        <h2>Financial Summary</h2>
 
         <div class="detail-list">
 
           <div>
             <span>Subtotal</span>
-
             <strong>
               £${Number(
                 quote.subtotal || 0
@@ -2393,7 +2225,6 @@ function showQuote(quoteId) {
 
           <div>
             <span>VAT</span>
-
             <strong>
               £${Number(
                 quote.vat || 0
@@ -2403,7 +2234,6 @@ function showQuote(quoteId) {
 
           <div>
             <span>Total</span>
-
             <strong>
               £${Number(
                 quote.total || 0
@@ -2414,36 +2244,6 @@ function showQuote(quoteId) {
         </div>
 
       </div>
-
-    </div>
-
-    <div class="panel">
-
-      <div class="panel-header">
-
-        <div>
-          <h2>Actions</h2>
-          <p>Manage this quote.</p>
-        </div>
-
-      </div>
-
-      ${
-        String(quote.status).toLowerCase() === "accepted"
-          ? `
-            <button
-              id="convertQuoteToJob"
-              class="button primary"
-            >
-              📋 Convert to Job
-            </button>
-          `
-          : `
-            <p class="muted">
-              Accept the quote to convert it into a job.
-            </p>
-          `
-      }
 
     </div>
   `;
@@ -2455,26 +2255,8 @@ function showQuote(quoteId) {
       () => showPage("quotes")
     );
 
-  document
-    .getElementById("editQuote")
-    .addEventListener(
-      "click",
-      () =>
-        showEditQuoteForm(quote.id)
-    );
-
-  document
-    .getElementById("deleteQuote")
-    .addEventListener(
-      "click",
-      () =>
-        deleteQuote(quote.id)
-    );
-
   const convertButton =
-    document.getElementById(
-      "convertQuoteToJob"
-    );
+    document.getElementById("convertQuote");
 
   if (convertButton) {
     convertButton.addEventListener(
@@ -2483,377 +2265,199 @@ function showQuote(quoteId) {
         convertQuoteToJob(quote.id)
     );
   }
+
+  document
+    .getElementById("deleteQuote")
+    .addEventListener(
+      "click",
+      () =>
+        deleteQuote(quote.id)
+    );
 }
 
 
 // =====================================================
-// EDIT QUOTE
+// CONVERT QUOTE TO JOB
 // =====================================================
 
-function showEditQuoteForm(quoteId) {
+async function convertQuoteToJob(quoteId) {
   const quote =
     quotes.find(
       q =>
-        String(q.id) === String(quoteId)
+        String(q.id) ===
+        String(quoteId)
     );
 
-  if (!quote) return;
-
-  const modal =
-    document.createElement("div");
-
-  modal.className = "modal show";
-
-  const currentVat =
-    Number(quote.vat || 0);
-
-  const currentSubtotal =
-    Number(quote.subtotal || 0);
-
-  let vatRate = 0;
-
-  if (currentSubtotal > 0) {
-    vatRate =
-      Math.round(
-        currentVat /
-        currentSubtotal *
-        100
-      );
+  if (!quote) {
+    alert("Quote could not be found.");
+    return;
   }
 
-  if (![0, 5, 20].includes(vatRate)) {
-    vatRate = 0;
+  if (quote.status === "converted") {
+    alert("This quote has already been converted to a job.");
+    return;
   }
 
-  modal.innerHTML = `
-    <div class="modal-content">
-
-      <div class="modal-header">
-
-        <div>
-          <h2>Edit Quote</h2>
-          <p>Update quotation details.</p>
-        </div>
-
-        <button class="close">×</button>
-
-      </div>
-
-      <form id="editQuoteForm">
-
-        <label>Customer *</label>
-
-        <select
-          id="editQuoteCustomer"
-          required
-        >
-
-          ${customers.map(customer => `
-            <option
-              value="${customer.id}"
-              ${
-                String(customer.id) ===
-                String(quote.customer_id)
-                  ? "selected"
-                  : ""
-              }
-            >
-              ${escapeHtml(customer.name)}
-            </option>
-          `).join("")}
-
-        </select>
-
-        <label>Quote Number</label>
-
-        <input
-          value="${escapeHtml(
-            quote.quote_number || ""
-          )}"
-          readonly
-        >
-
-        <label>Valid Until</label>
-
-        <input
-          id="editQuoteValidUntil"
-          type="date"
-          value="${quote.valid_until || ""}"
-        >
-
-        <label>Description / Notes</label>
-
-        <textarea
-          id="editQuoteNotes"
-        >${escapeHtml(
-          quote.notes || ""
-        )}</textarea>
-
-        <label>Subtotal (£)</label>
-
-        <input
-          id="editQuoteSubtotal"
-          type="number"
-          min="0"
-          step="0.01"
-          value="${currentSubtotal.toFixed(2)}"
-        >
-
-        <label>VAT</label>
-
-        <select id="editQuoteVatRate">
-
-          <option
-            value="0"
-            ${vatRate === 0 ? "selected" : ""}
-          >
-            No VAT
-          </option>
-
-          <option
-            value="5"
-            ${vatRate === 5 ? "selected" : ""}
-          >
-            5%
-          </option>
-
-          <option
-            value="20"
-            ${vatRate === 20 ? "selected" : ""}
-          >
-            20%
-          </option>
-
-        </select>
-
-        <div class="quote-total-preview">
-
-          <div>
-            <span>VAT</span>
-
-            <strong id="editQuoteVatAmount">
-              £${currentVat.toFixed(2)}
-            </strong>
-          </div>
-
-          <div>
-            <span>Total</span>
-
-            <strong id="editQuoteTotal">
-              £${Number(
-                quote.total || 0
-              ).toFixed(2)}
-            </strong>
-          </div>
-
-        </div>
-
-        <label>Status</label>
-
-        <select id="editQuoteStatus">
-
-          <option
-            value="draft"
-            ${quote.status === "draft" ? "selected" : ""}
-          >
-            Draft
-          </option>
-
-          <option
-            value="sent"
-            ${quote.status === "sent" ? "selected" : ""}
-          >
-            Sent
-          </option>
-
-          <option
-            value="accepted"
-            ${quote.status === "accepted" ? "selected" : ""}
-          >
-            Accepted
-          </option>
-
-          <option
-            value="declined"
-            ${quote.status === "declined" ? "selected" : ""}
-          >
-            Declined
-          </option>
-
-          <option
-            value="expired"
-            ${quote.status === "expired" ? "selected" : ""}
-          >
-            Expired
-          </option>
-
-        </select>
-
-        <div class="modal-actions">
-
-          <button
-            type="button"
-            class="button secondary close"
-          >
-            Cancel
-          </button>
-
-          <button
-            type="submit"
-            class="button primary"
-          >
-            Save Changes
-          </button>
-
-        </div>
-
-      </form>
-
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-
-  modal
-    .querySelectorAll(".close")
-    .forEach(button =>
-      button.addEventListener(
-        "click",
-        () => modal.remove()
-      )
+  const customer =
+    customers.find(
+      c =>
+        String(c.id) ===
+        String(quote.customer_id)
     );
 
-  function updateEditTotal() {
-    const subtotal =
-      Number(
-        modal.querySelector(
-          "#editQuoteSubtotal"
-        ).value
-      ) || 0;
-
-    const rate =
-      Number(
-        modal.querySelector(
-          "#editQuoteVatRate"
-        ).value
-      ) || 0;
-
-    const vat =
-      subtotal * rate / 100;
-
-    const total =
-      subtotal + vat;
-
-    modal.querySelector(
-      "#editQuoteVatAmount"
-    ).textContent =
-      `£${vat.toFixed(2)}`;
-
-    modal.querySelector(
-      "#editQuoteTotal"
-    ).textContent =
-      `£${total.toFixed(2)}`;
+  if (!customer) {
+    alert("The customer attached to this quote could not be found.");
+    return;
   }
 
-  modal
-    .querySelector("#editQuoteSubtotal")
-    .addEventListener(
-      "input",
-      updateEditTotal
+  const confirmed =
+    confirm(
+      `Convert Quote #${quote.quote_number || ""} into a job for ${customer.name}?`
     );
 
-  modal
-    .querySelector("#editQuoteVatRate")
-    .addEventListener(
-      "change",
-      updateEditTotal
+  if (!confirmed) return;
+
+
+  // IMPORTANT:
+  // These fields exactly match the jobs table:
+  //
+  // id
+  // user_id
+  // customer_id
+  // title
+  // description
+  // scheduled_date
+  // scheduled_time
+  // status
+  // price
+  // notes
+  // created_at
+
+  const job = {
+
+    user_id:
+      currentUser.id,
+
+    customer_id:
+      quote.customer_id,
+
+    title:
+      `Quote #${quote.quote_number || "Job"}`,
+
+    description:
+      `Converted from Quote #${quote.quote_number || ""}`,
+
+    scheduled_date:
+      null,
+
+    scheduled_time:
+      null,
+
+    status:
+      "pending",
+
+    price:
+      Number(quote.total || 0),
+
+    notes:
+      quote.notes || ""
+  };
+
+
+  // First create the job
+  const {
+    data: createdJob,
+    error: jobError
+  } =
+    await supabase
+      .from("jobs")
+      .insert(job)
+      .select()
+      .single();
+
+
+  if (jobError) {
+
+    console.error(
+      "Convert quote - job error:",
+      jobError
     );
 
-  updateEditTotal();
-
-  modal
-    .querySelector("#editQuoteForm")
-    .addEventListener(
-      "submit",
-      async event => {
-
-        event.preventDefault();
-
-        const subtotal =
-          Number(
-            modal.querySelector(
-              "#editQuoteSubtotal"
-            ).value
-          ) || 0;
-
-        const rate =
-          Number(
-            modal.querySelector(
-              "#editQuoteVatRate"
-            ).value
-          ) || 0;
-
-        const vat =
-          Number(
-            (subtotal * rate / 100)
-              .toFixed(2)
-          );
-
-        const total =
-          Number(
-            (subtotal + vat)
-              .toFixed(2)
-          );
-
-        const updates = {
-
-          customer_id:
-            modal.querySelector(
-              "#editQuoteCustomer"
-            ).value,
-
-          status:
-            modal.querySelector(
-              "#editQuoteStatus"
-            ).value,
-
-          subtotal,
-
-          // Supabase column is lowercase "vat"
-          vat,
-
-          total,
-
-          notes:
-            modal.querySelector(
-              "#editQuoteNotes"
-            ).value.trim(),
-
-          valid_until:
-            modal.querySelector(
-              "#editQuoteValidUntil"
-            ).value || null
-        };
-
-        const { error } =
-          await supabase
-            .from("quotes")
-            .update(updates)
-            .eq("id", quote.id);
-
-        if (error) {
-          alert(error.message);
-          console.error(error);
-          return;
-        }
-
-        modal.remove();
-
-        await loadQuotes();
-
-        showQuote(quote.id);
-      }
+    alert(
+      "The job could not be created:\n\n" +
+      jobError.message
     );
+
+    return;
+  }
+
+
+  // Then mark quote as converted
+  const {
+    error: quoteError
+  } =
+    await supabase
+      .from("quotes")
+      .update({
+        status: "converted"
+      })
+      .eq("id", quote.id);
+
+
+  if (quoteError) {
+
+    console.error(
+      "Convert quote - quote update error:",
+      quoteError
+    );
+
+    // The job already exists, so tell the user exactly
+    // what happened rather than creating another job.
+
+    await loadJobs();
+
+    alert(
+      "The job was created successfully, but the quote could not be marked as converted.\n\n" +
+      quoteError.message
+    );
+
+    showPage("jobs");
+
+    return;
+  }
+
+
+  // Refresh both local arrays
+  await loadJobs();
+  await loadQuotes();
+
+
+  // Make absolutely sure the new job is present
+  const newJob =
+    jobs.find(
+      item =>
+        String(item.id) ===
+        String(createdJob.id)
+    );
+
+
+  if (!newJob) {
+
+    console.warn(
+      "Job was created but was not found after reload."
+    );
+
+  }
+
+
+  // Go directly to Jobs
+  showPage("jobs");
+
+
+  // Success confirmation
+  alert(
+    `Quote #${quote.quote_number || ""} has been converted to a job.`
+  );
 }
 
 
@@ -2865,14 +2469,15 @@ async function deleteQuote(quoteId) {
   const quote =
     quotes.find(
       q =>
-        String(q.id) === String(quoteId)
+        String(q.id) ===
+        String(quoteId)
     );
 
   if (!quote) return;
 
   const confirmed =
     confirm(
-      `Delete ${quote.quote_number}? This cannot be undone.`
+      `Delete Quote #${quote.quote_number || ""}? This cannot be undone.`
     );
 
   if (!confirmed) return;
@@ -2885,7 +2490,6 @@ async function deleteQuote(quoteId) {
 
   if (error) {
     alert(error.message);
-    console.error(error);
     return;
   }
 
@@ -2896,103 +2500,17 @@ async function deleteQuote(quoteId) {
 
 
 // =====================================================
-// CONVERT QUOTE TO JOB
+// QUOTE NUMBER
 // =====================================================
 
-async function convertQuoteToJob(quoteId) {
-  const quote =
-    quotes.find(
-      q =>
-        String(q.id) === String(quoteId)
-    );
+function generateQuoteNumber() {
+  const year =
+    new Date().getFullYear();
 
-  if (!quote) return;
+  const next =
+    quotes.length + 1;
 
-  if (
-    String(quote.status).toLowerCase() !==
-    "accepted"
-  ) {
-    alert(
-      "Only accepted quotes can be converted into jobs."
-    );
-    return;
-  }
-
-  const customer =
-    customers.find(
-      c =>
-        String(c.id) ===
-        String(quote.customer_id)
-    );
-
-  const title =
-    `Work from ${quote.quote_number}`;
-
-  const confirmed =
-    confirm(
-      `Create a job for ${customer?.name || "this customer"} from ${quote.quote_number}?`
-    );
-
-  if (!confirmed) return;
-
-  const job = {
-    user_id: currentUser.id,
-
-    customer_id:
-      quote.customer_id,
-
-    title,
-
-    scheduled_date: null,
-
-    price:
-      Number(quote.total || 0),
-
-    notes:
-      quote.notes || ""
-  };
-
-  const { error } =
-    await supabase
-      .from("jobs")
-      .insert(job);
-
-  if (error) {
-    alert(error.message);
-    console.error(error);
-    return;
-  }
-
-  alert("Job created successfully.");
-
-  await loadJobs();
-
-  showPage("jobs");
-}
-
-
-// =====================================================
-// QUOTE HELPERS
-// =====================================================
-
-function formatQuoteStatus(status) {
-  const value =
-    String(status || "draft")
-      .toLowerCase();
-
-  return (
-    value.charAt(0).toUpperCase() +
-    value.slice(1)
-  );
-}
-
-
-function quoteValue() {
-  return quotes.reduce(
-    (total, quote) =>
-      total + Number(quote.total || 0),
-    0
-  );
+  return `${year}-${String(next).padStart(4, "0")}`;
 }
 
 
@@ -3002,6 +2520,7 @@ function quoteValue() {
 
 function renderSettings(content) {
   content.innerHTML = `
+
     <div class="panel settings-panel">
 
       <h2>Account</h2>
@@ -3024,7 +2543,7 @@ function renderSettings(content) {
 
 
 // =====================================================
-// SIMPLE PLACEHOLDER
+// SIMPLE PAGE
 // =====================================================
 
 function renderSimplePage(
@@ -3034,6 +2553,7 @@ function renderSimplePage(
   message
 ) {
   content.innerHTML = `
+
     <div class="panel">
 
       <div class="empty-state">
@@ -3042,13 +2562,9 @@ function renderSimplePage(
           ${icon}
         </div>
 
-        <h3>
-          ${title}
-        </h3>
+        <h3>${title}</h3>
 
-        <p>
-          ${message}
-        </p>
+        <p>${message}</p>
 
       </div>
 
@@ -3067,8 +2583,22 @@ async function logout() {
 
 
 // =====================================================
-// HTML ESCAPING
+// HELPERS
 // =====================================================
+
+function getCustomerName(customerId) {
+  const customer =
+    customers.find(
+      c =>
+        String(c.id) ===
+        String(customerId)
+    );
+
+  return customer
+    ? escapeHtml(customer.name)
+    : "Unknown customer";
+}
+
 
 function escapeHtml(value) {
   return String(value)

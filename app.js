@@ -3,19 +3,22 @@ import { supabase } from "./supabase.js";
 let currentUser = null;
 let customers = [];
 let jobs = [];
+let quotes = [];
 
 const app = document.getElementById("app");
 
 
-// =====================================================
-// INITIALISE
-// =====================================================
+// ===============================
+// INIT
+// ===============================
 
 async function init() {
 
-  const { data } = await supabase.auth.getSession();
+  const { data } =
+    await supabase.auth.getSession();
 
-  currentUser = data.session?.user || null;
+  currentUser =
+    data.session?.user || null;
 
   if (currentUser) {
     await loadApp();
@@ -23,10 +26,12 @@ async function init() {
     showLogin();
   }
 
+
   supabase.auth.onAuthStateChange(
     async (_event, session) => {
 
-      currentUser = session?.user || null;
+      currentUser =
+        session?.user || null;
 
       if (currentUser) {
         await loadApp();
@@ -40,9 +45,9 @@ async function init() {
 }
 
 
-// =====================================================
+// ===============================
 // LOGIN
-// =====================================================
+// ===============================
 
 function showLogin() {
 
@@ -65,13 +70,16 @@ function showLogin() {
 
         </div>
 
+
         <h1>
           Welcome to JobPilot
         </h1>
 
+
         <p class="auth-subtitle">
           Your simple CRM for running your trade business.
         </p>
+
 
         <form id="loginForm">
 
@@ -84,6 +92,7 @@ function showLogin() {
             placeholder="you@example.com"
           >
 
+
           <label>Password</label>
 
           <input
@@ -94,8 +103,8 @@ function showLogin() {
             placeholder="••••••••"
           >
 
+
           <button
-            type="submit"
             class="button primary auth-button"
           >
             Sign in
@@ -103,12 +112,13 @@ function showLogin() {
 
         </form>
 
+
         <div id="authMessage"></div>
+
 
         <button
           id="signupButton"
           class="link-button"
-          type="button"
         >
           Create a new account
         </button>
@@ -119,12 +129,14 @@ function showLogin() {
 
   `;
 
+
   document
     .getElementById("loginForm")
     .addEventListener(
       "submit",
       login
     );
+
 
   document
     .getElementById("signupButton")
@@ -136,13 +148,10 @@ function showLogin() {
 }
 
 
-// =====================================================
-// LOGIN ACTION
-// =====================================================
-
 async function login(event) {
 
   event.preventDefault();
+
 
   const email =
     document
@@ -150,18 +159,24 @@ async function login(event) {
       .value
       .trim();
 
+
   const password =
     document
       .getElementById("password")
       .value;
 
-  showAuthMessage("Signing in...");
+
+  showAuthMessage(
+    "Signing in..."
+  );
+
 
   const { error } =
     await supabase.auth.signInWithPassword({
       email,
       password
     });
+
 
   if (error) {
 
@@ -175,10 +190,6 @@ async function login(event) {
 }
 
 
-// =====================================================
-// SIGN UP
-// =====================================================
-
 async function signup() {
 
   const email =
@@ -187,10 +198,12 @@ async function signup() {
       .value
       .trim();
 
+
   const password =
     document
       .getElementById("password")
       .value;
+
 
   if (
     !email ||
@@ -206,15 +219,18 @@ async function signup() {
 
   }
 
+
   showAuthMessage(
     "Creating account..."
   );
+
 
   const { error } =
     await supabase.auth.signUp({
       email,
       password
     });
+
 
   if (error) {
 
@@ -227,16 +243,13 @@ async function signup() {
 
   }
 
+
   showAuthMessage(
     "Account created. Check your email if confirmation is required."
   );
 
 }
 
-
-// =====================================================
-// AUTH MESSAGE
-// =====================================================
 
 function showAuthMessage(
   message,
@@ -248,10 +261,13 @@ function showAuthMessage(
       "authMessage"
     );
 
+
   if (!element) return;
+
 
   element.textContent =
     message;
+
 
   element.style.color =
     error
@@ -261,9 +277,9 @@ function showAuthMessage(
 }
 
 
-// =====================================================
+// ===============================
 // LOAD APP
-// =====================================================
+// ===============================
 
 async function loadApp() {
 
@@ -271,14 +287,16 @@ async function loadApp() {
 
   await loadJobs();
 
+  await loadQuotes();
+
   renderApp();
 
 }
 
 
-// =====================================================
+// ===============================
 // LOAD CUSTOMERS
-// =====================================================
+// ===============================
 
 async function loadCustomers() {
 
@@ -286,12 +304,10 @@ async function loadCustomers() {
     await supabase
       .from("customers")
       .select("*")
-      .order(
-        "created_at",
-        {
-          ascending: false
-        }
-      );
+      .order("created_at", {
+        ascending: false
+      });
+
 
   if (error) {
 
@@ -300,11 +316,10 @@ async function loadCustomers() {
       error
     );
 
-    customers = [];
-
     return;
 
   }
+
 
   customers =
     data || [];
@@ -312,9 +327,9 @@ async function loadCustomers() {
 }
 
 
-// =====================================================
+// ===============================
 // LOAD JOBS
-// =====================================================
+// ===============================
 
 async function loadJobs() {
 
@@ -322,12 +337,10 @@ async function loadJobs() {
     await supabase
       .from("jobs")
       .select("*")
-      .order(
-        "scheduled_date",
-        {
-          ascending: true
-        }
-      );
+      .order("scheduled_date", {
+        ascending: true
+      });
+
 
   if (error) {
 
@@ -336,11 +349,10 @@ async function loadJobs() {
       error
     );
 
-    jobs = [];
-
     return;
 
   }
+
 
   jobs =
     data || [];
@@ -348,9 +360,42 @@ async function loadJobs() {
 }
 
 
-// =====================================================
+// ===============================
+// LOAD QUOTES
+// ===============================
+
+async function loadQuotes() {
+
+  const { data, error } =
+    await supabase
+      .from("quotes")
+      .select("*")
+      .order("created_at", {
+        ascending: false
+      });
+
+
+  if (error) {
+
+    console.error(
+      "Quote loading error:",
+      error
+    );
+
+    return;
+
+  }
+
+
+  quotes =
+    data || [];
+
+}
+
+
+// ===============================
 // MAIN APP
-// =====================================================
+// ===============================
 
 function renderApp() {
 
@@ -383,12 +428,14 @@ function renderApp() {
             🏠 Dashboard
           </button>
 
+
           <button
             class="nav-item"
             data-page="customers"
           >
             👥 Customers
           </button>
+
 
           <button
             class="nav-item"
@@ -397,12 +444,14 @@ function renderApp() {
             📋 Jobs
           </button>
 
+
           <button
             class="nav-item"
             data-page="quotes"
           >
             💷 Quotes
           </button>
+
 
           <button
             class="nav-item"
@@ -422,6 +471,7 @@ function renderApp() {
           >
             ⚙️ Settings
           </button>
+
 
           <button
             class="nav-item"
@@ -453,19 +503,19 @@ function renderApp() {
 
 
           <div class="avatar">
-            ${
+
+            ${escapeHtml(
               currentUser.email
                 .substring(0, 2)
                 .toUpperCase()
-            }
+            )}
+
           </div>
 
         </header>
 
 
-        <section
-          id="pageContent"
-        ></section>
+        <section id="pageContent"></section>
 
       </main>
 
@@ -492,32 +542,26 @@ function renderApp() {
 
 
   document
-    .getElementById(
-      "logoutButton"
-    )
+    .getElementById("logoutButton")
     .addEventListener(
       "click",
       logout
     );
 
 
-  showPage(
-    "dashboard"
-  );
+  showPage("dashboard");
 
 }
 
 
-// =====================================================
+// ===============================
 // PAGE SWITCHING
-// =====================================================
+// ===============================
 
 function showPage(page) {
 
   document
-    .querySelectorAll(
-      ".nav-item"
-    )
+    .querySelectorAll(".nav-item")
     .forEach(button => {
 
       button.classList.remove(
@@ -578,19 +622,15 @@ function showPage(page) {
 
 
   document
-    .getElementById(
-      "pageTitle"
-    )
+    .getElementById("pageTitle")
     .textContent =
-    titles[page][0];
+      titles[page][0];
 
 
   document
-    .getElementById(
-      "pageSubtitle"
-    )
+    .getElementById("pageSubtitle")
     .textContent =
-    titles[page][1];
+      titles[page][1];
 
 
   const content =
@@ -601,39 +641,28 @@ function showPage(page) {
 
   if (page === "dashboard") {
 
-    renderDashboard(
-      content
-    );
+    renderDashboard(content);
 
   }
 
 
   if (page === "customers") {
 
-    renderCustomersPage(
-      content
-    );
+    renderCustomersPage(content);
 
   }
 
 
   if (page === "jobs") {
 
-    renderJobsPage(
-      content
-    );
+    renderJobsPage(content);
 
   }
 
 
   if (page === "quotes") {
 
-    renderSimplePage(
-      content,
-      "💷",
-      "Quotes",
-      "Quote management is coming next."
-    );
+    renderQuotesPage(content);
 
   }
 
@@ -652,20 +681,30 @@ function showPage(page) {
 
   if (page === "settings") {
 
-    renderSettings(
-      content
-    );
+    renderSettings(content);
 
   }
 
 }
 
 
-// =====================================================
+// ===============================
 // DASHBOARD
-// =====================================================
+// ===============================
 
 function renderDashboard(content) {
+
+  const jobCount =
+    jobs.length;
+
+
+  const customerCount =
+    customers.length;
+
+
+  const quoteCount =
+    quotes.length;
+
 
   content.innerHTML = `
 
@@ -684,7 +723,7 @@ function renderDashboard(content) {
           </span>
 
           <strong>
-            ${jobs.length}
+            ${jobCount}
           </strong>
 
         </div>
@@ -705,7 +744,7 @@ function renderDashboard(content) {
           </span>
 
           <strong>
-            ${customers.length}
+            ${customerCount}
           </strong>
 
         </div>
@@ -726,7 +765,7 @@ function renderDashboard(content) {
           </span>
 
           <strong>
-            £0
+            ${quoteCount}
           </strong>
 
         </div>
@@ -787,28 +826,15 @@ function renderDashboard(content) {
 
                   <div class="job-row">
 
-                    <div>
-
-                      <strong>
-                        ${escapeHtml(
-                          job.title
-                        )}
-                      </strong>
-
-                      <div class="muted">
-                        ${
-                          job.scheduled_date ||
-                          "No date"
-                        }
-                      </div>
-
-                    </div>
-
                     <strong>
-                      £${Number(
-                        job.price || 0
-                      ).toFixed(2)}
+                      ${escapeHtml(
+                        job.title
+                      )}
                     </strong>
+
+                    <span>
+                      ${job.scheduled_date || "No date"}
+                    </span>
 
                   </div>
 
@@ -817,23 +843,23 @@ function renderDashboard(content) {
 
             : `
 
-                <div class="empty-state">
+              <div class="empty-state">
 
-                  <div class="empty-icon">
-                    📋
-                  </div>
-
-                  <h3>
-                    No jobs yet
-                  </h3>
-
-                  <p>
-                    Add your first job to get started.
-                  </p>
-
+                <div class="empty-icon">
+                  📋
                 </div>
 
-              `
+                <h3>
+                  No jobs yet
+                </h3>
+
+                <p>
+                  Add your first job to get started.
+                </p>
+
+              </div>
+
+            `
         }
 
       </div>
@@ -860,7 +886,7 @@ function renderDashboard(content) {
 
         <button
           class="quick-button"
-          data-action="add-customer"
+          data-action="customers"
         >
           👤 Add Customer
         </button>
@@ -868,7 +894,7 @@ function renderDashboard(content) {
 
         <button
           class="quick-button"
-          data-action="add-job"
+          data-action="jobs"
         >
           📋 Add Job
         </button>
@@ -906,35 +932,8 @@ function renderDashboard(content) {
         "click",
         () => {
 
-          const action =
-            button.dataset.action;
-
-          if (
-            action ===
-            "add-customer"
-          ) {
-
-            showAddCustomerForm();
-
-            return;
-
-          }
-
-          if (
-            action ===
-            "add-job"
-          ) {
-
-            showPage(
-              "jobs"
-            );
-
-            return;
-
-          }
-
           showPage(
-            action
+            button.dataset.action
           );
 
         }
@@ -945,13 +944,11 @@ function renderDashboard(content) {
 }
 
 
-// =====================================================
+// ===============================
 // CUSTOMERS PAGE
-// =====================================================
+// ===============================
 
-function renderCustomersPage(
-  content
-) {
+function renderCustomersPage(content) {
 
   content.innerHTML = `
 
@@ -973,7 +970,6 @@ function renderCustomersPage(
       <button
         id="addCustomerButton"
         class="button primary"
-        type="button"
       >
         + Add Customer
       </button>
@@ -986,7 +982,6 @@ function renderCustomersPage(
       <input
         id="customerSearch"
         class="search-input"
-        type="search"
         placeholder="Search customers..."
       >
 
@@ -1001,31 +996,21 @@ function renderCustomersPage(
   `;
 
 
-  const addButton =
-    document.getElementById(
+  document
+    .getElementById(
       "addCustomerButton"
-    );
-
-
-  if (addButton) {
-
-    addButton.addEventListener(
+    )
+    .addEventListener(
       "click",
       showAddCustomerForm
     );
 
-  }
 
-
-  const search =
-    document.getElementById(
+  document
+    .getElementById(
       "customerSearch"
-    );
-
-
-  if (search) {
-
-    search.addEventListener(
+    )
+    .addEventListener(
       "input",
       event =>
         renderCustomerTable(
@@ -1033,17 +1018,15 @@ function renderCustomersPage(
         )
     );
 
-  }
-
 
   renderCustomerTable();
 
 }
 
 
-// =====================================================
+// ===============================
 // CUSTOMER TABLE
-// =====================================================
+// ===============================
 
 function renderCustomerTable(
   search = ""
@@ -1054,48 +1037,35 @@ function renderCustomerTable(
       "customerTable"
     );
 
+
   if (!container) return;
 
 
   const term =
     search
-      .trim()
-      .toLowerCase();
+      .toLowerCase()
+      .trim();
 
 
   const filtered =
-    customers.filter(
-      customer => {
+    customers.filter(customer => {
 
-        const name =
-          String(
-            customer.name || ""
-          ).toLowerCase();
+      const searchable = `
 
-        const phone =
-          String(
-            customer.phone || ""
-          ).toLowerCase();
+        ${customer.name || ""}
+        ${customer.phone || ""}
+        ${customer.email || ""}
+        ${customer.city || ""}
+        ${customer.postcode || ""}
 
-        const email =
-          String(
-            customer.email || ""
-          ).toLowerCase();
+      `.toLowerCase();
 
-        const postcode =
-          String(
-            customer.postcode || ""
-          ).toLowerCase();
 
-        return (
-          name.includes(term) ||
-          phone.includes(term) ||
-          email.includes(term) ||
-          postcode.includes(term)
-        );
+      return searchable.includes(
+        term
+      );
 
-      }
-    );
+    });
 
 
   if (!filtered.length) {
@@ -1109,19 +1079,11 @@ function renderCustomerTable(
         </div>
 
         <h3>
-          ${
-            term
-              ? "No customers found"
-              : "No customers yet"
-          }
+          No customers found
         </h3>
 
         <p>
-          ${
-            term
-              ? "Try a different search."
-              : "Add your first customer to get started."
-          }
+          Add your first customer to get started.
         </p>
 
       </div>
@@ -1135,103 +1097,58 @@ function renderCustomerTable(
 
   container.innerHTML = `
 
-    <table>
+    <div class="jobs-list">
 
-      <thead>
+      ${filtered.map(customer => `
 
-        <tr>
+        <button
+          class="job-card"
+          data-customer-id="${customer.id}"
+        >
 
-          <th>
-            Name
-          </th>
+          <div class="job-card-main">
 
-          <th>
-            Phone
-          </th>
-
-          <th>
-            Email
-          </th>
-
-          <th>
-            Postcode
-          </th>
-
-          <th>
-            Actions
-          </th>
-
-        </tr>
-
-      </thead>
-
-
-      <tbody>
-
-        ${filtered.map(customer => `
-
-          <tr>
-
-            <td>
-
-              <button
-                class="customer-link"
-                data-customer-id="${customer.id}"
-                type="button"
-              >
-                ${escapeHtml(
-                  customer.name
-                )}
-              </button>
-
-            </td>
-
-
-            <td>
+            <strong>
               ${escapeHtml(
-                customer.phone || "—"
+                customer.name
               )}
-            </td>
+            </strong>
 
-
-            <td>
+            <span>
               ${escapeHtml(
-                customer.email || "—"
+                customer.phone || ""
               )}
-            </td>
+            </span>
+
+          </div>
 
 
-            <td>
+          <div class="job-card-details">
+
+            <span>
               ${escapeHtml(
-                customer.postcode || "—"
+                customer.email || ""
               )}
-            </td>
+            </span>
 
+            <span>
+              ${escapeHtml(
+                customer.postcode || ""
+              )}
+            </span>
 
-            <td>
+          </div>
 
-              <button
-                class="small-button"
-                data-edit-customer="${customer.id}"
-                type="button"
-              >
-                Edit
-              </button>
+        </button>
 
-            </td>
+      `).join("")}
 
-          </tr>
-
-        `).join("")}
-
-      </tbody>
-
-    </table>
+    </div>
 
   `;
 
 
-  document
+  container
     .querySelectorAll(
       "[data-customer-id]"
     )
@@ -1247,29 +1164,12 @@ function renderCustomerTable(
 
     });
 
-
-  document
-    .querySelectorAll(
-      "[data-edit-customer]"
-    )
-    .forEach(button => {
-
-      button.addEventListener(
-        "click",
-        () =>
-          showEditCustomerForm(
-            button.dataset.editCustomer
-          )
-      );
-
-    });
-
 }
 
 
-// =====================================================
+// ===============================
 // ADD CUSTOMER
-// =====================================================
+// ===============================
 
 function showAddCustomerForm() {
 
@@ -1278,8 +1178,9 @@ function showAddCustomerForm() {
       "div"
     );
 
+
   modal.className =
-    "modal";
+    "modal show";
 
 
   modal.innerHTML = `
@@ -1295,17 +1196,13 @@ function showAddCustomerForm() {
           </h2>
 
           <p>
-            Create a new customer.
+            Create a customer record.
           </p>
 
         </div>
 
 
-        <button
-          type="button"
-          class="close"
-          aria-label="Close"
-        >
+        <button class="close">
           ×
         </button>
 
@@ -1320,7 +1217,6 @@ function showAddCustomerForm() {
 
         <input
           id="customerName"
-          type="text"
           required
         >
 
@@ -1331,7 +1227,6 @@ function showAddCustomerForm() {
 
         <input
           id="customerPhone"
-          type="tel"
         >
 
 
@@ -1351,7 +1246,6 @@ function showAddCustomerForm() {
 
         <input
           id="customerAddress"
-          type="text"
         >
 
 
@@ -1361,7 +1255,6 @@ function showAddCustomerForm() {
 
         <input
           id="customerCity"
-          type="text"
         >
 
 
@@ -1371,7 +1264,6 @@ function showAddCustomerForm() {
 
         <input
           id="customerPostcode"
-          type="text"
         >
 
 
@@ -1416,15 +1308,12 @@ function showAddCustomerForm() {
 
 
   modal
-    .querySelectorAll(
-      ".close"
-    )
+    .querySelectorAll(".close")
     .forEach(button => {
 
       button.addEventListener(
         "click",
-        () =>
-          modal.remove()
+        () => modal.remove()
       );
 
     });
@@ -1436,143 +1325,113 @@ function showAddCustomerForm() {
     )
     .addEventListener(
       "submit",
-      saveCustomer
+      async event => {
+
+        event.preventDefault();
+
+
+        const customer = {
+
+          user_id:
+            currentUser.id,
+
+          name:
+            document
+              .getElementById(
+                "customerName"
+              )
+              .value
+              .trim(),
+
+          phone:
+            document
+              .getElementById(
+                "customerPhone"
+              )
+              .value
+              .trim(),
+
+          email:
+            document
+              .getElementById(
+                "customerEmail"
+              )
+              .value
+              .trim(),
+
+          address_line1:
+            document
+              .getElementById(
+                "customerAddress"
+              )
+              .value
+              .trim(),
+
+          city:
+            document
+              .getElementById(
+                "customerCity"
+              )
+              .value
+              .trim(),
+
+          postcode:
+            document
+              .getElementById(
+                "customerPostcode"
+              )
+              .value
+              .trim(),
+
+          notes:
+            document
+              .getElementById(
+                "customerNotes"
+              )
+              .value
+              .trim()
+
+        };
+
+
+        const { error } =
+          await supabase
+            .from("customers")
+            .insert(
+              customer
+            );
+
+
+        if (error) {
+
+          alert(
+            error.message
+          );
+
+          return;
+
+        }
+
+
+        modal.remove();
+
+        await loadCustomers();
+
+        renderCustomersPage(
+          document.getElementById(
+            "pageContent"
+          )
+        );
+
+      }
     );
 
 }
 
 
-// =====================================================
-// SAVE CUSTOMER
-// =====================================================
-
-async function saveCustomer(
-  event
-) {
-
-  event.preventDefault();
-
-
-  const customer = {
-
-    user_id:
-      currentUser.id,
-
-    name:
-      document
-        .getElementById(
-          "customerName"
-        )
-        .value
-        .trim(),
-
-    phone:
-      document
-        .getElementById(
-          "customerPhone"
-        )
-        .value
-        .trim(),
-
-    email:
-      document
-        .getElementById(
-          "customerEmail"
-        )
-        .value
-        .trim(),
-
-    address_line1:
-      document
-        .getElementById(
-          "customerAddress"
-        )
-        .value
-        .trim(),
-
-    city:
-      document
-        .getElementById(
-          "customerCity"
-        )
-        .value
-        .trim(),
-
-    postcode:
-      document
-        .getElementById(
-          "customerPostcode"
-        )
-        .value
-        .trim(),
-
-    notes:
-      document
-        .getElementById(
-          "customerNotes"
-        )
-        .value
-        .trim()
-
-  };
-
-
-  if (!customer.name) {
-
-    alert(
-      "Please enter the customer's name."
-    );
-
-    return;
-
-  }
-
-
-  const { error } =
-    await supabase
-      .from("customers")
-      .insert(customer);
-
-
-  if (error) {
-
-    console.error(
-      "Customer save error:",
-      error
-    );
-
-    alert(
-      error.message
-    );
-
-    return;
-
-  }
-
-
-  const modal =
-    document.querySelector(
-      ".modal"
-    );
-
-  if (modal) {
-    modal.remove();
-  }
-
-
-  await loadCustomers();
-
-
-  showPage(
-    "customers"
-  );
-
-}
-
-
-// =====================================================
+// ===============================
 // CUSTOMER PROFILE
-// =====================================================
+// ===============================
 
 function showCustomerProfile(
   customerId
@@ -1584,6 +1443,7 @@ function showCustomerProfile(
         String(item.id) ===
         String(customerId)
     );
+
 
   if (!customer) return;
 
@@ -1600,9 +1460,7 @@ function showCustomerProfile(
     customerJobs.reduce(
       (total, job) =>
         total +
-        Number(
-          job.price || 0
-        ),
+        Number(job.price || 0),
       0
     );
 
@@ -1613,29 +1471,36 @@ function showCustomerProfile(
     );
 
 
-  document.getElementById(
-    "pageTitle"
-  ).textContent =
-    customer.name;
+  document
+    .getElementById(
+      "pageTitle"
+    )
+    .textContent =
+      customer.name;
 
 
-  document.getElementById(
-    "pageSubtitle"
-  ).textContent =
-    "Customer profile";
+  document
+    .getElementById(
+      "pageSubtitle"
+    )
+    .textContent =
+      "Customer profile";
 
 
   content.innerHTML = `
 
     <div class="page-actions">
 
-      <button
-        id="backCustomers"
-        class="button secondary"
-        type="button"
-      >
-        ← Customers
-      </button>
+      <div>
+
+        <button
+          id="backCustomers"
+          class="button secondary"
+        >
+          ← Customers
+        </button>
+
+      </div>
 
 
       <div>
@@ -1643,7 +1508,6 @@ function showCustomerProfile(
         <button
           id="editCustomer"
           class="button primary"
-          type="button"
         >
           Edit Customer
         </button>
@@ -1652,7 +1516,6 @@ function showCustomerProfile(
         <button
           id="deleteCustomer"
           class="button danger"
-          type="button"
         >
           Delete
         </button>
@@ -1675,6 +1538,7 @@ function showCustomerProfile(
 
           <div>
             <span>Name</span>
+
             <strong>
               ${escapeHtml(
                 customer.name
@@ -1685,9 +1549,11 @@ function showCustomerProfile(
 
           <div>
             <span>Phone</span>
+
             <strong>
               ${escapeHtml(
-                customer.phone || "—"
+                customer.phone ||
+                "—"
               )}
             </strong>
           </div>
@@ -1695,9 +1561,11 @@ function showCustomerProfile(
 
           <div>
             <span>Email</span>
+
             <strong>
               ${escapeHtml(
-                customer.email || "—"
+                customer.email ||
+                "—"
               )}
             </strong>
           </div>
@@ -1705,9 +1573,11 @@ function showCustomerProfile(
 
           <div>
             <span>Address</span>
+
             <strong>
               ${escapeHtml(
-                customer.address_line1 || "—"
+                customer.address_line1 ||
+                "—"
               )}
             </strong>
           </div>
@@ -1715,9 +1585,11 @@ function showCustomerProfile(
 
           <div>
             <span>Town / City</span>
+
             <strong>
               ${escapeHtml(
-                customer.city || "—"
+                customer.city ||
+                "—"
               )}
             </strong>
           </div>
@@ -1725,9 +1597,11 @@ function showCustomerProfile(
 
           <div>
             <span>Postcode</span>
+
             <strong>
               ${escapeHtml(
-                customer.postcode || "—"
+                customer.postcode ||
+                "—"
               )}
             </strong>
           </div>
@@ -1735,9 +1609,11 @@ function showCustomerProfile(
 
           <div>
             <span>Notes</span>
+
             <strong>
               ${escapeHtml(
-                customer.notes || "—"
+                customer.notes ||
+                "—"
               )}
             </strong>
           </div>
@@ -1832,10 +1708,7 @@ function showCustomerProfile(
                     </strong>
 
                     <div class="muted">
-                      ${
-                        job.scheduled_date ||
-                        "No date"
-                      }
+                      ${job.scheduled_date || "No date"}
                     </div>
 
                   </div>
@@ -1854,23 +1727,23 @@ function showCustomerProfile(
 
           : `
 
-              <div class="empty-state">
+            <div class="empty-state">
 
-                <div class="empty-icon">
-                  📋
-                </div>
-
-                <h3>
-                  No jobs yet
-                </h3>
-
-                <p>
-                  This customer doesn't have any jobs.
-                </p>
-
+              <div class="empty-icon">
+                📋
               </div>
 
-            `
+              <h3>
+                No jobs yet
+              </h3>
+
+              <p>
+                This customer doesn't have any jobs.
+              </p>
+
+            </div>
+
+          `
       }
 
     </div>
@@ -1919,9 +1792,9 @@ function showCustomerProfile(
 }
 
 
-// =====================================================
+// ===============================
 // EDIT CUSTOMER
-// =====================================================
+// ===============================
 
 function showEditCustomerForm(
   customerId
@@ -1934,6 +1807,7 @@ function showEditCustomerForm(
         String(customerId)
     );
 
+
   if (!customer) return;
 
 
@@ -1942,8 +1816,9 @@ function showEditCustomerForm(
       "div"
     );
 
+
   modal.className =
-    "modal";
+    "modal show";
 
 
   modal.innerHTML = `
@@ -1965,10 +1840,7 @@ function showEditCustomerForm(
         </div>
 
 
-        <button
-          type="button"
-          class="close"
-        >
+        <button class="close">
           ×
         </button>
 
@@ -1977,88 +1849,81 @@ function showEditCustomerForm(
 
       <form id="editCustomerForm">
 
-        <label>
-          Name *
-        </label>
+        <label>Name *</label>
 
         <input
           id="editCustomerName"
-          value="${escapeAttribute(
-            customer.name
+          value="${escapeHtml(
+            customer.name ||
+            ""
           )}"
           required
         >
 
 
-        <label>
-          Phone
-        </label>
+        <label>Phone</label>
 
         <input
           id="editCustomerPhone"
-          value="${escapeAttribute(
-            customer.phone || ""
+          value="${escapeHtml(
+            customer.phone ||
+            ""
           )}"
         >
 
 
-        <label>
-          Email
-        </label>
+        <label>Email</label>
 
         <input
           id="editCustomerEmail"
           type="email"
-          value="${escapeAttribute(
-            customer.email || ""
+          value="${escapeHtml(
+            customer.email ||
+            ""
           )}"
         >
 
 
-        <label>
-          Address
-        </label>
+        <label>Address</label>
 
         <input
           id="editCustomerAddress"
-          value="${escapeAttribute(
-            customer.address_line1 || ""
+          value="${escapeHtml(
+            customer.address_line1 ||
+            ""
           )}"
         >
 
 
-        <label>
-          Town / City
-        </label>
+        <label>Town / City</label>
 
         <input
           id="editCustomerCity"
-          value="${escapeAttribute(
-            customer.city || ""
+          value="${escapeHtml(
+            customer.city ||
+            ""
           )}"
         >
 
 
-        <label>
-          Postcode
-        </label>
+        <label>Postcode</label>
 
         <input
           id="editCustomerPostcode"
-          value="${escapeAttribute(
-            customer.postcode || ""
+          value="${escapeHtml(
+            customer.postcode ||
+            ""
           )}"
         >
 
 
-        <label>
-          Notes
-        </label>
+        <label>Notes</label>
 
         <textarea
           id="editCustomerNotes"
         >${escapeHtml(
-          customer.notes || ""
+          customer.notes ||
+          ""
         )}</textarea>
 
 
@@ -2094,18 +1959,13 @@ function showEditCustomerForm(
 
 
   modal
-    .querySelectorAll(
-      ".close"
-    )
-    .forEach(button => {
-
+    .querySelectorAll(".close")
+    .forEach(button =>
       button.addEventListener(
         "click",
-        () =>
-          modal.remove()
-      );
-
-    });
+        () => modal.remove()
+      )
+    );
 
 
   modal
@@ -2183,7 +2043,9 @@ function showEditCustomerForm(
         const { error } =
           await supabase
             .from("customers")
-            .update(updates)
+            .update(
+              updates
+            )
             .eq(
               "id",
               customer.id
@@ -2215,9 +2077,9 @@ function showEditCustomerForm(
 }
 
 
-// =====================================================
+// ===============================
 // DELETE CUSTOMER
-// =====================================================
+// ===============================
 
 async function deleteCustomer(
   customerId
@@ -2229,6 +2091,7 @@ async function deleteCustomer(
         String(item.id) ===
         String(customerId)
     );
+
 
   if (!customer) return;
 
@@ -2274,12 +2137,8 @@ async function deleteCustomer(
 }
 
 
-// =====================================================
-// JOBS PAGE
-// =====================================================
-
 // ===============================
-// JOBS
+// JOBS PAGE
 // ===============================
 
 function renderJobsPage(content) {
@@ -2289,9 +2148,17 @@ function renderJobsPage(content) {
     <div class="page-actions">
 
       <div>
-        <h2>Jobs</h2>
-        <p>Schedule and manage your work.</p>
+
+        <h2>
+          Jobs
+        </h2>
+
+        <p>
+          Schedule and manage your work.
+        </p>
+
       </div>
+
 
       <button
         id="addJobButton"
@@ -2302,727 +2169,78 @@ function renderJobsPage(content) {
 
     </div>
 
+
     <div class="panel">
 
-      <div class="job-filters">
+      ${
+        jobs.length
 
-        <input
-          id="jobSearch"
-          class="search-input"
-          placeholder="Search jobs..."
-        >
+          ? jobs
+              .map(job => `
 
-        <select id="jobStatusFilter">
-          <option value="">All statuses</option>
-          <option value="Quoted">Quoted</option>
-          <option value="Scheduled">Scheduled</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Completed">Completed</option>
-          <option value="Cancelled">Cancelled</option>
-        </select>
+                <div class="job-row">
 
-      </div>
+                  <div>
 
-      <div id="jobsTable"></div>
+                    <strong>
+                      ${escapeHtml(
+                        job.title
+                      )}
+                    </strong>
+
+                    <div class="muted">
+                      ${job.scheduled_date || "No date"}
+                    </div>
+
+                  </div>
+
+
+                  <span>
+                    ${escapeHtml(
+                      job.status ||
+                      "Scheduled"
+                    )}
+                  </span>
+
+                </div>
+
+              `)
+              .join("")
+
+          : `
+
+            <div class="empty-state">
+
+              <div class="empty-icon">
+                📋
+              </div>
+
+              <h3>
+                No jobs yet
+              </h3>
+
+              <p>
+                Add your first job.
+              </p>
+
+            </div>
+
+          `
+      }
 
     </div>
 
   `;
 
+
   document
-    .getElementById("addJobButton")
+    .getElementById(
+      "addJobButton"
+    )
     .addEventListener(
       "click",
       showAddJobForm
     );
-
-  document
-    .getElementById("jobSearch")
-    .addEventListener(
-      "input",
-      renderJobsTableFromFilters
-    );
-
-  document
-    .getElementById("jobStatusFilter")
-    .addEventListener(
-      "change",
-      renderJobsTableFromFilters
-    );
-
-  renderJobsTableFromFilters();
-}
-
-
-// ===============================
-// JOB TABLE
-// ===============================
-
-function renderJobsTableFromFilters() {
-
-  const search =
-    document
-      .getElementById("jobSearch")
-      ?.value
-      .toLowerCase()
-      .trim() || "";
-
-  const status =
-    document
-      .getElementById("jobStatusFilter")
-      ?.value || "";
-
-  const filteredJobs =
-    jobs.filter(job => {
-
-      const customer =
-        customers.find(
-          customer =>
-            String(customer.id) ===
-            String(job.customer_id)
-        );
-
-      const customerName =
-        customer?.name || "";
-
-      const searchable =
-        `
-          ${job.title || ""}
-          ${customerName}
-          ${job.notes || ""}
-          ${job.status || ""}
-        `.toLowerCase();
-
-      const matchesSearch =
-        !search ||
-        searchable.includes(search);
-
-      const matchesStatus =
-        !status ||
-        (job.status || "Scheduled") === status;
-
-      return matchesSearch && matchesStatus;
-
-    });
-
-
-  const container =
-    document.getElementById("jobsTable");
-
-  if (!container) return;
-
-
-  if (!filteredJobs.length) {
-
-    container.innerHTML = `
-
-      <div class="empty-state">
-
-        <div class="empty-icon">
-          📋
-        </div>
-
-        <h3>
-          No jobs found
-        </h3>
-
-        <p>
-          Try changing your search or filters.
-        </p>
-
-      </div>
-
-    `;
-
-    return;
-
-  }
-
-
-  container.innerHTML = `
-
-    <div class="jobs-list">
-
-      ${filteredJobs.map(job => {
-
-        const customer =
-          customers.find(
-            customer =>
-              String(customer.id) ===
-              String(job.customer_id)
-          );
-
-        const customerName =
-          customer?.name || "Unknown customer";
-
-        const status =
-          job.status || "Scheduled";
-
-        return `
-
-          <button
-            class="job-card"
-            data-job-id="${job.id}"
-          >
-
-            <div class="job-card-main">
-
-              <strong>
-                ${escapeHtml(job.title || "Untitled job")}
-              </strong>
-
-              <span>
-                ${escapeHtml(customerName)}
-              </span>
-
-            </div>
-
-            <div class="job-card-details">
-
-              <span>
-                📅 ${job.scheduled_date || "No date"}
-              </span>
-
-              <span>
-                £${Number(job.price || 0).toFixed(2)}
-              </span>
-
-              <span class="status-badge">
-                ${escapeHtml(status)}
-              </span>
-
-            </div>
-
-          </button>
-
-        `;
-
-      }).join("")}
-
-    </div>
-
-  `;
-
-
-  container
-    .querySelectorAll(".job-card")
-    .forEach(button => {
-
-      button.addEventListener(
-        "click",
-        () =>
-          showJobProfile(
-            button.dataset.jobId
-          )
-      );
-
-    });
-
-}
-
-
-// ===============================
-// JOB PROFILE
-// ===============================
-
-function showJobProfile(jobId) {
-
-  const job =
-    jobs.find(
-      item =>
-        String(item.id) ===
-        String(jobId)
-    );
-
-  if (!job) return;
-
-
-  const customer =
-    customers.find(
-      item =>
-        String(item.id) ===
-        String(job.customer_id)
-    );
-
-
-  const content =
-    document.getElementById("pageContent");
-
-
-  document.getElementById("pageTitle").textContent =
-    job.title || "Job";
-
-  document.getElementById("pageSubtitle").textContent =
-    "Job details";
-
-
-  content.innerHTML = `
-
-    <div class="page-actions">
-
-      <div>
-
-        <button
-          id="backJobs"
-          class="button secondary"
-        >
-          ← Jobs
-        </button>
-
-      </div>
-
-      <div>
-
-        <button
-          id="editJob"
-          class="button primary"
-        >
-          Edit Job
-        </button>
-
-        <button
-          id="deleteJob"
-          class="button danger"
-        >
-          Delete
-        </button>
-
-      </div>
-
-    </div>
-
-
-    <div class="content-grid">
-
-      <div class="panel">
-
-        <h2>
-          Job Details
-        </h2>
-
-        <div class="detail-list">
-
-          <div>
-            <span>Job</span>
-            <strong>
-              ${escapeHtml(job.title || "—")}
-            </strong>
-          </div>
-
-          <div>
-            <span>Customer</span>
-            <strong>
-              ${escapeHtml(customer?.name || "—")}
-            </strong>
-          </div>
-
-          <div>
-            <span>Date</span>
-            <strong>
-              ${job.scheduled_date || "—"}
-            </strong>
-          </div>
-
-          <div>
-            <span>Price</span>
-            <strong>
-              £${Number(job.price || 0).toFixed(2)}
-            </strong>
-          </div>
-
-          <div>
-            <span>Status</span>
-            <strong>
-              ${escapeHtml(job.status || "Scheduled")}
-            </strong>
-          </div>
-
-          <div>
-            <span>Notes</span>
-            <strong>
-              ${escapeHtml(job.notes || "—")}
-            </strong>
-          </div>
-
-        </div>
-
-      </div>
-
-
-      <div class="panel">
-
-        <h2>
-          Customer
-        </h2>
-
-        ${
-          customer
-            ? `
-              <div class="detail-list">
-
-                <div>
-                  <span>Name</span>
-                  <strong>
-                    ${escapeHtml(customer.name)}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>Phone</span>
-                  <strong>
-                    ${escapeHtml(customer.phone || "—")}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>Email</span>
-                  <strong>
-                    ${escapeHtml(customer.email || "—")}
-                  </strong>
-                </div>
-
-              </div>
-            `
-            : `
-              <p class="muted">
-                Customer not found.
-              </p>
-            `
-        }
-
-      </div>
-
-    </div>
-
-  `;
-
-
-  document
-    .getElementById("backJobs")
-    .addEventListener(
-      "click",
-      () => showPage("jobs")
-    );
-
-
-  document
-    .getElementById("editJob")
-    .addEventListener(
-      "click",
-      () => showEditJobForm(job.id)
-    );
-
-
-  document
-    .getElementById("deleteJob")
-    .addEventListener(
-      "click",
-      () => deleteJob(job.id)
-    );
-
-}
-
-
-// ===============================
-// EDIT JOB
-// ===============================
-
-function showEditJobForm(jobId) {
-
-  const job =
-    jobs.find(
-      item =>
-        String(item.id) ===
-        String(jobId)
-    );
-
-  if (!job) return;
-
-
-  const modal =
-    document.createElement("div");
-
-  modal.className = "modal show";
-
-
-  modal.innerHTML = `
-
-    <div class="modal-content">
-
-      <div class="modal-header">
-
-        <div>
-
-          <h2>
-            Edit Job
-          </h2>
-
-          <p>
-            Update the job details.
-          </p>
-
-        </div>
-
-        <button class="close">
-          ×
-        </button>
-
-      </div>
-
-
-      <form id="editJobForm">
-
-        <label>Customer *</label>
-
-        <select
-          id="editJobCustomer"
-          required
-        >
-
-          ${customers.map(customer => `
-
-            <option
-              value="${customer.id}"
-              ${
-                String(customer.id) ===
-                String(job.customer_id)
-                  ? "selected"
-                  : ""
-              }
-            >
-              ${escapeHtml(customer.name)}
-            </option>
-
-          `).join("")}
-
-        </select>
-
-
-        <label>Job Title *</label>
-
-        <input
-          id="editJobTitle"
-          required
-          value="${escapeHtml(job.title || "")}"
-        >
-
-
-        <label>Date</label>
-
-        <input
-          id="editJobDate"
-          type="date"
-          value="${job.scheduled_date || ""}"
-        >
-
-
-        <label>Price</label>
-
-        <input
-          id="editJobPrice"
-          type="number"
-          step="0.01"
-          value="${job.price || 0}"
-        >
-
-
-        <label>Status</label>
-
-        <select id="editJobStatus">
-
-          <option value="Quoted"
-            ${job.status === "Quoted" ? "selected" : ""}>
-            Quoted
-          </option>
-
-          <option value="Scheduled"
-            ${job.status === "Scheduled" ? "selected" : ""}>
-            Scheduled
-          </option>
-
-          <option value="In Progress"
-            ${job.status === "In Progress" ? "selected" : ""}>
-            In Progress
-          </option>
-
-          <option value="Completed"
-            ${job.status === "Completed" ? "selected" : ""}>
-            Completed
-          </option>
-
-          <option value="Cancelled"
-            ${job.status === "Cancelled" ? "selected" : ""}>
-            Cancelled
-          </option>
-
-        </select>
-
-
-        <label>Notes</label>
-
-        <textarea
-          id="editJobNotes"
-        >${escapeHtml(job.notes || "")}</textarea>
-
-
-        <div class="modal-actions">
-
-          <button
-            type="button"
-            class="button secondary close"
-          >
-            Cancel
-          </button>
-
-          <button
-            type="submit"
-            class="button primary"
-          >
-            Save Changes
-          </button>
-
-        </div>
-
-      </form>
-
-    </div>
-
-  `;
-
-
-  document.body.appendChild(modal);
-
-
-  modal
-    .querySelectorAll(".close")
-    .forEach(button =>
-      button.addEventListener(
-        "click",
-        () => modal.remove()
-      )
-    );
-
-
-  modal
-    .querySelector("#editJobForm")
-    .addEventListener(
-      "submit",
-      async event => {
-
-        event.preventDefault();
-
-
-        const updates = {
-
-          customer_id:
-            document
-              .getElementById("editJobCustomer")
-              .value,
-
-          title:
-            document
-              .getElementById("editJobTitle")
-              .value
-              .trim(),
-
-          scheduled_date:
-            document
-              .getElementById("editJobDate")
-              .value || null,
-
-          price:
-            Number(
-              document
-                .getElementById("editJobPrice")
-                .value
-            ) || 0,
-
-          status:
-            document
-              .getElementById("editJobStatus")
-              .value,
-
-          notes:
-            document
-              .getElementById("editJobNotes")
-              .value
-              .trim()
-
-        };
-
-
-        const { error } =
-          await supabase
-            .from("jobs")
-            .update(updates)
-            .eq("id", job.id);
-
-
-        if (error) {
-
-          alert(error.message);
-
-          return;
-
-        }
-
-
-        modal.remove();
-
-        await loadJobs();
-
-        showJobProfile(job.id);
-
-      }
-    );
-
-}
-
-
-// ===============================
-// DELETE JOB
-// ===============================
-
-async function deleteJob(jobId) {
-
-  const job =
-    jobs.find(
-      item =>
-        String(item.id) ===
-        String(jobId)
-    );
-
-  if (!job) return;
-
-
-  const confirmed =
-    confirm(
-      `Delete "${job.title}"? This cannot be undone.`
-    );
-
-
-  if (!confirmed) return;
-
-
-  const { error } =
-    await supabase
-      .from("jobs")
-      .delete()
-      .eq("id", job.id);
-
-
-  if (error) {
-
-    alert(error.message);
-
-    return;
-
-  }
-
-
-  await loadJobs();
-
-  showPage("jobs");
 
 }
 
@@ -3034,9 +2252,13 @@ async function deleteJob(jobId) {
 function showAddJobForm() {
 
   const modal =
-    document.createElement("div");
+    document.createElement(
+      "div"
+    );
 
-  modal.className = "modal show";
+
+  modal.className =
+    "modal show";
 
 
   modal.innerHTML = `
@@ -3057,6 +2279,7 @@ function showAddJobForm() {
 
         </div>
 
+
         <button class="close">
           ×
         </button>
@@ -3066,7 +2289,10 @@ function showAddJobForm() {
 
       <form id="jobForm">
 
-        <label>Customer *</label>
+        <label>
+          Customer *
+        </label>
+
 
         <select
           id="jobCustomer"
@@ -3077,18 +2303,30 @@ function showAddJobForm() {
             Select customer
           </option>
 
-          ${customers.map(customer => `
 
-            <option value="${customer.id}">
-              ${escapeHtml(customer.name)}
-            </option>
+          ${customers
+            .map(
+              customer => `
 
-          `).join("")}
+                <option
+                  value="${customer.id}"
+                >
+                  ${escapeHtml(
+                    customer.name
+                  )}
+                </option>
+
+              `
+            )
+            .join("")}
 
         </select>
 
 
-        <label>Job Title *</label>
+        <label>
+          Job Title *
+        </label>
+
 
         <input
           id="jobTitle"
@@ -3097,7 +2335,10 @@ function showAddJobForm() {
         >
 
 
-        <label>Date</label>
+        <label>
+          Date
+        </label>
+
 
         <input
           id="jobDate"
@@ -3105,7 +2346,10 @@ function showAddJobForm() {
         >
 
 
-        <label>Price</label>
+        <label>
+          Price
+        </label>
+
 
         <input
           id="jobPrice"
@@ -3115,34 +2359,10 @@ function showAddJobForm() {
         >
 
 
-        <label>Status</label>
+        <label>
+          Notes
+        </label>
 
-        <select id="jobStatus">
-
-          <option value="Scheduled">
-            Scheduled
-          </option>
-
-          <option value="Quoted">
-            Quoted
-          </option>
-
-          <option value="In Progress">
-            In Progress
-          </option>
-
-          <option value="Completed">
-            Completed
-          </option>
-
-          <option value="Cancelled">
-            Cancelled
-          </option>
-
-        </select>
-
-
-        <label>Notes</label>
 
         <textarea
           id="jobNotes"
@@ -3157,6 +2377,7 @@ function showAddJobForm() {
           >
             Cancel
           </button>
+
 
           <button
             type="submit"
@@ -3174,7 +2395,9 @@ function showAddJobForm() {
   `;
 
 
-  document.body.appendChild(modal);
+  document.body.appendChild(
+    modal
+  );
 
 
   modal
@@ -3188,7 +2411,9 @@ function showAddJobForm() {
 
 
   modal
-    .querySelector("#jobForm")
+    .querySelector(
+      "#jobForm"
+    )
     .addEventListener(
       "submit",
       async event => {
@@ -3198,39 +2423,46 @@ function showAddJobForm() {
 
         const job = {
 
-          user_id: currentUser.id,
+          user_id:
+            currentUser.id,
 
           customer_id:
             document
-              .getElementById("jobCustomer")
+              .getElementById(
+                "jobCustomer"
+              )
               .value,
 
           title:
             document
-              .getElementById("jobTitle")
+              .getElementById(
+                "jobTitle"
+              )
               .value
               .trim(),
 
           scheduled_date:
             document
-              .getElementById("jobDate")
-              .value || null,
+              .getElementById(
+                "jobDate"
+              )
+              .value ||
+            null,
 
           price:
             Number(
               document
-                .getElementById("jobPrice")
+                .getElementById(
+                  "jobPrice"
+                )
                 .value
             ) || 0,
 
-          status:
-            document
-              .getElementById("jobStatus")
-              .value,
-
           notes:
             document
-              .getElementById("jobNotes")
+              .getElementById(
+                "jobNotes"
+              )
               .value
               .trim()
 
@@ -3240,12 +2472,16 @@ function showAddJobForm() {
         const { error } =
           await supabase
             .from("jobs")
-            .insert(job);
+            .insert(
+              job
+            );
 
 
         if (error) {
 
-          alert(error.message);
+          alert(
+            error.message
+          );
 
           return;
 
@@ -3257,7 +2493,9 @@ function showAddJobForm() {
         await loadJobs();
 
         renderJobsPage(
-          document.getElementById("pageContent")
+          document.getElementById(
+            "pageContent"
+          )
         );
 
       }
@@ -3265,9 +2503,1631 @@ function showAddJobForm() {
 
 }
 
-// =====================================================
+
+// ===============================
+// QUOTES PAGE
+// ===============================
+
+function renderQuotesPage(
+  content
+) {
+
+  content.innerHTML = `
+
+    <div class="page-actions">
+
+      <div>
+
+        <h2>
+          Quotes
+        </h2>
+
+        <p>
+          Create and manage customer quotations.
+        </p>
+
+      </div>
+
+
+      <button
+        id="addQuoteButton"
+        class="button primary"
+      >
+        + Create Quote
+      </button>
+
+    </div>
+
+
+    <div class="panel">
+
+      <div class="job-filters">
+
+        <input
+          id="quoteSearch"
+          class="search-input"
+          placeholder="Search quotes..."
+        >
+
+
+        <select
+          id="quoteStatusFilter"
+        >
+
+          <option value="">
+            All statuses
+          </option>
+
+          <option value="Draft">
+            Draft
+          </option>
+
+          <option value="Sent">
+            Sent
+          </option>
+
+          <option value="Accepted">
+            Accepted
+          </option>
+
+          <option value="Rejected">
+            Rejected
+          </option>
+
+          <option value="Expired">
+            Expired
+          </option>
+
+        </select>
+
+      </div>
+
+
+      <div id="quotesTable"></div>
+
+    </div>
+
+  `;
+
+
+  document
+    .getElementById(
+      "addQuoteButton"
+    )
+    .addEventListener(
+      "click",
+      showAddQuoteForm
+    );
+
+
+  document
+    .getElementById(
+      "quoteSearch"
+    )
+    .addEventListener(
+      "input",
+      renderQuotesTable
+    );
+
+
+  document
+    .getElementById(
+      "quoteStatusFilter"
+    )
+    .addEventListener(
+      "change",
+      renderQuotesTable
+    );
+
+
+  renderQuotesTable();
+
+}
+
+
+// ===============================
+// QUOTE TABLE
+// ===============================
+
+function renderQuotesTable() {
+
+  const container =
+    document.getElementById(
+      "quotesTable"
+    );
+
+
+  if (!container) return;
+
+
+  const search =
+    document
+      .getElementById(
+        "quoteSearch"
+      )
+      ?.value
+      .toLowerCase()
+      .trim() || "";
+
+
+  const status =
+    document
+      .getElementById(
+        "quoteStatusFilter"
+      )
+      ?.value || "";
+
+
+  const filtered =
+    quotes.filter(
+      quote => {
+
+        const customer =
+          customers.find(
+            item =>
+              String(item.id) ===
+              String(
+                quote.customer_id
+              )
+          );
+
+
+        const customerName =
+          customer?.name || "";
+
+
+        const searchable = `
+
+          ${quote.quote_number || ""}
+          ${customerName}
+          ${quote.notes || ""}
+          ${quote.status || ""}
+
+        `.toLowerCase();
+
+
+        return (
+          (!search ||
+            searchable.includes(
+              search
+            )) &&
+          (!status ||
+            quote.status === status)
+        );
+
+      }
+    );
+
+
+  if (!filtered.length) {
+
+    container.innerHTML = `
+
+      <div class="empty-state">
+
+        <div class="empty-icon">
+          💷
+        </div>
+
+        <h3>
+          No quotes found
+        </h3>
+
+        <p>
+          Create your first quote to get started.
+        </p>
+
+      </div>
+
+    `;
+
+    return;
+
+  }
+
+
+  container.innerHTML = `
+
+    <div class="jobs-list">
+
+      ${filtered
+        .map(quote => {
+
+          const customer =
+            customers.find(
+              item =>
+                String(item.id) ===
+                String(
+                  quote.customer_id
+                )
+            );
+
+
+          return `
+
+            <button
+              class="job-card"
+              data-quote-id="${quote.id}"
+            >
+
+              <div class="job-card-main">
+
+                <strong>
+                  ${escapeHtml(
+                    quote.quote_number ||
+                    "Quote"
+                  )}
+                </strong>
+
+
+                <span>
+                  ${escapeHtml(
+                    customer?.name ||
+                    "Unknown customer"
+                  )}
+                </span>
+
+              </div>
+
+
+              <div class="job-card-details">
+
+                <span>
+                  £${Number(
+                    quote.total || 0
+                  ).toFixed(2)}
+                </span>
+
+
+                <span>
+                  Valid until:
+                  ${quote.valid_until || "—"}
+                </span>
+
+
+                <span class="status-badge">
+                  ${escapeHtml(
+                    quote.status ||
+                    "Draft"
+                  )}
+                </span>
+
+              </div>
+
+            </button>
+
+          `;
+
+        })
+        .join("")}
+
+    </div>
+
+  `;
+
+
+  container
+    .querySelectorAll(
+      "[data-quote-id]"
+    )
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () =>
+          showQuoteProfile(
+            button.dataset.quoteId
+          )
+      );
+
+    });
+
+}
+
+
+// ===============================
+// QUOTE PROFILE
+// ===============================
+
+function showQuoteProfile(
+  quoteId
+) {
+
+  const quote =
+    quotes.find(
+      item =>
+        String(item.id) ===
+        String(quoteId)
+    );
+
+
+  if (!quote) return;
+
+
+  const customer =
+    customers.find(
+      item =>
+        String(item.id) ===
+        String(
+          quote.customer_id
+        )
+    );
+
+
+  const content =
+    document.getElementById(
+      "pageContent"
+    );
+
+
+  document
+    .getElementById(
+      "pageTitle"
+    )
+    .textContent =
+      quote.quote_number ||
+      "Quote";
+
+
+  document
+    .getElementById(
+      "pageSubtitle"
+    )
+    .textContent =
+      "Quote details";
+
+
+  content.innerHTML = `
+
+    <div class="page-actions">
+
+      <div>
+
+        <button
+          id="backQuotes"
+          class="button secondary"
+        >
+          ← Quotes
+        </button>
+
+      </div>
+
+
+      <div>
+
+        <button
+          id="editQuote"
+          class="button primary"
+        >
+          Edit Quote
+        </button>
+
+
+        <button
+          id="deleteQuote"
+          class="button danger"
+        >
+          Delete
+        </button>
+
+      </div>
+
+    </div>
+
+
+    <div class="content-grid">
+
+      <div class="panel">
+
+        <h2>
+          Quote Details
+        </h2>
+
+
+        <div class="detail-list">
+
+          <div>
+
+            <span>
+              Quote Number
+            </span>
+
+            <strong>
+              ${escapeHtml(
+                quote.quote_number ||
+                "—"
+              )}
+            </strong>
+
+          </div>
+
+
+          <div>
+
+            <span>
+              Customer
+            </span>
+
+            <strong>
+              ${escapeHtml(
+                customer?.name ||
+                "—"
+              )}
+            </strong>
+
+          </div>
+
+
+          <div>
+
+            <span>
+              Status
+            </span>
+
+            <strong>
+              ${escapeHtml(
+                quote.status ||
+                "Draft"
+              )}
+            </strong>
+
+          </div>
+
+
+          <div>
+
+            <span>
+              Subtotal
+            </span>
+
+            <strong>
+              £${Number(
+                quote.subtotal ||
+                0
+              ).toFixed(2)}
+            </strong>
+
+          </div>
+
+
+          <div>
+
+            <span>
+              VAT
+            </span>
+
+            <strong>
+              £${Number(
+                quote.vat ||
+                0
+              ).toFixed(2)}
+            </strong>
+
+          </div>
+
+
+          <div>
+
+            <span>
+              Total
+            </span>
+
+            <strong>
+              £${Number(
+                quote.total ||
+                0
+              ).toFixed(2)}
+            </strong>
+
+          </div>
+
+
+          <div>
+
+            <span>
+              Valid Until
+            </span>
+
+            <strong>
+              ${quote.valid_until ||
+                "—"}
+            </strong>
+
+          </div>
+
+
+          <div>
+
+            <span>
+              Notes
+            </span>
+
+            <strong>
+              ${escapeHtml(
+                quote.notes ||
+                "—"
+              )}
+            </strong>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div class="panel">
+
+        <h2>
+          Customer
+        </h2>
+
+
+        ${
+          customer
+
+            ? `
+
+              <div class="detail-list">
+
+                <div>
+
+                  <span>
+                    Name
+                  </span>
+
+                  <strong>
+                    ${escapeHtml(
+                      customer.name
+                    )}
+                  </strong>
+
+                </div>
+
+
+                <div>
+
+                  <span>
+                    Phone
+                  </span>
+
+                  <strong>
+                    ${escapeHtml(
+                      customer.phone ||
+                      "—"
+                    )}
+                  </strong>
+
+                </div>
+
+
+                <div>
+
+                  <span>
+                    Email
+                  </span>
+
+                  <strong>
+                    ${escapeHtml(
+                      customer.email ||
+                      "—"
+                    )}
+                  </strong>
+
+                </div>
+
+              </div>
+
+            `
+
+            : `
+
+              <p class="muted">
+                Customer not found.
+              </p>
+
+            `
+        }
+
+      </div>
+
+    </div>
+
+  `;
+
+
+  document
+    .getElementById(
+      "backQuotes"
+    )
+    .addEventListener(
+      "click",
+      () =>
+        showPage("quotes")
+    );
+
+
+  document
+    .getElementById(
+      "editQuote"
+    )
+    .addEventListener(
+      "click",
+      () =>
+        showEditQuoteForm(
+          quote.id
+        )
+    );
+
+
+  document
+    .getElementById(
+      "deleteQuote"
+    )
+    .addEventListener(
+      "click",
+      () =>
+        deleteQuote(
+          quote.id
+        )
+    );
+
+}
+
+
+// ===============================
+// ADD QUOTE
+// ===============================
+
+function showAddQuoteForm() {
+
+  const modal =
+    document.createElement(
+      "div"
+    );
+
+
+  modal.className =
+    "modal show";
+
+
+  modal.innerHTML = `
+
+    <div class="modal-content">
+
+      <div class="modal-header">
+
+        <div>
+
+          <h2>
+            Create Quote
+          </h2>
+
+          <p>
+            Create a quotation for a customer.
+          </p>
+
+        </div>
+
+
+        <button class="close">
+          ×
+        </button>
+
+      </div>
+
+
+      <form id="quoteForm">
+
+        <label>
+          Customer *
+        </label>
+
+
+        <select
+          id="quoteCustomer"
+          required
+        >
+
+          <option value="">
+            Select customer
+          </option>
+
+
+          ${customers
+            .map(
+              customer => `
+
+                <option
+                  value="${customer.id}"
+                >
+                  ${escapeHtml(
+                    customer.name
+                  )}
+                </option>
+
+              `
+            )
+            .join("")}
+
+        </select>
+
+
+        <label>
+          Quote Number
+        </label>
+
+
+        <input
+          id="quoteNumber"
+          value="${getNextQuoteNumber()}"
+          required
+        >
+
+
+        <label>
+          Subtotal
+        </label>
+
+
+        <input
+          id="quoteSubtotal"
+          type="number"
+          step="0.01"
+          min="0"
+          value="0"
+        >
+
+
+        <label>
+          VAT
+        </label>
+
+
+        <input
+          id="quoteVAT"
+          type="number"
+          step="0.01"
+          min="0"
+          value="0"
+        >
+
+
+        <label>
+          Total
+        </label>
+
+
+        <input
+          id="quoteTotal"
+          type="number"
+          step="0.01"
+          min="0"
+          value="0"
+          readonly
+        >
+
+
+        <label>
+          Status
+        </label>
+
+
+        <select
+          id="quoteStatus"
+        >
+
+          <option value="Draft">
+            Draft
+          </option>
+
+          <option value="Sent">
+            Sent
+          </option>
+
+          <option value="Accepted">
+            Accepted
+          </option>
+
+          <option value="Rejected">
+            Rejected
+          </option>
+
+          <option value="Expired">
+            Expired
+          </option>
+
+        </select>
+
+
+        <label>
+          Valid Until
+        </label>
+
+
+        <input
+          id="quoteValidUntil"
+          type="date"
+        >
+
+
+        <label>
+          Notes
+        </label>
+
+
+        <textarea
+          id="quoteNotes"
+          placeholder="Quote notes..."
+        ></textarea>
+
+
+        <div class="modal-actions">
+
+          <button
+            type="button"
+            class="button secondary close"
+          >
+            Cancel
+          </button>
+
+
+          <button
+            type="submit"
+            class="button primary"
+          >
+            Save Quote
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+
+  `;
+
+
+  document.body.appendChild(
+    modal
+  );
+
+
+  modal
+    .querySelectorAll(".close")
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        () => modal.remove()
+      )
+    );
+
+
+  const subtotalInput =
+    modal.querySelector(
+      "#quoteSubtotal"
+    );
+
+
+  const vatInput =
+    modal.querySelector(
+      "#quoteVAT"
+    );
+
+
+  const totalInput =
+    modal.querySelector(
+      "#quoteTotal"
+    );
+
+
+  function updateTotal() {
+
+    const subtotal =
+      Number(
+        subtotalInput.value
+      ) || 0;
+
+
+    const vat =
+      Number(
+        vatInput.value
+      ) || 0;
+
+
+    totalInput.value =
+      (
+        subtotal +
+        vat
+      ).toFixed(2);
+
+  }
+
+
+  subtotalInput.addEventListener(
+    "input",
+    updateTotal
+  );
+
+
+  vatInput.addEventListener(
+    "input",
+    updateTotal
+  );
+
+
+  modal
+    .querySelector(
+      "#quoteForm"
+    )
+    .addEventListener(
+      "submit",
+      async event => {
+
+        event.preventDefault();
+
+
+        const quote = {
+
+          user_id:
+            currentUser.id,
+
+          customer_id:
+            document
+              .getElementById(
+                "quoteCustomer"
+              )
+              .value,
+
+          quote_number:
+            document
+              .getElementById(
+                "quoteNumber"
+              )
+              .value
+              .trim(),
+
+          status:
+            document
+              .getElementById(
+                "quoteStatus"
+              )
+              .value,
+
+          subtotal:
+            Number(
+              document
+                .getElementById(
+                  "quoteSubtotal"
+                )
+                .value
+            ) || 0,
+
+          vat:
+            Number(
+              document
+                .getElementById(
+                  "quoteVAT"
+                )
+                .value
+            ) || 0,
+
+          total:
+            Number(
+              document
+                .getElementById(
+                  "quoteTotal"
+                )
+                .value
+            ) || 0,
+
+          notes:
+            document
+              .getElementById(
+                "quoteNotes"
+              )
+              .value
+              .trim(),
+
+          valid_until:
+            document
+              .getElementById(
+                "quoteValidUntil"
+              )
+              .value ||
+            null
+
+        };
+
+
+        const { error } =
+          await supabase
+            .from("quotes")
+            .insert(
+              quote
+            );
+
+
+        if (error) {
+
+          alert(
+            error.message
+          );
+
+          return;
+
+        }
+
+
+        modal.remove();
+
+        await loadQuotes();
+
+        renderQuotesPage(
+          document.getElementById(
+            "pageContent"
+          )
+        );
+
+      }
+    );
+
+}
+
+
+// ===============================
+// QUOTE NUMBER
+// ===============================
+
+function getNextQuoteNumber() {
+
+  const numbers =
+    quotes.map(
+      quote => {
+
+        const match =
+          String(
+            quote.quote_number ||
+            ""
+          ).match(
+            /(\d+)$/
+          );
+
+
+        return match
+          ? Number(
+              match[1]
+            )
+          : 0;
+
+      }
+    );
+
+
+  const highest =
+    numbers.length
+      ? Math.max(
+          ...numbers
+        )
+      : 0;
+
+
+  return `Q-${String(
+    highest + 1
+  ).padStart(
+    4,
+    "0"
+  )}`;
+
+}
+
+
+// ===============================
+// EDIT QUOTE
+// ===============================
+
+function showEditQuoteForm(
+  quoteId
+) {
+
+  const quote =
+    quotes.find(
+      item =>
+        String(item.id) ===
+        String(quoteId)
+    );
+
+
+  if (!quote) return;
+
+
+  const modal =
+    document.createElement(
+      "div"
+    );
+
+
+  modal.className =
+    "modal show";
+
+
+  modal.innerHTML = `
+
+    <div class="modal-content">
+
+      <div class="modal-header">
+
+        <div>
+
+          <h2>
+            Edit Quote
+          </h2>
+
+          <p>
+            Update quotation details.
+          </p>
+
+        </div>
+
+
+        <button class="close">
+          ×
+        </button>
+
+      </div>
+
+
+      <form id="editQuoteForm">
+
+        <label>
+          Customer *
+        </label>
+
+
+        <select
+          id="editQuoteCustomer"
+          required
+        >
+
+          ${customers
+            .map(
+              customer => `
+
+                <option
+                  value="${customer.id}"
+                  ${
+                    String(
+                      customer.id
+                    ) ===
+                    String(
+                      quote.customer_id
+                    )
+                      ? "selected"
+                      : ""
+                  }
+                >
+                  ${escapeHtml(
+                    customer.name
+                  )}
+                </option>
+
+              `
+            )
+            .join("")}
+
+        </select>
+
+
+        <label>
+          Quote Number
+        </label>
+
+
+        <input
+          id="editQuoteNumber"
+          value="${escapeHtml(
+            quote.quote_number ||
+            ""
+          )}"
+          required
+        >
+
+
+        <label>
+          Subtotal
+        </label>
+
+
+        <input
+          id="editQuoteSubtotal"
+          type="number"
+          step="0.01"
+          min="0"
+          value="${
+            quote.subtotal ||
+            0
+          }"
+        >
+
+
+        <label>
+          VAT
+        </label>
+
+
+        <input
+          id="editQuoteVAT"
+          type="number"
+          step="0.01"
+          min="0"
+          value="${
+            quote.vat ||
+            0
+          }"
+        >
+
+
+        <label>
+          Total
+        </label>
+
+
+        <input
+          id="editQuoteTotal"
+          type="number"
+          step="0.01"
+          value="${
+            quote.total ||
+            0
+          }"
+          readonly
+        >
+
+
+        <label>
+          Status
+        </label>
+
+
+        <select
+          id="editQuoteStatus"
+        >
+
+          ${
+            [
+              "Draft",
+              "Sent",
+              "Accepted",
+              "Rejected",
+              "Expired"
+            ]
+              .map(
+                status => `
+
+                  <option
+                    value="${status}"
+                    ${
+                      quote.status ===
+                      status
+                        ? "selected"
+                        : ""
+                    }
+                  >
+                    ${status}
+                  </option>
+
+                `
+              )
+              .join("")
+          }
+
+        </select>
+
+
+        <label>
+          Valid Until
+        </label>
+
+
+        <input
+          id="editQuoteValidUntil"
+          type="date"
+          value="${
+            quote.valid_until ||
+            ""
+          }"
+        >
+
+
+        <label>
+          Notes
+        </label>
+
+
+        <textarea
+          id="editQuoteNotes"
+        >${escapeHtml(
+          quote.notes ||
+          ""
+        )}</textarea>
+
+
+        <div class="modal-actions">
+
+          <button
+            type="button"
+            class="button secondary close"
+          >
+            Cancel
+          </button>
+
+
+          <button
+            type="submit"
+            class="button primary"
+          >
+            Save Changes
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+
+  `;
+
+
+  document.body.appendChild(
+    modal
+  );
+
+
+  modal
+    .querySelectorAll(".close")
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        () => modal.remove()
+      )
+    );
+
+
+  const subtotalInput =
+    modal.querySelector(
+      "#editQuoteSubtotal"
+    );
+
+
+  const vatInput =
+    modal.querySelector(
+      "#editQuoteVAT"
+    );
+
+
+  const totalInput =
+    modal.querySelector(
+      "#editQuoteTotal"
+    );
+
+
+  function updateTotal() {
+
+    const subtotal =
+      Number(
+        subtotalInput.value
+      ) || 0;
+
+
+    const vat =
+      Number(
+        vatInput.value
+      ) || 0;
+
+
+    totalInput.value =
+      (
+        subtotal +
+        vat
+      ).toFixed(2);
+
+  }
+
+
+  subtotalInput.addEventListener(
+    "input",
+    updateTotal
+  );
+
+
+  vatInput.addEventListener(
+    "input",
+    updateTotal
+  );
+
+
+  modal
+    .querySelector(
+      "#editQuoteForm"
+    )
+    .addEventListener(
+      "submit",
+      async event => {
+
+        event.preventDefault();
+
+
+        const updates = {
+
+          customer_id:
+            document
+              .getElementById(
+                "editQuoteCustomer"
+              )
+              .value,
+
+          quote_number:
+            document
+              .getElementById(
+                "editQuoteNumber"
+              )
+              .value
+              .trim(),
+
+          status:
+            document
+              .getElementById(
+                "editQuoteStatus"
+              )
+              .value,
+
+          subtotal:
+            Number(
+              document
+                .getElementById(
+                  "editQuoteSubtotal"
+                )
+                .value
+            ) || 0,
+
+          vat:
+            Number(
+              document
+                .getElementById(
+                  "editQuoteVAT"
+                )
+                .value
+            ) || 0,
+
+          total:
+            Number(
+              document
+                .getElementById(
+                  "editQuoteTotal"
+                )
+                .value
+            ) || 0,
+
+          notes:
+            document
+              .getElementById(
+                "editQuoteNotes"
+              )
+              .value
+              .trim(),
+
+          valid_until:
+            document
+              .getElementById(
+                "editQuoteValidUntil"
+              )
+              .value ||
+            null
+
+        };
+
+
+        const { error } =
+          await supabase
+            .from("quotes")
+            .update(
+              updates
+            )
+            .eq(
+              "id",
+              quote.id
+            );
+
+
+        if (error) {
+
+          alert(
+            error.message
+          );
+
+          return;
+
+        }
+
+
+        modal.remove();
+
+        await loadQuotes();
+
+        showQuoteProfile(
+          quote.id
+        );
+
+      }
+    );
+
+}
+
+
+// ===============================
+// DELETE QUOTE
+// ===============================
+
+async function deleteQuote(
+  quoteId
+) {
+
+  const quote =
+    quotes.find(
+      item =>
+        String(item.id) ===
+        String(quoteId)
+    );
+
+
+  if (!quote) return;
+
+
+  const confirmed =
+    confirm(
+      `Delete ${
+        quote.quote_number ||
+        "this quote"
+      }? This cannot be undone.`
+    );
+
+
+  if (!confirmed) return;
+
+
+  const { error } =
+    await supabase
+      .from("quotes")
+      .delete()
+      .eq(
+        "id",
+        quote.id
+      );
+
+
+  if (error) {
+
+    alert(
+      error.message
+    );
+
+    return;
+
+  }
+
+
+  await loadQuotes();
+
+  showPage(
+    "quotes"
+  );
+
+}
+
+
+// ===============================
 // SETTINGS
-// =====================================================
+// ===============================
 
 function renderSettings(
   content
@@ -3280,6 +4140,7 @@ function renderSettings(
       <h2>
         Account
       </h2>
+
 
       <p class="muted">
         ${escapeHtml(
@@ -3295,6 +4156,7 @@ function renderSettings(
         JobPilot
       </h3>
 
+
       <p class="muted">
         CRM for UK tradespeople.
       </p>
@@ -3306,9 +4168,9 @@ function renderSettings(
 }
 
 
-// =====================================================
-// PLACEHOLDER PAGES
-// =====================================================
+// ===============================
+// SIMPLE PAGE
+// ===============================
 
 function renderSimplePage(
   content,
@@ -3327,9 +4189,11 @@ function renderSimplePage(
           ${icon}
         </div>
 
+
         <h3>
           ${title}
         </h3>
+
 
         <p>
           ${message}
@@ -3344,9 +4208,9 @@ function renderSimplePage(
 }
 
 
-// =====================================================
+// ===============================
 // LOGOUT
-// =====================================================
+// ===============================
 
 async function logout() {
 
@@ -3355,17 +4219,15 @@ async function logout() {
 }
 
 
-// =====================================================
+// ===============================
 // HTML ESCAPING
-// =====================================================
+// ===============================
 
 function escapeHtml(
   value
 ) {
 
-  return String(
-    value ?? ""
-  )
+  return String(value)
 
     .replace(
       /&/g,
@@ -3395,23 +4257,8 @@ function escapeHtml(
 }
 
 
-// =====================================================
-// ATTRIBUTE ESCAPING
-// =====================================================
-
-function escapeAttribute(
-  value
-) {
-
-  return escapeHtml(
-    value
-  );
-
-}
-
-
-// =====================================================
+// ===============================
 // START
-// =====================================================
+// ===============================
 
 init();

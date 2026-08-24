@@ -6,7 +6,13 @@ let jobs = [];
 
 const app = document.getElementById("app");
 
+
+// =====================================================
+// INITIALISE
+// =====================================================
+
 async function init() {
+
   const { data } = await supabase.auth.getSession();
 
   currentUser = data.session?.user || null;
@@ -17,38 +23,51 @@ async function init() {
     showLogin();
   }
 
-  supabase.auth.onAuthStateChange(async (_event, session) => {
-    currentUser = session?.user || null;
+  supabase.auth.onAuthStateChange(
+    async (_event, session) => {
 
-    if (currentUser) {
-      await loadApp();
-    } else {
-      showLogin();
+      currentUser = session?.user || null;
+
+      if (currentUser) {
+        await loadApp();
+      } else {
+        showLogin();
+      }
+
     }
-  });
+  );
+
 }
 
 
-// ===============================
+// =====================================================
 // LOGIN
-// ===============================
+// =====================================================
 
 function showLogin() {
 
   app.innerHTML = `
+
     <div class="auth-page">
 
       <div class="auth-card">
 
         <div class="auth-logo">
-          <div class="logo-mark">J</div>
+
+          <div class="logo-mark">
+            J
+          </div>
+
           <div>
             <strong>JobPilot</strong>
             <span>Trades CRM</span>
           </div>
+
         </div>
 
-        <h1>Welcome to JobPilot</h1>
+        <h1>
+          Welcome to JobPilot
+        </h1>
 
         <p class="auth-subtitle">
           Your simple CRM for running your trade business.
@@ -75,7 +94,10 @@ function showLogin() {
             placeholder="••••••••"
           >
 
-          <button class="button primary auth-button">
+          <button
+            type="submit"
+            class="button primary auth-button"
+          >
             Sign in
           </button>
 
@@ -83,48 +105,63 @@ function showLogin() {
 
         <div id="authMessage"></div>
 
-        <button id="signupButton" class="link-button">
+        <button
+          id="signupButton"
+          class="link-button"
+          type="button"
+        >
           Create a new account
         </button>
 
       </div>
 
     </div>
-  `;
 
+  `;
 
   document
     .getElementById("loginForm")
-    .addEventListener("submit", login);
-
+    .addEventListener(
+      "submit",
+      login
+    );
 
   document
     .getElementById("signupButton")
-    .addEventListener("click", signup);
+    .addEventListener(
+      "click",
+      signup
+    );
 
 }
 
+
+// =====================================================
+// LOGIN ACTION
+// =====================================================
 
 async function login(event) {
 
   event.preventDefault();
 
   const email =
-    document.getElementById("email").value.trim();
+    document
+      .getElementById("email")
+      .value
+      .trim();
 
   const password =
-    document.getElementById("password").value;
-
+    document
+      .getElementById("password")
+      .value;
 
   showAuthMessage("Signing in...");
-
 
   const { error } =
     await supabase.auth.signInWithPassword({
       email,
       password
     });
-
 
   if (error) {
 
@@ -133,23 +170,32 @@ async function login(event) {
       true
     );
 
-    return;
-
   }
 
 }
 
 
+// =====================================================
+// SIGN UP
+// =====================================================
+
 async function signup() {
 
   const email =
-    document.getElementById("email").value.trim();
+    document
+      .getElementById("email")
+      .value
+      .trim();
 
   const password =
-    document.getElementById("password").value;
+    document
+      .getElementById("password")
+      .value;
 
-
-  if (!email || password.length < 6) {
+  if (
+    !email ||
+    password.length < 6
+  ) {
 
     showAuthMessage(
       "Enter an email and a password of at least 6 characters.",
@@ -160,16 +206,15 @@ async function signup() {
 
   }
 
-
-  showAuthMessage("Creating account...");
-
+  showAuthMessage(
+    "Creating account..."
+  );
 
   const { error } =
     await supabase.auth.signUp({
       email,
       password
     });
-
 
   if (error) {
 
@@ -182,7 +227,6 @@ async function signup() {
 
   }
 
-
   showAuthMessage(
     "Account created. Check your email if confirmation is required."
   );
@@ -190,24 +234,36 @@ async function signup() {
 }
 
 
-function showAuthMessage(message, error = false) {
+// =====================================================
+// AUTH MESSAGE
+// =====================================================
+
+function showAuthMessage(
+  message,
+  error = false
+) {
 
   const element =
-    document.getElementById("authMessage");
+    document.getElementById(
+      "authMessage"
+    );
 
   if (!element) return;
 
-  element.textContent = message;
+  element.textContent =
+    message;
 
   element.style.color =
-    error ? "#dc2626" : "#2563eb";
+    error
+      ? "#dc2626"
+      : "#2563eb";
 
 }
 
 
-// ===============================
+// =====================================================
 // LOAD APP
-// ===============================
+// =====================================================
 
 async function loadApp() {
 
@@ -220,65 +276,81 @@ async function loadApp() {
 }
 
 
-// ===============================
-// CUSTOMERS
-// ===============================
+// =====================================================
+// LOAD CUSTOMERS
+// =====================================================
 
 async function loadCustomers() {
 
-  const { data, error } = await supabase
-    .from("customers")
-    .select("*")
-    .order("created_at", {
-      ascending: false
-    });
-
+  const { data, error } =
+    await supabase
+      .from("customers")
+      .select("*")
+      .order(
+        "created_at",
+        {
+          ascending: false
+        }
+      );
 
   if (error) {
 
-    console.error(error);
+    console.error(
+      "Customer loading error:",
+      error
+    );
+
+    customers = [];
 
     return;
 
   }
 
-
-  customers = data || [];
+  customers =
+    data || [];
 
 }
 
 
-// ===============================
-// JOBS
-// ===============================
+// =====================================================
+// LOAD JOBS
+// =====================================================
 
 async function loadJobs() {
 
-  const { data, error } = await supabase
-    .from("jobs")
-    .select("*")
-    .order("scheduled_date", {
-      ascending: true
-    });
-
+  const { data, error } =
+    await supabase
+      .from("jobs")
+      .select("*")
+      .order(
+        "scheduled_date",
+        {
+          ascending: true
+        }
+      );
 
   if (error) {
 
-    console.error(error);
+    console.error(
+      "Job loading error:",
+      error
+    );
+
+    jobs = [];
 
     return;
 
   }
 
-
-  jobs = data || [];
+  jobs =
+    data || [];
 
 }
 
 
-// ===============================
+// =====================================================
 // MAIN APP
-// ===============================
+// =====================================================
 
 function renderApp() {
 
@@ -290,7 +362,9 @@ function renderApp() {
 
         <div class="logo">
 
-          <div class="logo-mark">J</div>
+          <div class="logo-mark">
+            J
+          </div>
 
           <div>
             <strong>JobPilot</strong>
@@ -302,23 +376,38 @@ function renderApp() {
 
         <nav>
 
-          <button class="nav-item active" data-page="dashboard">
+          <button
+            class="nav-item active"
+            data-page="dashboard"
+          >
             🏠 Dashboard
           </button>
 
-          <button class="nav-item" data-page="customers">
+          <button
+            class="nav-item"
+            data-page="customers"
+          >
             👥 Customers
           </button>
 
-          <button class="nav-item" data-page="jobs">
+          <button
+            class="nav-item"
+            data-page="jobs"
+          >
             📋 Jobs
           </button>
 
-          <button class="nav-item" data-page="quotes">
+          <button
+            class="nav-item"
+            data-page="quotes"
+          >
             💷 Quotes
           </button>
 
-          <button class="nav-item" data-page="invoices">
+          <button
+            class="nav-item"
+            data-page="invoices"
+          >
             🧾 Invoices
           </button>
 
@@ -327,11 +416,17 @@ function renderApp() {
 
         <div class="sidebar-bottom">
 
-          <button class="nav-item" data-page="settings">
+          <button
+            class="nav-item"
+            data-page="settings"
+          >
             ⚙️ Settings
           </button>
 
-          <button class="nav-item" id="logoutButton">
+          <button
+            class="nav-item"
+            id="logoutButton"
+          >
             🚪 Sign out
           </button>
 
@@ -358,13 +453,19 @@ function renderApp() {
 
 
           <div class="avatar">
-            ${currentUser.email.substring(0, 2).toUpperCase()}
+            ${
+              currentUser.email
+                .substring(0, 2)
+                .toUpperCase()
+            }
           </div>
 
         </header>
 
 
-        <section id="pageContent"></section>
+        <section
+          id="pageContent"
+        ></section>
 
       </main>
 
@@ -374,41 +475,54 @@ function renderApp() {
 
 
   document
-    .querySelectorAll(".nav-item[data-page]")
+    .querySelectorAll(
+      ".nav-item[data-page]"
+    )
     .forEach(button => {
 
       button.addEventListener(
         "click",
-        () => showPage(button.dataset.page)
+        () =>
+          showPage(
+            button.dataset.page
+          )
       );
 
     });
 
 
   document
-    .getElementById("logoutButton")
+    .getElementById(
+      "logoutButton"
+    )
     .addEventListener(
       "click",
       logout
     );
 
 
-  showPage("dashboard");
+  showPage(
+    "dashboard"
+  );
 
 }
 
 
-// ===============================
+// =====================================================
 // PAGE SWITCHING
-// ===============================
+// =====================================================
 
 function showPage(page) {
 
   document
-    .querySelectorAll(".nav-item")
+    .querySelectorAll(
+      ".nav-item"
+    )
     .forEach(button => {
 
-      button.classList.remove("active");
+      button.classList.remove(
+        "active"
+      );
 
     });
 
@@ -420,7 +534,11 @@ function showPage(page) {
 
 
   if (activeButton) {
-    activeButton.classList.add("active");
+
+    activeButton.classList.add(
+      "active"
+    );
+
   }
 
 
@@ -459,34 +577,54 @@ function showPage(page) {
   };
 
 
-  document.getElementById("pageTitle").textContent =
+  document
+    .getElementById(
+      "pageTitle"
+    )
+    .textContent =
     titles[page][0];
 
-  document.getElementById("pageSubtitle").textContent =
+
+  document
+    .getElementById(
+      "pageSubtitle"
+    )
+    .textContent =
     titles[page][1];
 
 
   const content =
-    document.getElementById("pageContent");
+    document.getElementById(
+      "pageContent"
+    );
 
 
   if (page === "dashboard") {
 
-    renderDashboard(content);
+    renderDashboard(
+      content
+    );
 
   }
+
 
   if (page === "customers") {
 
-    renderCustomersPage(content);
+    renderCustomersPage(
+      content
+    );
 
   }
+
 
   if (page === "jobs") {
 
-    renderJobsPage(content);
+    renderJobsPage(
+      content
+    );
 
   }
+
 
   if (page === "quotes") {
 
@@ -499,6 +637,7 @@ function showPage(page) {
 
   }
 
+
   if (page === "invoices") {
 
     renderSimplePage(
@@ -510,27 +649,23 @@ function showPage(page) {
 
   }
 
+
   if (page === "settings") {
 
-    renderSettings(content);
+    renderSettings(
+      content
+    );
 
   }
 
 }
 
 
-// ===============================
+// =====================================================
 // DASHBOARD
-// ===============================
+// =====================================================
 
 function renderDashboard(content) {
-
-  const jobCount =
-    jobs.length;
-
-  const customerCount =
-    customers.length;
-
 
   content.innerHTML = `
 
@@ -538,14 +673,18 @@ function renderDashboard(content) {
 
       <div class="stat-card">
 
-        <div class="stat-icon">📋</div>
+        <div class="stat-icon">
+          📋
+        </div>
 
         <div>
 
-          <span>Jobs</span>
+          <span>
+            Jobs
+          </span>
 
           <strong>
-            ${jobCount}
+            ${jobs.length}
           </strong>
 
         </div>
@@ -555,14 +694,18 @@ function renderDashboard(content) {
 
       <div class="stat-card">
 
-        <div class="stat-icon">👥</div>
+        <div class="stat-icon">
+          👥
+        </div>
 
         <div>
 
-          <span>Customers</span>
+          <span>
+            Customers
+          </span>
 
           <strong>
-            ${customerCount}
+            ${customers.length}
           </strong>
 
         </div>
@@ -572,13 +715,19 @@ function renderDashboard(content) {
 
       <div class="stat-card">
 
-        <div class="stat-icon">💷</div>
+        <div class="stat-icon">
+          💷
+        </div>
 
         <div>
 
-          <span>Quotes</span>
+          <span>
+            Quotes
+          </span>
 
-          <strong>£0</strong>
+          <strong>
+            £0
+          </strong>
 
         </div>
 
@@ -587,13 +736,19 @@ function renderDashboard(content) {
 
       <div class="stat-card">
 
-        <div class="stat-icon">🧾</div>
+        <div class="stat-icon">
+          🧾
+        </div>
 
         <div>
 
-          <span>Invoices</span>
+          <span>
+            Invoices
+          </span>
 
-          <strong>£0</strong>
+          <strong>
+            £0
+          </strong>
 
         </div>
 
@@ -610,9 +765,13 @@ function renderDashboard(content) {
 
           <div>
 
-            <h2>Upcoming Jobs</h2>
+            <h2>
+              Upcoming Jobs
+            </h2>
 
-            <p>Your scheduled work</p>
+            <p>
+              Your scheduled work
+            </p>
 
           </div>
 
@@ -621,39 +780,60 @@ function renderDashboard(content) {
 
         ${
           jobs.length
+
             ? jobs
                 .slice(0, 5)
                 .map(job => `
+
                   <div class="job-row">
 
+                    <div>
+
+                      <strong>
+                        ${escapeHtml(
+                          job.title
+                        )}
+                      </strong>
+
+                      <div class="muted">
+                        ${
+                          job.scheduled_date ||
+                          "No date"
+                        }
+                      </div>
+
+                    </div>
+
                     <strong>
-                      ${escapeHtml(job.title)}
+                      £${Number(
+                        job.price || 0
+                      ).toFixed(2)}
                     </strong>
 
-                    <span>
-                      ${job.scheduled_date || "No date"}
-                    </span>
-
                   </div>
+
                 `)
                 .join("")
-            : `
-              <div class="empty-state">
 
-                <div class="empty-icon">
-                  📋
+            : `
+
+                <div class="empty-state">
+
+                  <div class="empty-icon">
+                    📋
+                  </div>
+
+                  <h3>
+                    No jobs yet
+                  </h3>
+
+                  <p>
+                    Add your first job to get started.
+                  </p>
+
                 </div>
 
-                <h3>
-                  No jobs yet
-                </h3>
-
-                <p>
-                  Add your first job to get started.
-                </p>
-
-              </div>
-            `
+              `
         }
 
       </div>
@@ -665,9 +845,13 @@ function renderDashboard(content) {
 
           <div>
 
-            <h2>Quick Actions</h2>
+            <h2>
+              Quick Actions
+            </h2>
 
-            <p>Common tasks</p>
+            <p>
+              Common tasks
+            </p>
 
           </div>
 
@@ -676,7 +860,7 @@ function renderDashboard(content) {
 
         <button
           class="quick-button"
-          data-action="customers"
+          data-action="add-customer"
         >
           👤 Add Customer
         </button>
@@ -684,7 +868,7 @@ function renderDashboard(content) {
 
         <button
           class="quick-button"
-          data-action="jobs"
+          data-action="add-job"
         >
           📋 Add Job
         </button>
@@ -713,12 +897,47 @@ function renderDashboard(content) {
 
 
   document
-    .querySelectorAll("[data-action]")
+    .querySelectorAll(
+      "[data-action]"
+    )
     .forEach(button => {
 
       button.addEventListener(
         "click",
-        () => showPage(button.dataset.action)
+        () => {
+
+          const action =
+            button.dataset.action;
+
+          if (
+            action ===
+            "add-customer"
+          ) {
+
+            showAddCustomerForm();
+
+            return;
+
+          }
+
+          if (
+            action ===
+            "add-job"
+          ) {
+
+            showPage(
+              "jobs"
+            );
+
+            return;
+
+          }
+
+          showPage(
+            action
+          );
+
+        }
       );
 
     });
@@ -726,11 +945,13 @@ function renderDashboard(content) {
 }
 
 
-// ===============================
+// =====================================================
 // CUSTOMERS PAGE
-// ===============================
+// =====================================================
 
-function renderCustomersPage(content) {
+function renderCustomersPage(
+  content
+) {
 
   content.innerHTML = `
 
@@ -752,6 +973,7 @@ function renderCustomersPage(content) {
       <button
         id="addCustomerButton"
         class="button primary"
+        type="button"
       >
         + Add Customer
       </button>
@@ -764,6 +986,7 @@ function renderCustomersPage(content) {
       <input
         id="customerSearch"
         class="search-input"
+        type="search"
         placeholder="Search customers..."
       >
 
@@ -778,21 +1001,39 @@ function renderCustomersPage(content) {
   `;
 
 
-  document
-    .getElementById("addCustomerButton")
-    .addEventListener(
+  const addButton =
+    document.getElementById(
+      "addCustomerButton"
+    );
+
+
+  if (addButton) {
+
+    addButton.addEventListener(
       "click",
       showAddCustomerForm
     );
 
+  }
 
-  document
-    .getElementById("customerSearch")
-    .addEventListener(
+
+  const search =
+    document.getElementById(
+      "customerSearch"
+    );
+
+
+  if (search) {
+
+    search.addEventListener(
       "input",
       event =>
-        renderCustomerTable(event.target.value)
+        renderCustomerTable(
+          event.target.value
+        )
     );
+
+  }
 
 
   renderCustomerTable();
@@ -800,229 +1041,62 @@ function renderCustomersPage(content) {
 }
 
 
-// ===============================
+// =====================================================
 // CUSTOMER TABLE
-// ===============================
+// =====================================================
 
-function renderCustomerTable(search = "") {
+function renderCustomerTable(
+  search = ""
+) {
 
-function showAddCustomerForm() {
+  const container =
+    document.getElementById(
+      "customerTable"
+    );
 
-  const modal = document.createElement("div");
+  if (!container) return;
 
-  modal.className = "modal show";
 
-  modal.innerHTML = `
-    <div class="modal-content">
+  const term =
+    search
+      .trim()
+      .toLowerCase();
 
-      <div class="modal-header">
 
-        <div>
-          <h2>Add Customer</h2>
-          <p>Create a customer record.</p>
-        </div>
+  const filtered =
+    customers.filter(
+      customer => {
 
-        <button
-          type="button"
-          class="close"
-          aria-label="Close"
-        >
-          ×
-        </button>
+        const name =
+          String(
+            customer.name || ""
+          ).toLowerCase();
 
-      </div>
+        const phone =
+          String(
+            customer.phone || ""
+          ).toLowerCase();
 
-      <form id="customerForm">
+        const email =
+          String(
+            customer.email || ""
+          ).toLowerCase();
 
-        <label>Name *</label>
+        const postcode =
+          String(
+            customer.postcode || ""
+          ).toLowerCase();
 
-        <input
-          id="customerName"
-          type="text"
-          required
-        >
-
-        <label>Phone</label>
-
-        <input
-          id="customerPhone"
-          type="tel"
-        >
-
-        <label>Email</label>
-
-        <input
-          id="customerEmail"
-          type="email"
-        >
-
-        <label>Address</label>
-
-        <input
-          id="customerAddress"
-          type="text"
-        >
-
-        <label>Town / City</label>
-
-        <input
-          id="customerCity"
-          type="text"
-        >
-
-        <label>Postcode</label>
-
-        <input
-          id="customerPostcode"
-          type="text"
-        >
-
-        <label>Notes</label>
-
-        <textarea
-          id="customerNotes"
-        ></textarea>
-
-        <div class="modal-actions">
-
-          <button
-            type="button"
-            class="button secondary close"
-          >
-            Cancel
-          </button>
-
-          <button
-            type="submit"
-            class="button primary"
-          >
-            Save Customer
-          </button>
-
-        </div>
-
-      </form>
-
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-
-  modal
-    .querySelectorAll(".close")
-    .forEach(button => {
-
-      button.addEventListener(
-        "click",
-        () => modal.remove()
-      );
-
-    });
-
-  modal
-    .querySelector("#customerForm")
-    .addEventListener(
-      "submit",
-      async event => {
-
-        event.preventDefault();
-
-        const customer = {
-
-          user_id: currentUser.id,
-
-          name:
-            document
-              .getElementById("customerName")
-              .value
-              .trim(),
-
-          phone:
-            document
-              .getElementById("customerPhone")
-              .value
-              .trim(),
-
-          email:
-            document
-              .getElementById("customerEmail")
-              .value
-              .trim(),
-
-          address_line1:
-            document
-              .getElementById("customerAddress")
-              .value
-              .trim(),
-
-          city:
-            document
-              .getElementById("customerCity")
-              .value
-              .trim(),
-
-          postcode:
-            document
-              .getElementById("customerPostcode")
-              .value
-              .trim(),
-
-          notes:
-            document
-              .getElementById("customerNotes")
-              .value
-              .trim()
-
-        };
-
-        const { error } =
-          await supabase
-            .from("customers")
-            .insert(customer);
-
-        if (error) {
-
-          alert(error.message);
-
-          return;
-
-        }
-
-        modal.remove();
-
-        await loadCustomers();
-
-        renderCustomersPage(
-          document.getElementById("pageContent")
+        return (
+          name.includes(term) ||
+          phone.includes(term) ||
+          email.includes(term) ||
+          postcode.includes(term)
         );
 
       }
     );
 
-}
-  const container =
-    document.getElementById("customerTable");
-
-  if (!container) return;
-
-  const term =
-    search.toLowerCase();
-
-  const filtered =
-    customers.filter(customer =>
-      (customer.name || "")
-        .toLowerCase()
-        .includes(term) ||
-      (customer.phone || "")
-        .toLowerCase()
-        .includes(term) ||
-      (customer.email || "")
-        .toLowerCase()
-        .includes(term) ||
-      (customer.postcode || "")
-        .toLowerCase()
-        .includes(term)
-    );
 
   if (!filtered.length) {
 
@@ -1035,11 +1109,19 @@ function showAddCustomerForm() {
         </div>
 
         <h3>
-          No customers found
+          ${
+            term
+              ? "No customers found"
+              : "No customers yet"
+          }
         </h3>
 
         <p>
-          Add your first customer.
+          ${
+            term
+              ? "Try a different search."
+              : "Add your first customer to get started."
+          }
         </p>
 
       </div>
@@ -1050,6 +1132,7 @@ function showAddCustomerForm() {
 
   }
 
+
   container.innerHTML = `
 
     <table>
@@ -1057,14 +1140,31 @@ function showAddCustomerForm() {
       <thead>
 
         <tr>
-          <th>Name</th>
-          <th>Phone</th>
-          <th>Email</th>
-          <th>Postcode</th>
-          <th></th>
+
+          <th>
+            Name
+          </th>
+
+          <th>
+            Phone
+          </th>
+
+          <th>
+            Email
+          </th>
+
+          <th>
+            Postcode
+          </th>
+
+          <th>
+            Actions
+          </th>
+
         </tr>
 
       </thead>
+
 
       <tbody>
 
@@ -1077,29 +1177,43 @@ function showAddCustomerForm() {
               <button
                 class="customer-link"
                 data-customer-id="${customer.id}"
+                type="button"
               >
-                ${escapeHtml(customer.name)}
+                ${escapeHtml(
+                  customer.name
+                )}
               </button>
 
             </td>
 
-            <td>
-              ${escapeHtml(customer.phone || "—")}
-            </td>
 
             <td>
-              ${escapeHtml(customer.email || "—")}
+              ${escapeHtml(
+                customer.phone || "—"
+              )}
             </td>
 
+
             <td>
-              ${escapeHtml(customer.postcode || "—")}
+              ${escapeHtml(
+                customer.email || "—"
+              )}
             </td>
+
+
+            <td>
+              ${escapeHtml(
+                customer.postcode || "—"
+              )}
+            </td>
+
 
             <td>
 
               <button
                 class="small-button"
                 data-edit-customer="${customer.id}"
+                type="button"
               >
                 Edit
               </button>
@@ -1118,28 +1232,34 @@ function showAddCustomerForm() {
 
 
   document
-    .querySelectorAll("[data-customer-id]")
+    .querySelectorAll(
+      "[data-customer-id]"
+    )
     .forEach(button => {
 
       button.addEventListener(
         "click",
-        () => showCustomerProfile(
-          button.dataset.customerId
-        )
+        () =>
+          showCustomerProfile(
+            button.dataset.customerId
+          )
       );
 
     });
 
 
   document
-    .querySelectorAll("[data-edit-customer]")
+    .querySelectorAll(
+      "[data-edit-customer]"
+    )
     .forEach(button => {
 
       button.addEventListener(
         "click",
-        () => showEditCustomerForm(
-          button.dataset.editCustomer
-        )
+        () =>
+          showEditCustomerForm(
+            button.dataset.editCustomer
+          )
       );
 
     });
@@ -1147,15 +1267,322 @@ function showAddCustomerForm() {
 }
 
 
-// ===============================
-// ADD CUSTOMER FORM
-// ===============================
+// =====================================================
+// ADD CUSTOMER
+// =====================================================
 
-function showCustomerProfile(customerId) {
+function showAddCustomerForm() {
+
+  const modal =
+    document.createElement(
+      "div"
+    );
+
+  modal.className =
+    "modal";
+
+
+  modal.innerHTML = `
+
+    <div class="modal-content">
+
+      <div class="modal-header">
+
+        <div>
+
+          <h2>
+            Add Customer
+          </h2>
+
+          <p>
+            Create a new customer.
+          </p>
+
+        </div>
+
+
+        <button
+          type="button"
+          class="close"
+          aria-label="Close"
+        >
+          ×
+        </button>
+
+      </div>
+
+
+      <form id="customerForm">
+
+        <label>
+          Name *
+        </label>
+
+        <input
+          id="customerName"
+          type="text"
+          required
+        >
+
+
+        <label>
+          Phone
+        </label>
+
+        <input
+          id="customerPhone"
+          type="tel"
+        >
+
+
+        <label>
+          Email
+        </label>
+
+        <input
+          id="customerEmail"
+          type="email"
+        >
+
+
+        <label>
+          Address
+        </label>
+
+        <input
+          id="customerAddress"
+          type="text"
+        >
+
+
+        <label>
+          Town / City
+        </label>
+
+        <input
+          id="customerCity"
+          type="text"
+        >
+
+
+        <label>
+          Postcode
+        </label>
+
+        <input
+          id="customerPostcode"
+          type="text"
+        >
+
+
+        <label>
+          Notes
+        </label>
+
+        <textarea
+          id="customerNotes"
+        ></textarea>
+
+
+        <div class="modal-actions">
+
+          <button
+            type="button"
+            class="button secondary close"
+          >
+            Cancel
+          </button>
+
+
+          <button
+            type="submit"
+            class="button primary"
+          >
+            Save Customer
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+
+  `;
+
+
+  document.body.appendChild(
+    modal
+  );
+
+
+  modal
+    .querySelectorAll(
+      ".close"
+    )
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () =>
+          modal.remove()
+      );
+
+    });
+
+
+  modal
+    .querySelector(
+      "#customerForm"
+    )
+    .addEventListener(
+      "submit",
+      saveCustomer
+    );
+
+}
+
+
+// =====================================================
+// SAVE CUSTOMER
+// =====================================================
+
+async function saveCustomer(
+  event
+) {
+
+  event.preventDefault();
+
+
+  const customer = {
+
+    user_id:
+      currentUser.id,
+
+    name:
+      document
+        .getElementById(
+          "customerName"
+        )
+        .value
+        .trim(),
+
+    phone:
+      document
+        .getElementById(
+          "customerPhone"
+        )
+        .value
+        .trim(),
+
+    email:
+      document
+        .getElementById(
+          "customerEmail"
+        )
+        .value
+        .trim(),
+
+    address_line1:
+      document
+        .getElementById(
+          "customerAddress"
+        )
+        .value
+        .trim(),
+
+    city:
+      document
+        .getElementById(
+          "customerCity"
+        )
+        .value
+        .trim(),
+
+    postcode:
+      document
+        .getElementById(
+          "customerPostcode"
+        )
+        .value
+        .trim(),
+
+    notes:
+      document
+        .getElementById(
+          "customerNotes"
+        )
+        .value
+        .trim()
+
+  };
+
+
+  if (!customer.name) {
+
+    alert(
+      "Please enter the customer's name."
+    );
+
+    return;
+
+  }
+
+
+  const { error } =
+    await supabase
+      .from("customers")
+      .insert(customer);
+
+
+  if (error) {
+
+    console.error(
+      "Customer save error:",
+      error
+    );
+
+    alert(
+      error.message
+    );
+
+    return;
+
+  }
+
+
+  const modal =
+    document.querySelector(
+      ".modal"
+    );
+
+  if (modal) {
+    modal.remove();
+  }
+
+
+  await loadCustomers();
+
+
+  showPage(
+    "customers"
+  );
+
+}
+
+
+// =====================================================
+// CUSTOMER PROFILE
+// =====================================================
+
+function showCustomerProfile(
+  customerId
+) {
 
   const customer =
     customers.find(
-      item => String(item.id) === String(customerId)
+      item =>
+        String(item.id) ===
+        String(customerId)
     );
 
   if (!customer) return;
@@ -1172,19 +1599,29 @@ function showCustomerProfile(customerId) {
   const totalValue =
     customerJobs.reduce(
       (total, job) =>
-        total + Number(job.price || 0),
+        total +
+        Number(
+          job.price || 0
+        ),
       0
     );
 
 
   const content =
-    document.getElementById("pageContent");
+    document.getElementById(
+      "pageContent"
+    );
 
 
-  document.getElementById("pageTitle").textContent =
+  document.getElementById(
+    "pageTitle"
+  ).textContent =
     customer.name;
 
-  document.getElementById("pageSubtitle").textContent =
+
+  document.getElementById(
+    "pageSubtitle"
+  ).textContent =
     "Customer profile";
 
 
@@ -1192,16 +1629,13 @@ function showCustomerProfile(customerId) {
 
     <div class="page-actions">
 
-      <div>
-
-        <button
-          id="backCustomers"
-          class="button secondary"
-        >
-          ← Customers
-        </button>
-
-      </div>
+      <button
+        id="backCustomers"
+        class="button secondary"
+        type="button"
+      >
+        ← Customers
+      </button>
 
 
       <div>
@@ -1209,13 +1643,16 @@ function showCustomerProfile(customerId) {
         <button
           id="editCustomer"
           class="button primary"
+          type="button"
         >
           Edit Customer
         </button>
 
+
         <button
           id="deleteCustomer"
           class="button danger"
+          type="button"
         >
           Delete
         </button>
@@ -1239,7 +1676,9 @@ function showCustomerProfile(customerId) {
           <div>
             <span>Name</span>
             <strong>
-              ${escapeHtml(customer.name)}
+              ${escapeHtml(
+                customer.name
+              )}
             </strong>
           </div>
 
@@ -1247,7 +1686,9 @@ function showCustomerProfile(customerId) {
           <div>
             <span>Phone</span>
             <strong>
-              ${escapeHtml(customer.phone || "—")}
+              ${escapeHtml(
+                customer.phone || "—"
+              )}
             </strong>
           </div>
 
@@ -1255,7 +1696,9 @@ function showCustomerProfile(customerId) {
           <div>
             <span>Email</span>
             <strong>
-              ${escapeHtml(customer.email || "—")}
+              ${escapeHtml(
+                customer.email || "—"
+              )}
             </strong>
           </div>
 
@@ -1263,7 +1706,9 @@ function showCustomerProfile(customerId) {
           <div>
             <span>Address</span>
             <strong>
-              ${escapeHtml(customer.address_line1 || "—")}
+              ${escapeHtml(
+                customer.address_line1 || "—"
+              )}
             </strong>
           </div>
 
@@ -1271,7 +1716,9 @@ function showCustomerProfile(customerId) {
           <div>
             <span>Town / City</span>
             <strong>
-              ${escapeHtml(customer.city || "—")}
+              ${escapeHtml(
+                customer.city || "—"
+              )}
             </strong>
           </div>
 
@@ -1279,7 +1726,9 @@ function showCustomerProfile(customerId) {
           <div>
             <span>Postcode</span>
             <strong>
-              ${escapeHtml(customer.postcode || "—")}
+              ${escapeHtml(
+                customer.postcode || "—"
+              )}
             </strong>
           </div>
 
@@ -1287,7 +1736,9 @@ function showCustomerProfile(customerId) {
           <div>
             <span>Notes</span>
             <strong>
-              ${escapeHtml(customer.notes || "—")}
+              ${escapeHtml(
+                customer.notes || "—"
+              )}
             </strong>
           </div>
 
@@ -1367,49 +1818,59 @@ function showCustomerProfile(customerId) {
       ${
         customerJobs.length
 
-          ? customerJobs.map(job => `
+          ? customerJobs
+              .map(job => `
 
-              <div class="job-row">
+                <div class="job-row">
 
-                <div>
+                  <div>
+
+                    <strong>
+                      ${escapeHtml(
+                        job.title
+                      )}
+                    </strong>
+
+                    <div class="muted">
+                      ${
+                        job.scheduled_date ||
+                        "No date"
+                      }
+                    </div>
+
+                  </div>
+
 
                   <strong>
-                    ${escapeHtml(job.title)}
+                    £${Number(
+                      job.price || 0
+                    ).toFixed(2)}
                   </strong>
-
-                  <div class="muted">
-                    ${job.scheduled_date || "No date"}
-                  </div>
 
                 </div>
 
-                <strong>
-                  £${Number(job.price || 0).toFixed(2)}
-                </strong>
-
-              </div>
-
-            `).join("")
+              `)
+              .join("")
 
           : `
 
-            <div class="empty-state">
+              <div class="empty-state">
 
-              <div class="empty-icon">
-                📋
+                <div class="empty-icon">
+                  📋
+                </div>
+
+                <h3>
+                  No jobs yet
+                </h3>
+
+                <p>
+                  This customer doesn't have any jobs.
+                </p>
+
               </div>
 
-              <h3>
-                No jobs yet
-              </h3>
-
-              <p>
-                This customer doesn't have any jobs.
-              </p>
-
-            </div>
-
-          `
+            `
       }
 
     </div>
@@ -1418,43 +1879,72 @@ function showCustomerProfile(customerId) {
 
 
   document
-    .getElementById("backCustomers")
+    .getElementById(
+      "backCustomers"
+    )
     .addEventListener(
       "click",
-      () => showPage("customers")
+      () =>
+        showPage(
+          "customers"
+        )
     );
 
 
   document
-    .getElementById("editCustomer")
+    .getElementById(
+      "editCustomer"
+    )
     .addEventListener(
       "click",
-      () => showEditCustomerForm(customer.id)
+      () =>
+        showEditCustomerForm(
+          customer.id
+        )
     );
 
 
   document
-    .getElementById("deleteCustomer")
+    .getElementById(
+      "deleteCustomer"
+    )
     .addEventListener(
       "click",
-      () => deleteCustomer(customer.id)
+      () =>
+        deleteCustomer(
+          customer.id
+        )
     );
 
 }
 
-function showEditCustomerForm(customerId) {
+
+// =====================================================
+// EDIT CUSTOMER
+// =====================================================
+
+function showEditCustomerForm(
+  customerId
+) {
 
   const customer =
     customers.find(
-      item => String(item.id) === String(customerId)
+      item =>
+        String(item.id) ===
+        String(customerId)
     );
 
   if (!customer) return;
 
-  const modal =
-    document.createElement("div");
 
-  modal.className = "modal show";
+  const modal =
+    document.createElement(
+      "div"
+    );
+
+  modal.className =
+    "modal";
+
 
   modal.innerHTML = `
 
@@ -1464,74 +1954,112 @@ function showEditCustomerForm(customerId) {
 
         <div>
 
-          <h2>Edit Customer</h2>
+          <h2>
+            Edit Customer
+          </h2>
 
-          <p>Update customer details.</p>
+          <p>
+            Update customer details.
+          </p>
 
         </div>
 
-        <button class="close">×</button>
+
+        <button
+          type="button"
+          class="close"
+        >
+          ×
+        </button>
 
       </div>
 
 
       <form id="editCustomerForm">
 
-        <label>Name *</label>
+        <label>
+          Name *
+        </label>
 
         <input
           id="editCustomerName"
-          value="${escapeHtml(customer.name || "")}"
+          value="${escapeAttribute(
+            customer.name
+          )}"
           required
         >
 
 
-        <label>Phone</label>
+        <label>
+          Phone
+        </label>
 
         <input
           id="editCustomerPhone"
-          value="${escapeHtml(customer.phone || "")}"
+          value="${escapeAttribute(
+            customer.phone || ""
+          )}"
         >
 
 
-        <label>Email</label>
+        <label>
+          Email
+        </label>
 
         <input
           id="editCustomerEmail"
           type="email"
-          value="${escapeHtml(customer.email || "")}"
+          value="${escapeAttribute(
+            customer.email || ""
+          )}"
         >
 
 
-        <label>Address</label>
+        <label>
+          Address
+        </label>
 
         <input
           id="editCustomerAddress"
-          value="${escapeHtml(customer.address_line1 || "")}"
+          value="${escapeAttribute(
+            customer.address_line1 || ""
+          )}"
         >
 
 
-        <label>Town / City</label>
+        <label>
+          Town / City
+        </label>
 
         <input
           id="editCustomerCity"
-          value="${escapeHtml(customer.city || "")}"
+          value="${escapeAttribute(
+            customer.city || ""
+          )}"
         >
 
 
-        <label>Postcode</label>
+        <label>
+          Postcode
+        </label>
 
         <input
           id="editCustomerPostcode"
-          value="${escapeHtml(customer.postcode || "")}"
+          value="${escapeAttribute(
+            customer.postcode || ""
+          )}"
         >
 
 
-        <label>Notes</label>
+        <label>
+          Notes
+        </label>
 
         <textarea
           id="editCustomerNotes"
-        >${escapeHtml(customer.notes || "")}</textarea>
+        >${escapeHtml(
+          customer.notes || ""
+        )}</textarea>
 
 
         <div class="modal-actions">
@@ -1542,6 +2070,7 @@ function showEditCustomerForm(customerId) {
           >
             Cancel
           </button>
+
 
           <button
             type="submit"
@@ -1558,21 +2087,31 @@ function showEditCustomerForm(customerId) {
 
   `;
 
-  document.body.appendChild(modal);
+
+  document.body.appendChild(
+    modal
+  );
 
 
   modal
-    .querySelectorAll(".close")
-    .forEach(button =>
+    .querySelectorAll(
+      ".close"
+    )
+    .forEach(button => {
+
       button.addEventListener(
         "click",
-        () => modal.remove()
-      )
-    );
+        () =>
+          modal.remove()
+      );
+
+    });
 
 
   modal
-    .querySelector("#editCustomerForm")
+    .querySelector(
+      "#editCustomerForm"
+    )
     .addEventListener(
       "submit",
       async event => {
@@ -1584,43 +2123,57 @@ function showEditCustomerForm(customerId) {
 
           name:
             document
-              .getElementById("editCustomerName")
+              .getElementById(
+                "editCustomerName"
+              )
               .value
               .trim(),
 
           phone:
             document
-              .getElementById("editCustomerPhone")
+              .getElementById(
+                "editCustomerPhone"
+              )
               .value
               .trim(),
 
           email:
             document
-              .getElementById("editCustomerEmail")
+              .getElementById(
+                "editCustomerEmail"
+              )
               .value
               .trim(),
 
           address_line1:
             document
-              .getElementById("editCustomerAddress")
+              .getElementById(
+                "editCustomerAddress"
+              )
               .value
               .trim(),
 
           city:
             document
-              .getElementById("editCustomerCity")
+              .getElementById(
+                "editCustomerCity"
+              )
               .value
               .trim(),
 
           postcode:
             document
-              .getElementById("editCustomerPostcode")
+              .getElementById(
+                "editCustomerPostcode"
+              )
               .value
               .trim(),
 
           notes:
             document
-              .getElementById("editCustomerNotes")
+              .getElementById(
+                "editCustomerNotes"
+              )
               .value
               .trim()
 
@@ -1631,12 +2184,17 @@ function showEditCustomerForm(customerId) {
           await supabase
             .from("customers")
             .update(updates)
-            .eq("id", customer.id);
+            .eq(
+              "id",
+              customer.id
+            );
 
 
         if (error) {
 
-          alert(error.message);
+          alert(
+            error.message
+          );
 
           return;
 
@@ -1647,18 +2205,29 @@ function showEditCustomerForm(customerId) {
 
         await loadCustomers();
 
-        showCustomerProfile(customer.id);
+        showCustomerProfile(
+          customer.id
+        );
 
       }
     );
 
 }
 
-async function deleteCustomer(customerId) {
+
+// =====================================================
+// DELETE CUSTOMER
+// =====================================================
+
+async function deleteCustomer(
+  customerId
+) {
 
   const customer =
     customers.find(
-      item => String(item.id) === String(customerId)
+      item =>
+        String(item.id) ===
+        String(customerId)
     );
 
   if (!customer) return;
@@ -1677,12 +2246,17 @@ async function deleteCustomer(customerId) {
     await supabase
       .from("customers")
       .delete()
-      .eq("id", customer.id);
+      .eq(
+        "id",
+        customer.id
+      );
 
 
   if (error) {
 
-    alert(error.message);
+    alert(
+      error.message
+    );
 
     return;
 
@@ -1693,15 +2267,20 @@ async function deleteCustomer(customerId) {
 
   await loadJobs();
 
-  showPage("customers");
+  showPage(
+    "customers"
+  );
 
 }
 
-// ===============================
-// JOBS
-// ===============================
 
-function renderJobsPage(content) {
+// =====================================================
+// JOBS PAGE
+// =====================================================
+
+function renderJobsPage(
+  content
+) {
 
   content.innerHTML = `
 
@@ -1723,6 +2302,7 @@ function renderJobsPage(content) {
       <button
         id="addJobButton"
         class="button primary"
+        type="button"
       >
         + Add Job
       </button>
@@ -1734,48 +2314,73 @@ function renderJobsPage(content) {
 
       ${
         jobs.length
-          ? jobs.map(job => `
 
-              <div class="job-row">
+          ? jobs
+              .map(job => `
 
-                <div>
+                <div class="job-row">
 
-                  <strong>
-                    ${escapeHtml(job.title)}
-                  </strong>
+                  <div>
 
-                  <div class="muted">
-                    ${job.scheduled_date || "No date"}
+                    <strong>
+                      ${escapeHtml(
+                        job.title
+                      )}
+                    </strong>
+
+                    <div class="muted">
+                      ${
+                        job.scheduled_date ||
+                        "No date"
+                      }
+                    </div>
+
+                  </div>
+
+
+                  <div>
+
+                    <strong>
+                      £${Number(
+                        job.price || 0
+                      ).toFixed(2)}
+                    </strong>
+
+                    <div class="muted">
+                      ${
+                        escapeHtml(
+                          job.status ||
+                          "Scheduled"
+                        )
+                      }
+                    </div>
+
                   </div>
 
                 </div>
 
-                <span>
-                  ${job.status}
-                </span>
+              `)
+              .join("")
 
-              </div>
-
-            `).join("")
           : `
 
-            <div class="empty-state">
+              <div class="empty-state">
 
-              <div class="empty-icon">
-                📋
+                <div class="empty-icon">
+                  📋
+                </div>
+
+                <h3>
+                  No jobs yet
+                </h3>
+
+                <p>
+                  Add your first job.
+                </p>
+
               </div>
 
-              <h3>
-                No jobs yet
-              </h3>
-
-              <p>
-                Add your first job.
-              </p>
-
-            </div>
-
-          `
+            `
       }
 
     </div>
@@ -1784,7 +2389,9 @@ function renderJobsPage(content) {
 
 
   document
-    .getElementById("addJobButton")
+    .getElementById(
+      "addJobButton"
+    )
     .addEventListener(
       "click",
       showAddJobForm
@@ -1793,16 +2400,19 @@ function renderJobsPage(content) {
 }
 
 
-// ===============================
+// =====================================================
 // ADD JOB
-// ===============================
+// =====================================================
 
 function showAddJobForm() {
 
   const modal =
-    document.createElement("div");
+    document.createElement(
+      "div"
+    );
 
-  modal.className = "modal show";
+  modal.className =
+    "modal";
 
 
   modal.innerHTML = `
@@ -1823,7 +2433,11 @@ function showAddJobForm() {
 
         </div>
 
-        <button class="close">
+
+        <button
+          type="button"
+          class="close"
+        >
           ×
         </button>
 
@@ -1832,7 +2446,9 @@ function showAddJobForm() {
 
       <form id="jobForm">
 
-        <label>Customer *</label>
+        <label>
+          Customer *
+        </label>
 
         <select
           id="jobCustomer"
@@ -1843,18 +2459,26 @@ function showAddJobForm() {
             Select customer
           </option>
 
-          ${customers.map(customer => `
+          ${customers
+            .map(customer => `
 
-            <option value="${customer.id}">
-              ${escapeHtml(customer.name)}
-            </option>
+              <option
+                value="${customer.id}"
+              >
+                ${escapeHtml(
+                  customer.name
+                )}
+              </option>
 
-          `).join("")}
+            `)
+            .join("")}
 
         </select>
 
 
-        <label>Job Title *</label>
+        <label>
+          Job Title *
+        </label>
 
         <input
           id="jobTitle"
@@ -1863,7 +2487,9 @@ function showAddJobForm() {
         >
 
 
-        <label>Date</label>
+        <label>
+          Date
+        </label>
 
         <input
           id="jobDate"
@@ -1871,7 +2497,9 @@ function showAddJobForm() {
         >
 
 
-        <label>Price</label>
+        <label>
+          Price
+        </label>
 
         <input
           id="jobPrice"
@@ -1881,7 +2509,9 @@ function showAddJobForm() {
         >
 
 
-        <label>Notes</label>
+        <label>
+          Notes
+        </label>
 
         <textarea
           id="jobNotes"
@@ -1896,6 +2526,7 @@ function showAddJobForm() {
           >
             Cancel
           </button>
+
 
           <button
             type="submit"
@@ -1913,98 +2544,174 @@ function showAddJobForm() {
   `;
 
 
-  document.body.appendChild(modal);
+  document.body.appendChild(
+    modal
+  );
 
 
   modal
-    .querySelectorAll(".close")
-    .forEach(button =>
+    .querySelectorAll(
+      ".close"
+    )
+    .forEach(button => {
+
       button.addEventListener(
         "click",
-        () => modal.remove()
-      )
-    );
+        () =>
+          modal.remove()
+      );
+
+    });
 
 
   modal
-    .querySelector("#jobForm")
+    .querySelector(
+      "#jobForm"
+    )
     .addEventListener(
       "submit",
-      async event => {
-
-        event.preventDefault();
-
-
-        const job = {
-
-          user_id: currentUser.id,
-
-          customer_id:
-            document
-              .getElementById("jobCustomer")
-              .value,
-
-          title:
-            document
-              .getElementById("jobTitle")
-              .value
-              .trim(),
-
-          scheduled_date:
-            document
-              .getElementById("jobDate")
-              .value || null,
-
-          price:
-            Number(
-              document
-                .getElementById("jobPrice")
-                .value
-            ) || 0,
-
-          notes:
-            document
-              .getElementById("jobNotes")
-              .value
-              .trim()
-
-        };
-
-
-        const { error } =
-          await supabase
-            .from("jobs")
-            .insert(job);
-
-
-        if (error) {
-
-          alert(error.message);
-
-          return;
-
-        }
-
-
-        modal.remove();
-
-        await loadJobs();
-
-        renderJobsPage(
-          document.getElementById("pageContent")
-        );
-
-      }
+      saveJob
     );
 
 }
 
 
-// ===============================
-// SETTINGS
-// ===============================
+// =====================================================
+// SAVE JOB
+// =====================================================
 
-function renderSettings(content) {
+async function saveJob(
+  event
+) {
+
+  event.preventDefault();
+
+
+  const job = {
+
+    user_id:
+      currentUser.id,
+
+    customer_id:
+      document
+        .getElementById(
+          "jobCustomer"
+        )
+        .value,
+
+    title:
+      document
+        .getElementById(
+          "jobTitle"
+        )
+        .value
+        .trim(),
+
+    scheduled_date:
+      document
+        .getElementById(
+          "jobDate"
+        )
+        .value ||
+      null,
+
+    price:
+      Number(
+        document
+          .getElementById(
+            "jobPrice"
+          )
+          .value
+      ) || 0,
+
+    notes:
+      document
+        .getElementById(
+          "jobNotes"
+        )
+        .value
+        .trim()
+
+  };
+
+
+  if (
+    !job.customer_id
+  ) {
+
+    alert(
+      "Please select a customer."
+    );
+
+    return;
+
+  }
+
+
+  if (!job.title) {
+
+    alert(
+      "Please enter a job title."
+    );
+
+    return;
+
+  }
+
+
+  const { error } =
+    await supabase
+      .from("jobs")
+      .insert(job);
+
+
+  if (error) {
+
+    alert(
+      error.message
+    );
+
+    return;
+
+  }
+
+
+  modalClose();
+
+  await loadJobs();
+
+  showPage(
+    "jobs"
+  );
+
+}
+
+
+// =====================================================
+// CLOSE ANY MODAL
+// =====================================================
+
+function modalClose() {
+
+  const modal =
+    document.querySelector(
+      ".modal"
+    );
+
+  if (modal) {
+    modal.remove();
+  }
+
+}
+
+
+// =====================================================
+// SETTINGS
+// =====================================================
+
+function renderSettings(
+  content
+) {
 
   content.innerHTML = `
 
@@ -2015,7 +2722,9 @@ function renderSettings(content) {
       </h2>
 
       <p class="muted">
-        ${escapeHtml(currentUser.email)}
+        ${escapeHtml(
+          currentUser.email
+        )}
       </p>
 
 
@@ -2037,9 +2746,9 @@ function renderSettings(content) {
 }
 
 
-// ===============================
-// SIMPLE PLACEHOLDER
-// ===============================
+// =====================================================
+// PLACEHOLDER PAGES
+// =====================================================
 
 function renderSimplePage(
   content,
@@ -2075,9 +2784,9 @@ function renderSimplePage(
 }
 
 
-// ===============================
+// =====================================================
 // LOGOUT
-// ===============================
+// =====================================================
 
 async function logout() {
 
@@ -2086,29 +2795,63 @@ async function logout() {
 }
 
 
-// ===============================
+// =====================================================
 // HTML ESCAPING
-// ===============================
+// =====================================================
 
-function escapeHtml(value) {
+function escapeHtml(
+  value
+) {
 
-  return String(value)
+  return String(
+    value ?? ""
+  )
 
-    .replace(/&/g, "&amp;")
+    .replace(
+      /&/g,
+      "&amp;"
+    )
 
-    .replace(/</g, "&lt;")
+    .replace(
+      /</g,
+      "&lt;"
+    )
 
-    .replace(/>/g, "&gt;")
+    .replace(
+      />/g,
+      "&gt;"
+    )
 
-    .replace(/"/g, "&quot;")
+    .replace(
+      /"/g,
+      "&quot;"
+    )
 
-    .replace(/'/g, "&#039;");
+    .replace(
+      /'/g,
+      "&#039;"
+    );
 
 }
 
 
-// ===============================
+// =====================================================
+// ATTRIBUTE ESCAPING
+// =====================================================
+
+function escapeAttribute(
+  value
+) {
+
+  return escapeHtml(
+    value
+  );
+
+}
+
+
+// =====================================================
 // START
-// ===============================
+// =====================================================
 
 init();

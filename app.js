@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { showFeedbackForm } from "./feedback.js";
 
 let currentUser = null;
 let customers = [];

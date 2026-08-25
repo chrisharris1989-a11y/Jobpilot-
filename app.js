@@ -47,6 +47,7 @@ function showLogin() {
 
         <div class="auth-logo">
           <div class="logo-mark">J</div>
+
           <div>
             <strong>JobPilot</strong>
             <span>Trades CRM</span>
@@ -533,7 +534,11 @@ function renderDashboard(content) {
         ${
           jobs.length
             ? jobs.slice(0, 5).map(job => `
-                <div class="job-row">
+                <div
+                  class="job-row"
+                  style="cursor:pointer;"
+                  data-dashboard-job="${job.id}"
+                >
 
                   <div>
                     <strong>
@@ -600,6 +605,18 @@ function renderDashboard(content) {
       button.addEventListener(
         "click",
         () => showPage(button.dataset.action)
+      );
+    });
+
+  content
+    .querySelectorAll("[data-dashboard-job]")
+    .forEach(row => {
+      row.addEventListener(
+        "click",
+        () =>
+          showJobProfile(
+            row.dataset.dashboardJob
+          )
       );
     });
 }
@@ -1152,6 +1169,7 @@ function showEditCustomerForm(customerId) {
       <form id="editCustomerForm">
 
         <label>Name *</label>
+
         <input
           id="editCustomerName"
           value="${escapeHtml(customer.name || "")}"
@@ -1159,12 +1177,14 @@ function showEditCustomerForm(customerId) {
         >
 
         <label>Phone</label>
+
         <input
           id="editCustomerPhone"
           value="${escapeHtml(customer.phone || "")}"
         >
 
         <label>Email</label>
+
         <input
           id="editCustomerEmail"
           type="email"
@@ -1172,24 +1192,28 @@ function showEditCustomerForm(customerId) {
         >
 
         <label>Address</label>
+
         <input
           id="editCustomerAddress"
           value="${escapeHtml(customer.address_line1 || "")}"
         >
 
         <label>Town / City</label>
+
         <input
           id="editCustomerCity"
           value="${escapeHtml(customer.city || "")}"
         >
 
         <label>Postcode</label>
+
         <input
           id="editCustomerPostcode"
           value="${escapeHtml(customer.postcode || "")}"
         >
 
         <label>Notes</label>
+
         <textarea id="editCustomerNotes">${escapeHtml(
           customer.notes || ""
         )}</textarea>
@@ -1230,6 +1254,7 @@ function showEditCustomerForm(customerId) {
         event.preventDefault();
 
         const updates = {
+
           name:
             document
               .getElementById("editCustomerName")
@@ -1514,7 +1539,7 @@ function showJobProfile(jobId) {
           </div>
 
           <div>
-            <span>Title</span>
+            <span>Title / What it's for</span>
             <strong>${escapeHtml(job.title)}</strong>
           </div>
 
@@ -1644,7 +1669,7 @@ function showAddJobForm() {
 
         </select>
 
-        <label>Job Title *</label>
+        <label>Job Title / What is it for? *</label>
 
         <input
           id="jobTitle"
@@ -1654,7 +1679,10 @@ function showAddJobForm() {
 
         <label>Description</label>
 
-        <textarea id="jobDescription"></textarea>
+        <textarea
+          id="jobDescription"
+          placeholder="Describe the work..."
+        ></textarea>
 
         <label>Date</label>
 
@@ -1687,7 +1715,10 @@ function showAddJobForm() {
 
         <label>Notes</label>
 
-        <textarea id="jobNotes"></textarea>
+        <textarea
+          id="jobNotes"
+          placeholder="Additional notes..."
+        ></textarea>
 
         <div class="modal-actions">
 
@@ -1853,7 +1884,7 @@ function showEditJobForm(jobId) {
 
         </select>
 
-        <label>Job Title *</label>
+        <label>Job Title / What is it for? *</label>
 
         <input
           id="editJobTitle"
@@ -2127,6 +2158,12 @@ function renderQuotesPage(content) {
                     <div class="muted">
 
                       ${
+                        quote.title
+                          ? escapeHtml(quote.title) + " • "
+                          : ""
+                      }
+
+                      ${
                         customer
                           ? escapeHtml(customer.name)
                           : "Unknown customer"
@@ -2255,6 +2292,21 @@ function showAddQuoteForm() {
 
         </select>
 
+        <label>What is the quote for? *</label>
+
+        <input
+          id="quoteTitle"
+          required
+          placeholder="e.g. Driveway cleaning"
+        >
+
+        <label>Description</label>
+
+        <textarea
+          id="quoteDescription"
+          placeholder="Describe the work included in the quote..."
+        ></textarea>
+
         <h3>Quote Details</h3>
 
         <label>Quote Number *</label>
@@ -2312,7 +2364,10 @@ function showAddQuoteForm() {
 
         <label>Notes</label>
 
-        <textarea id="quoteNotes"></textarea>
+        <textarea
+          id="quoteNotes"
+          placeholder="Additional notes..."
+        ></textarea>
 
         <div class="modal-actions">
 
@@ -2409,6 +2464,16 @@ function showAddQuoteForm() {
             document
               .getElementById("quoteCustomer")
               .value,
+
+          title:
+            document
+              .getElementById("quoteTitle")
+              .value.trim(),
+
+          description:
+            document
+              .getElementById("quoteDescription")
+              .value.trim(),
 
           quote_number:
             document
@@ -2559,6 +2624,20 @@ function showQuoteProfile(quoteId) {
           </div>
 
           <div>
+            <span>What it's for</span>
+            <strong>
+              ${escapeHtml(quote.title || "—")}
+            </strong>
+          </div>
+
+          <div>
+            <span>Description</span>
+            <strong>
+              ${escapeHtml(quote.description || "—")}
+            </strong>
+          </div>
+
+          <div>
             <span>Status</span>
             <strong>
               ${escapeHtml(quote.status || "draft")}
@@ -2694,10 +2773,12 @@ async function convertQuoteToJob(quoteId) {
       quote.customer_id,
 
     title:
+      quote.title ||
       `Quote #${quote.quote_number || "Job"}`,
 
     description:
-      `Converted from Quote #${quote.quote_number || ""}`,
+      quote.description ||
+      "",
 
     scheduled_date:
       null,
@@ -2846,7 +2927,11 @@ function renderInvoicesPage(content) {
 
               return `
 
-                <div class="job-row">
+                <div
+                  class="job-row"
+                  data-invoice-id="${invoice.id}"
+                  style="cursor:pointer;"
+                >
 
                   <div>
 
@@ -2882,6 +2967,10 @@ function renderInvoicesPage(content) {
                       )}
                     </span>
 
+                    <span>
+                      View →
+                    </span>
+
                   </div>
 
                 </div>
@@ -2914,6 +3003,18 @@ function renderInvoicesPage(content) {
       "click",
       showAddInvoiceForm
     );
+
+  content
+    .querySelectorAll("[data-invoice-id]")
+    .forEach(row => {
+      row.addEventListener(
+        "click",
+        () =>
+          showInvoiceProfile(
+            row.dataset.invoiceId
+          )
+      );
+    });
 }
 
 
@@ -3191,6 +3292,686 @@ function showAddInvoiceForm() {
 
 
 // =====================================================
+// INVOICE PROFILE
+// =====================================================
+
+function showInvoiceProfile(invoiceId) {
+
+  const invoice =
+    invoices.find(
+      item =>
+        String(item.id) ===
+        String(invoiceId)
+    );
+
+  if (!invoice) {
+    alert("Invoice could not be found.");
+    return;
+  }
+
+  const customer =
+    customers.find(
+      c =>
+        String(c.id) ===
+        String(invoice.customer_id)
+    );
+
+  const content =
+    document.getElementById("pageContent");
+
+  document.getElementById("pageTitle").textContent =
+    `Invoice #${invoice.invoice_number || "—"}`;
+
+  document.getElementById("pageSubtitle").textContent =
+    "Invoice details";
+
+  const isPaid =
+    String(invoice.status).toLowerCase() === "paid" ||
+    Boolean(invoice.paid_date);
+
+  content.innerHTML = `
+
+    <div class="page-actions">
+
+      <button id="backInvoices" class="button secondary">
+        ← Invoices
+      </button>
+
+      <div>
+
+        <button id="editInvoice" class="button primary">
+          Edit Invoice
+        </button>
+
+        ${
+          isPaid
+            ? `
+              <button class="button secondary" disabled>
+                ✓ Paid
+              </button>
+            `
+            : `
+              <button id="markInvoicePaid" class="button primary">
+                ✓ Mark as Paid
+              </button>
+            `
+        }
+
+        <button id="deleteInvoice" class="button danger">
+          Delete
+        </button>
+
+      </div>
+
+    </div>
+
+    <div class="content-grid">
+
+      <div class="panel">
+
+        <h2>Invoice Details</h2>
+
+        <div class="detail-list">
+
+          <div>
+            <span>Invoice Number</span>
+
+            <strong>
+              ${escapeHtml(
+                invoice.invoice_number || "—"
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>Customer</span>
+
+            <strong>
+              ${
+                customer
+                  ? escapeHtml(customer.name)
+                  : "Unknown customer"
+              }
+            </strong>
+          </div>
+
+          <div>
+            <span>Status</span>
+
+            <strong>
+              ${escapeHtml(
+                invoice.status || "draft"
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>Issue Date</span>
+
+            <strong>
+              ${invoice.issue_date || "—"}
+            </strong>
+          </div>
+
+          <div>
+            <span>Due Date</span>
+
+            <strong>
+              ${invoice.due_date || "—"}
+            </strong>
+          </div>
+
+          <div>
+            <span>Paid Date</span>
+
+            <strong>
+              ${invoice.paid_date || "—"}
+            </strong>
+          </div>
+
+          <div>
+            <span>Notes</span>
+
+            <strong>
+              ${escapeHtml(
+                invoice.notes || "—"
+              )}
+            </strong>
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="panel">
+
+        <h2>Financial Summary</h2>
+
+        <div class="detail-list">
+
+          <div>
+            <span>Subtotal</span>
+
+            <strong>
+              £${Number(
+                invoice.subtotal || 0
+              ).toFixed(2)}
+            </strong>
+          </div>
+
+          <div>
+            <span>VAT</span>
+
+            <strong>
+              £${Number(
+                invoice.vat || 0
+              ).toFixed(2)}
+            </strong>
+          </div>
+
+          <div>
+            <span>Total</span>
+
+            <strong>
+              £${Number(
+                invoice.total || 0
+              ).toFixed(2)}
+            </strong>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  `;
+
+  document
+    .getElementById("backInvoices")
+    .addEventListener(
+      "click",
+      () => showPage("invoices")
+    );
+
+  document
+    .getElementById("editInvoice")
+    .addEventListener(
+      "click",
+      () => showEditInvoiceForm(invoice.id)
+    );
+
+  const paidButton =
+    document.getElementById("markInvoicePaid");
+
+  if (paidButton) {
+    paidButton.addEventListener(
+      "click",
+      () => markInvoicePaid(invoice.id)
+    );
+  }
+
+  document
+    .getElementById("deleteInvoice")
+    .addEventListener(
+      "click",
+      () => deleteInvoice(invoice.id)
+    );
+}
+
+
+// =====================================================
+// EDIT INVOICE
+// =====================================================
+
+function showEditInvoiceForm(invoiceId) {
+
+  const invoice =
+    invoices.find(
+      item =>
+        String(item.id) ===
+        String(invoiceId)
+    );
+
+  if (!invoice) return;
+
+  const modal =
+    document.createElement("div");
+
+  modal.className = "modal show";
+
+  modal.innerHTML = `
+
+    <div class="modal-content">
+
+      <div class="modal-header">
+
+        <div>
+          <h2>Edit Invoice</h2>
+          <p>Update invoice details.</p>
+        </div>
+
+        <button class="close">×</button>
+
+      </div>
+
+      <form id="editInvoiceForm">
+
+        <label>Customer *</label>
+
+        <select id="editInvoiceCustomer" required>
+
+          ${customers.map(customer => `
+            <option
+              value="${customer.id}"
+              ${
+                String(customer.id) ===
+                String(invoice.customer_id)
+                  ? "selected"
+                  : ""
+              }
+            >
+              ${escapeHtml(customer.name)}
+            </option>
+          `).join("")}
+
+        </select>
+
+        <label>Invoice Number *</label>
+
+        <input
+          id="editInvoiceNumber"
+          value="${escapeHtml(
+            invoice.invoice_number || ""
+          )}"
+          required
+        >
+
+        <label>Subtotal</label>
+
+        <input
+          id="editInvoiceSubtotal"
+          type="number"
+          step="0.01"
+          value="${Number(
+            invoice.subtotal || 0
+          ).toFixed(2)}"
+        >
+
+        <label>VAT %</label>
+
+        <input
+          id="editInvoiceVatPercent"
+          type="number"
+          step="0.01"
+          value="${
+            Number(invoice.subtotal || 0) > 0
+              ? (
+                  Number(invoice.vat || 0) /
+                  Number(invoice.subtotal || 1) *
+                  100
+                ).toFixed(2)
+              : "0"
+          }"
+        >
+
+        <label>VAT</label>
+
+        <input
+          id="editInvoiceVat"
+          type="number"
+          step="0.01"
+          value="${Number(
+            invoice.vat || 0
+          ).toFixed(2)}"
+          readonly
+        >
+
+        <label>Total</label>
+
+        <input
+          id="editInvoiceTotal"
+          type="number"
+          step="0.01"
+          value="${Number(
+            invoice.total || 0
+          ).toFixed(2)}"
+          readonly
+        >
+
+        <label>Issue Date</label>
+
+        <input
+          id="editInvoiceIssueDate"
+          type="date"
+          value="${invoice.issue_date || ""}"
+        >
+
+        <label>Due Date</label>
+
+        <input
+          id="editInvoiceDueDate"
+          type="date"
+          value="${invoice.due_date || ""}"
+        >
+
+        <label>Status</label>
+
+        <select id="editInvoiceStatus">
+
+          <option
+            value="draft"
+            ${
+              invoice.status === "draft"
+                ? "selected"
+                : ""
+            }
+          >
+            Draft
+          </option>
+
+          <option
+            value="sent"
+            ${
+              invoice.status === "sent"
+                ? "selected"
+                : ""
+            }
+          >
+            Sent
+          </option>
+
+          <option
+            value="paid"
+            ${
+              invoice.status === "paid"
+                ? "selected"
+                : ""
+            }
+          >
+            Paid
+          </option>
+
+          <option
+            value="overdue"
+            ${
+              invoice.status === "overdue"
+                ? "selected"
+                : ""
+            }
+          >
+            Overdue
+          </option>
+
+          <option
+            value="cancelled"
+            ${
+              invoice.status === "cancelled"
+                ? "selected"
+                : ""
+            }
+          >
+            Cancelled
+          </option>
+
+        </select>
+
+        <label>Notes</label>
+
+        <textarea id="editInvoiceNotes">${escapeHtml(
+          invoice.notes || ""
+        )}</textarea>
+
+        <div class="modal-actions">
+
+          <button
+            type="button"
+            class="button secondary close"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="button primary"
+          >
+            Save Changes
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.querySelectorAll(".close")
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        () => modal.remove()
+      )
+    );
+
+  const subtotalInput =
+    modal.querySelector("#editInvoiceSubtotal");
+
+  const vatPercentInput =
+    modal.querySelector("#editInvoiceVatPercent");
+
+  const vatInput =
+    modal.querySelector("#editInvoiceVat");
+
+  const totalInput =
+    modal.querySelector("#editInvoiceTotal");
+
+  function calculateInvoice() {
+
+    const subtotal =
+      Number(subtotalInput.value) || 0;
+
+    const vatPercent =
+      Number(vatPercentInput.value) || 0;
+
+    const vat =
+      subtotal * vatPercent / 100;
+
+    vatInput.value =
+      vat.toFixed(2);
+
+    totalInput.value =
+      (subtotal + vat).toFixed(2);
+  }
+
+  subtotalInput.addEventListener(
+    "input",
+    calculateInvoice
+  );
+
+  vatPercentInput.addEventListener(
+    "input",
+    calculateInvoice
+  );
+
+  modal
+    .querySelector("#editInvoiceForm")
+    .addEventListener(
+      "submit",
+      async event => {
+
+        event.preventDefault();
+
+        const status =
+          document
+            .getElementById("editInvoiceStatus")
+            .value;
+
+        const paidDate =
+          status === "paid"
+            ? (
+                invoice.paid_date ||
+                todayDate()
+              )
+            : null;
+
+        const updates = {
+
+          customer_id:
+            document
+              .getElementById("editInvoiceCustomer")
+              .value,
+
+          invoice_number:
+            document
+              .getElementById("editInvoiceNumber")
+              .value.trim(),
+
+          status,
+
+          subtotal:
+            Number(
+              document
+                .getElementById("editInvoiceSubtotal")
+                .value
+            ) || 0,
+
+          vat:
+            Number(
+              document
+                .getElementById("editInvoiceVat")
+                .value
+            ) || 0,
+
+          total:
+            Number(
+              document
+                .getElementById("editInvoiceTotal")
+                .value
+            ) || 0,
+
+          issue_date:
+            document
+              .getElementById("editInvoiceIssueDate")
+              .value || null,
+
+          due_date:
+            document
+              .getElementById("editInvoiceDueDate")
+              .value || null,
+
+          paid_date:
+            paidDate,
+
+          notes:
+            document
+              .getElementById("editInvoiceNotes")
+              .value.trim()
+        };
+
+        const { error } =
+          await supabase
+            .from("invoices")
+            .update(updates)
+            .eq("id", invoice.id);
+
+        if (error) {
+          alert(error.message);
+          return;
+        }
+
+        modal.remove();
+
+        await loadInvoices();
+
+        showInvoiceProfile(invoice.id);
+      }
+    );
+}
+
+
+// =====================================================
+// MARK INVOICE PAID
+// =====================================================
+
+async function markInvoicePaid(invoiceId) {
+
+  const invoice =
+    invoices.find(
+      item =>
+        String(item.id) ===
+        String(invoiceId)
+    );
+
+  if (!invoice) return;
+
+  const confirmed =
+    confirm(
+      `Mark Invoice #${invoice.invoice_number || ""} as paid?`
+    );
+
+  if (!confirmed) return;
+
+  const { error } =
+    await supabase
+      .from("invoices")
+      .update({
+        status: "paid",
+        paid_date: todayDate()
+      })
+      .eq("id", invoice.id);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  await loadInvoices();
+
+  showInvoiceProfile(invoice.id);
+}
+
+
+// =====================================================
+// DELETE INVOICE
+// =====================================================
+
+async function deleteInvoice(invoiceId) {
+
+  const invoice =
+    invoices.find(
+      item =>
+        String(item.id) ===
+        String(invoiceId)
+    );
+
+  if (!invoice) return;
+
+  const confirmed =
+    confirm(
+      `Delete Invoice #${invoice.invoice_number || ""}? This cannot be undone.`
+    );
+
+  if (!confirmed) return;
+
+  const { error } =
+    await supabase
+      .from("invoices")
+      .delete()
+      .eq("id", invoice.id);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  await loadInvoices();
+
+  showPage("invoices");
+}
+
+
+// =====================================================
 // CONVERT JOB TO INVOICE
 // =====================================================
 
@@ -3242,14 +4023,6 @@ async function convertJobToInvoice(jobId) {
   const subtotal =
     Number(job.price || 0);
 
-  /*
-   * Jobs currently store a final price.
-   * We treat this as the subtotal when converting
-   * directly to an invoice.
-   *
-   * VAT can then be adjusted on the invoice later.
-   */
-
   const invoice = {
 
     user_id:
@@ -3283,7 +4056,17 @@ async function convertJobToInvoice(jobId) {
       null,
 
     notes:
-      `Created from Job: ${job.title}\n\n${job.notes || ""}`.trim()
+      [
+        `Job: ${job.title || ""}`,
+        job.description
+          ? `Description: ${job.description}`
+          : "",
+        job.notes
+          ? `Notes: ${job.notes}`
+          : ""
+      ]
+        .filter(Boolean)
+        .join("\n\n")
   };
 
   const {
@@ -3310,10 +4093,6 @@ async function convertJobToInvoice(jobId) {
 
     return;
   }
-
-  /*
-   * Mark the job as invoiced.
-   */
 
   const {
     error: jobError
@@ -3348,7 +4127,7 @@ async function convertJobToInvoice(jobId) {
   await loadInvoices();
   await loadJobs();
 
-  showPage("invoices");
+  showInvoiceProfile(createdInvoice.id);
 
   alert(
     `Invoice #${createdInvoice.invoice_number} has been created.`

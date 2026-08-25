@@ -5366,6 +5366,34 @@ function renderSettings(content) {
       <hr>
 
 
+      <!-- PAYMENTS -->
+      <h2>Payments</h2>
+
+      <p>
+        Connect your Stripe account to allow your customers
+        to pay your invoices online.
+      </p>
+
+      <div
+        id="stripeConnectionStatus"
+        class="muted"
+        style="margin:12px 0;"
+      >
+        Checking Stripe connection...
+      </div>
+
+      <button
+        class="button primary"
+        id="connectStripeButton"
+        type="button"
+      >
+        💳 Connect Stripe
+      </button>
+
+
+      <hr>
+
+
       <!-- BUSINESS DETAILS -->
       <h2>Business Details</h2>
 
@@ -5576,7 +5604,29 @@ function renderSettings(content) {
     </div>
   `;
 
+
   loadSettings();
+
+
+  // =====================================================
+  // STRIPE CONNECT BUTTON
+  // =====================================================
+
+  const connectStripeButton =
+    document.getElementById(
+      "connectStripeButton"
+    );
+
+  if (connectStripeButton) {
+
+    connectStripeButton.addEventListener(
+      "click",
+      connectStripe
+    );
+
+  }
+
+  loadStripeStatus();
 
 }
 
@@ -5953,3 +6003,272 @@ function escapeHtml(value) {
 // =====================================================
 
 init();
+
+// =====================================================
+// STRIPE CONNECT
+// =====================================================
+
+async function loadStripeStatus() {
+
+  const statusElement =
+    document.getElementById(
+      "stripeConnectionStatus"
+    );
+
+  const connectButton =
+    document.getElementById(
+      "connectStripeButton"
+    );
+
+  if (!statusElement || !connectButton) {
+    return;
+  }
+
+
+  try {
+
+    const {
+      data: {
+        session
+      }
+    } =
+      await supabase.auth.getSession();
+
+
+    if (!session) {
+
+      statusElement.textContent =
+        "Not logged in.";
+
+      connectButton.disabled =
+        true;
+
+      return;
+
+    }
+
+
+    const response =
+      await fetch(
+        "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-connect",
+        {
+          method: "POST",
+
+          headers: {
+            "Authorization":
+              `Bearer ${session.access_token}`,
+
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+            action: "status"
+          })
+        }
+      );
+
+
+    const result =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        result.error ||
+        "Could not check Stripe status."
+      );
+
+    }
+
+
+    if (
+      result.connected &&
+      result.charges_enabled
+    ) {
+
+      statusElement.innerHTML = `
+        <strong style="color:green;">
+          ✅ Stripe connected
+        </strong>
+
+        <br>
+
+        <small>
+          Your customers can pay your invoices online.
+        </small>
+      `;
+
+      connectButton.textContent =
+        "💳 Stripe Connected";
+
+      connectButton.disabled =
+        true;
+
+    } else if (result.connected) {
+
+      statusElement.innerHTML = `
+        <strong>
+          ⚠️ Stripe setup incomplete
+        </strong>
+
+        <br>
+
+        <small>
+          Complete your Stripe setup to enable payments.
+        </small>
+      `;
+
+      connectButton.textContent =
+        "💳 Complete Stripe Setup";
+
+    } else {
+
+      statusElement.innerHTML = `
+        <strong>
+          Not connected
+        </strong>
+
+        <br>
+
+        <small>
+          Connect Stripe to accept online payments.
+        </small>
+      `;
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "Stripe status error:",
+      error
+    );
+
+    statusElement.textContent =
+      "Could not check Stripe connection.";
+
+  }
+
+}
+
+
+async function connectStripe() {
+
+  const button =
+    document.getElementById(
+      "connectStripeButton"
+    );
+
+  if (!button) {
+    return;
+  }
+
+
+  button.disabled =
+    true;
+
+  button.textContent =
+    "Connecting to Stripe...";
+
+
+  try {
+
+    const {
+      data: {
+        session
+      }
+    } =
+      await supabase.auth.getSession();
+
+
+    if (!session) {
+
+      throw new Error(
+        "You are not logged in."
+      );
+
+    }
+
+
+    const response =
+      await fetch(
+        "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-connect",
+        {
+          method: "POST",
+
+          headers: {
+
+            "Authorization":
+              `Bearer ${session.access_token}`,
+
+            "Content-Type":
+              "application/json"
+
+          },
+
+          body: JSON.stringify({
+
+            action:
+              "connect",
+
+            origin:
+              window.location.origin
+
+          })
+
+        }
+      );
+
+
+    const result =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        result.error ||
+        "Could not connect Stripe."
+      );
+
+    }
+
+
+    if (!result.url) {
+
+      throw new Error(
+        "Stripe did not return an onboarding URL."
+      );
+
+    }
+
+
+    window.location.href =
+      result.url;
+
+
+  } catch (error) {
+
+    console.error(
+      "Stripe connection error:",
+      error
+    );
+
+
+    alert(
+      "Could not connect Stripe:\n\n" +
+      error.message
+    );
+
+
+    button.disabled =
+      false;
+
+    button.textContent =
+      "💳 Connect Stripe";
+
+  }
+
+}

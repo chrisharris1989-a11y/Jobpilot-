@@ -2806,10 +2806,9 @@ function showEditJobForm(jobId) {
 
 async function createNextRecurringAppointment(sourceJob) {
 
-  if (
+    if (
     !sourceJob ||
-    !sourceJob.recurring ||
-    !sourceJob.recurring_active
+    !sourceJob.recurring
   ) {
     return null;
   }

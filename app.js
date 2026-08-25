@@ -5,6 +5,7 @@ let customers = [];
 let jobs = [];
 let quotes = [];
 let invoices = [];
+let userSettings = null;
 
 const app = document.getElementById("app");
 
@@ -14,12 +15,9 @@ const app = document.getElementById("app");
 // =====================================================
 
 async function init() {
+  const { data } = await supabase.auth.getSession();
 
-  const { data } =
-    await supabase.auth.getSession();
-
-  currentUser =
-    data.session?.user || null;
+  currentUser = data.session?.user || null;
 
   if (currentUser) {
     await loadApp();
@@ -27,20 +25,15 @@ async function init() {
     showLogin();
   }
 
-  supabase.auth.onAuthStateChange(
-    async (_event, session) => {
+  supabase.auth.onAuthStateChange(async (_event, session) => {
+    currentUser = session?.user || null;
 
-      currentUser =
-        session?.user || null;
-
-      if (currentUser) {
-        await loadApp();
-      } else {
-        showLogin();
-      }
-
+    if (currentUser) {
+      await loadApp();
+    } else {
+      showLogin();
     }
-  );
+  });
 }
 
 
@@ -49,21 +42,16 @@ async function init() {
 // =====================================================
 
 function showLogin() {
-
   app.innerHTML = `
     <div class="auth-page">
-
       <div class="auth-card">
 
         <div class="auth-logo">
-
           <div class="logo-mark">J</div>
-
           <div>
             <strong>JobPilot</strong>
             <span>Trades CRM</span>
           </div>
-
         </div>
 
         <h1>Welcome to JobPilot</h1>
@@ -106,40 +94,27 @@ function showLogin() {
         </button>
 
       </div>
-
     </div>
   `;
 
   document
     .getElementById("loginForm")
-    .addEventListener(
-      "submit",
-      login
-    );
+    .addEventListener("submit", login);
 
   document
     .getElementById("signupButton")
-    .addEventListener(
-      "click",
-      signup
-    );
+    .addEventListener("click", signup);
 }
 
 
 async function login(event) {
-
   event.preventDefault();
 
   const email =
-    document
-      .getElementById("email")
-      .value
-      .trim();
+    document.getElementById("email").value.trim();
 
   const password =
-    document
-      .getElementById("password")
-      .value;
+    document.getElementById("password").value;
 
   showAuthMessage("Signing in...");
 
@@ -150,43 +125,27 @@ async function login(event) {
     });
 
   if (error) {
-    showAuthMessage(
-      error.message,
-      true
-    );
+    showAuthMessage(error.message, true);
   }
 }
 
 
 async function signup() {
-
   const email =
-    document
-      .getElementById("email")
-      .value
-      .trim();
+    document.getElementById("email").value.trim();
 
   const password =
-    document
-      .getElementById("password")
-      .value;
+    document.getElementById("password").value;
 
-  if (
-    !email ||
-    password.length < 6
-  ) {
-
+  if (!email || password.length < 6) {
     showAuthMessage(
       "Enter an email and a password of at least 6 characters.",
       true
     );
-
     return;
   }
 
-  showAuthMessage(
-    "Creating account..."
-  );
+  showAuthMessage("Creating account...");
 
   const { error } =
     await supabase.auth.signUp({
@@ -195,12 +154,7 @@ async function signup() {
     });
 
   if (error) {
-
-    showAuthMessage(
-      error.message,
-      true
-    );
-
+    showAuthMessage(error.message, true);
     return;
   }
 
@@ -210,25 +164,15 @@ async function signup() {
 }
 
 
-function showAuthMessage(
-  message,
-  error = false
-) {
-
+function showAuthMessage(message, error = false) {
   const element =
-    document.getElementById(
-      "authMessage"
-    );
+    document.getElementById("authMessage");
 
   if (!element) return;
 
-  element.textContent =
-    message;
-
+  element.textContent = message;
   element.style.color =
-    error
-      ? "#dc2626"
-      : "#2563eb";
+    error ? "#dc2626" : "#2563eb";
 }
 
 
@@ -237,7 +181,7 @@ function showAuthMessage(
 // =====================================================
 
 async function loadApp() {
-
+  await loadSettings();
   await loadCustomers();
   await loadJobs();
   await loadQuotes();
@@ -248,15 +192,83 @@ async function loadApp() {
 
 
 // =====================================================
+// SETTINGS DATA
+// =====================================================
+
+async function loadSettings() {
+
+  const { data, error } =
+    await supabase
+      .from("user_settings")
+      .select("*")
+      .eq("user_id", currentUser.id)
+      .maybeSingle();
+
+  if (error) {
+    console.error("Settings:", error);
+    return;
+  }
+
+  if (data) {
+    userSettings = data;
+    return;
+  }
+
+  const defaults = {
+    user_id: currentUser.id,
+
+    business_name: "",
+    contact_name: "",
+    phone: "",
+    email: currentUser.email || "",
+    website: "",
+
+    address_line1: "",
+    city: "",
+    postcode: "",
+
+    business_logo_url: "",
+
+    invoice_prefix: "INV-",
+    next_invoice_number: 1,
+    invoice_payment_terms: 30,
+    default_vat_rate: 20,
+    invoice_footer: "",
+
+    quote_prefix: "QUO-",
+    next_quote_number: 1,
+    quote_validity_days: 30,
+    quote_footer: "",
+
+    default_job_status: "pending",
+    default_job_duration: 60,
+
+    currency: "GBP"
+  };
+
+  const { data: created, error: createError } =
+    await supabase
+      .from("user_settings")
+      .insert(defaults)
+      .select()
+      .single();
+
+  if (createError) {
+    console.error("Create settings:", createError);
+    userSettings = defaults;
+    return;
+  }
+
+  userSettings = created;
+}
+
+
+// =====================================================
 // CUSTOMERS
 // =====================================================
 
 async function loadCustomers() {
-
-  const {
-    data,
-    error
-  } =
+  const { data, error } =
     await supabase
       .from("customers")
       .select("*")
@@ -265,17 +277,11 @@ async function loadCustomers() {
       });
 
   if (error) {
-
-    console.error(
-      "Customers:",
-      error
-    );
-
+    console.error("Customers:", error);
     return;
   }
 
-  customers =
-    data || [];
+  customers = data || [];
 }
 
 
@@ -284,11 +290,7 @@ async function loadCustomers() {
 // =====================================================
 
 async function loadJobs() {
-
-  const {
-    data,
-    error
-  } =
+  const { data, error } =
     await supabase
       .from("jobs")
       .select("*")
@@ -298,17 +300,11 @@ async function loadJobs() {
       });
 
   if (error) {
-
-    console.error(
-      "Jobs:",
-      error
-    );
-
+    console.error("Jobs:", error);
     return;
   }
 
-  jobs =
-    data || [];
+  jobs = data || [];
 }
 
 
@@ -317,11 +313,7 @@ async function loadJobs() {
 // =====================================================
 
 async function loadQuotes() {
-
-  const {
-    data,
-    error
-  } =
+  const { data, error } =
     await supabase
       .from("quotes")
       .select("*")
@@ -330,17 +322,11 @@ async function loadQuotes() {
       });
 
   if (error) {
-
-    console.error(
-      "Quotes:",
-      error
-    );
-
+    console.error("Quotes:", error);
     return;
   }
 
-  quotes =
-    data || [];
+  quotes = data || [];
 }
 
 
@@ -349,11 +335,7 @@ async function loadQuotes() {
 // =====================================================
 
 async function loadInvoices() {
-
-  const {
-    data,
-    error
-  } =
+  const { data, error } =
     await supabase
       .from("invoices")
       .select("*")
@@ -362,17 +344,11 @@ async function loadInvoices() {
       });
 
   if (error) {
-
-    console.error(
-      "Invoices:",
-      error
-    );
-
+    console.error("Invoices:", error);
     return;
   }
 
-  invoices =
-    data || [];
+  invoices = data || [];
 }
 
 
@@ -381,7 +357,6 @@ async function loadInvoices() {
 // =====================================================
 
 function renderApp() {
-
   app.innerHTML = `
     <div class="app-layout">
 
@@ -400,38 +375,23 @@ function renderApp() {
 
         <nav>
 
-          <button
-            class="nav-item active"
-            data-page="dashboard"
-          >
+          <button class="nav-item active" data-page="dashboard">
             🏠 Dashboard
           </button>
 
-          <button
-            class="nav-item"
-            data-page="customers"
-          >
+          <button class="nav-item" data-page="customers">
             👥 Customers
           </button>
 
-          <button
-            class="nav-item"
-            data-page="jobs"
-          >
+          <button class="nav-item" data-page="jobs">
             📋 Jobs
           </button>
 
-          <button
-            class="nav-item"
-            data-page="quotes"
-          >
+          <button class="nav-item" data-page="quotes">
             💷 Quotes
           </button>
 
-          <button
-            class="nav-item"
-            data-page="invoices"
-          >
+          <button class="nav-item" data-page="invoices">
             🧾 Invoices
           </button>
 
@@ -439,17 +399,11 @@ function renderApp() {
 
         <div class="sidebar-bottom">
 
-          <button
-            class="nav-item"
-            data-page="settings"
-          >
+          <button class="nav-item" data-page="settings">
             ⚙️ Settings
           </button>
 
-          <button
-            class="nav-item"
-            id="logoutButton"
-          >
+          <button class="nav-item" id="logoutButton">
             🚪 Sign out
           </button>
 
@@ -491,29 +445,17 @@ function renderApp() {
   `;
 
   document
-    .querySelectorAll(
-      ".nav-item[data-page]"
-    )
+    .querySelectorAll(".nav-item[data-page]")
     .forEach(button => {
-
       button.addEventListener(
         "click",
-        () =>
-          showPage(
-            button.dataset.page
-          )
+        () => showPage(button.dataset.page)
       );
-
     });
 
   document
-    .getElementById(
-      "logoutButton"
-    )
-    .addEventListener(
-      "click",
-      logout
-    );
+    .getElementById("logoutButton")
+    .addEventListener("click", logout);
 
   showPage("dashboard");
 }
@@ -526,15 +468,9 @@ function renderApp() {
 function showPage(page) {
 
   document
-    .querySelectorAll(
-      ".nav-item"
-    )
+    .querySelectorAll(".nav-item")
     .forEach(button => {
-
-      button.classList.remove(
-        "active"
-      );
-
+      button.classList.remove("active");
     });
 
   const activeButton =
@@ -543,13 +479,10 @@ function showPage(page) {
     );
 
   if (activeButton) {
-    activeButton.classList.add(
-      "active"
-    );
+    activeButton.classList.add("active");
   }
 
   const titles = {
-
     dashboard: [
       "Dashboard",
       "Here's what's happening with your business."
@@ -577,29 +510,18 @@ function showPage(page) {
 
     settings: [
       "Settings",
-      "Manage your JobPilot account."
+      "Manage your business and JobPilot preferences."
     ]
-
   };
 
-  document
-    .getElementById(
-      "pageTitle"
-    )
-    .textContent =
+  document.getElementById("pageTitle").textContent =
     titles[page][0];
 
-  document
-    .getElementById(
-      "pageSubtitle"
-    )
-    .textContent =
+  document.getElementById("pageSubtitle").textContent =
     titles[page][1];
 
   const content =
-    document.getElementById(
-      "pageContent"
-    );
+    document.getElementById("pageContent");
 
   if (page === "dashboard") {
     renderDashboard(content);
@@ -687,14 +609,9 @@ function renderDashboard(content) {
         ${
           jobs.length
             ? jobs.slice(0, 5).map(job => `
-                <div
-                  class="job-row"
-                  style="cursor:pointer;"
-                  data-dashboard-job="${job.id}"
-                >
+                <div class="job-row">
 
                   <div>
-
                     <strong>
                       ${escapeHtml(job.title)}
                     </strong>
@@ -702,30 +619,19 @@ function renderDashboard(content) {
                     <div class="muted">
                       ${job.scheduled_date || "No date"}
                     </div>
-
                   </div>
 
                   <span>
-                    £${Number(
-                      job.price || 0
-                    ).toFixed(2)}
+                    £${Number(job.price || 0).toFixed(2)}
                   </span>
 
                 </div>
               `).join("")
             : `
               <div class="empty-state">
-
-                <div class="empty-icon">
-                  📋
-                </div>
-
+                <div class="empty-icon">📋</div>
                 <h3>No jobs yet</h3>
-
-                <p>
-                  Add your first job to get started.
-                </p>
-
+                <p>Add your first job to get started.</p>
               </div>
             `
         }
@@ -743,31 +649,19 @@ function renderDashboard(content) {
 
         </div>
 
-        <button
-          class="quick-button"
-          data-action="customers"
-        >
+        <button class="quick-button" data-action="customers">
           👤 Add Customer
         </button>
 
-        <button
-          class="quick-button"
-          data-action="jobs"
-        >
+        <button class="quick-button" data-action="jobs">
           📋 Add Job
         </button>
 
-        <button
-          class="quick-button"
-          data-action="quotes"
-        >
+        <button class="quick-button" data-action="quotes">
           💷 Create Quote
         </button>
 
-        <button
-          class="quick-button"
-          data-action="invoices"
-        >
+        <button class="quick-button" data-action="invoices">
           🧾 Create Invoice
         </button>
 
@@ -777,35 +671,12 @@ function renderDashboard(content) {
   `;
 
   document
-    .querySelectorAll(
-      "[data-action]"
-    )
+    .querySelectorAll("[data-action]")
     .forEach(button => {
-
       button.addEventListener(
         "click",
-        () =>
-          showPage(
-            button.dataset.action
-          )
+        () => showPage(button.dataset.action)
       );
-
-    });
-
-  content
-    .querySelectorAll(
-      "[data-dashboard-job]"
-    )
-    .forEach(row => {
-
-      row.addEventListener(
-        "click",
-        () =>
-          showJobProfile(
-            row.dataset.dashboardJob
-          )
-      );
-
     });
 }
 
@@ -825,10 +696,7 @@ function renderCustomersPage(content) {
         <p>Your customer database.</p>
       </div>
 
-      <button
-        id="addCustomerButton"
-        class="button primary"
-      >
+      <button id="addCustomerButton" class="button primary">
         + Add Customer
       </button>
 
@@ -842,33 +710,24 @@ function renderCustomersPage(content) {
         placeholder="Search customers..."
       >
 
-      <div
-        id="customerTable"
-        class="table-container"
-      ></div>
+      <div id="customerTable" class="table-container"></div>
 
     </div>
   `;
 
   document
-    .getElementById(
-      "addCustomerButton"
-    )
+    .getElementById("addCustomerButton")
     .addEventListener(
       "click",
       showAddCustomerForm
     );
 
   document
-    .getElementById(
-      "customerSearch"
-    )
+    .getElementById("customerSearch")
     .addEventListener(
       "input",
       event =>
-        renderCustomerTable(
-          event.target.value
-        )
+        renderCustomerTable(event.target.value)
     );
 
   renderCustomerTable();
@@ -879,49 +738,39 @@ function renderCustomersPage(content) {
 // CUSTOMER TABLE
 // =====================================================
 
-function renderCustomerTable(
-  search = ""
-) {
+function renderCustomerTable(search = "") {
 
   const table =
-    document.getElementById(
-      "customerTable"
-    );
+    document.getElementById("customerTable");
 
   if (!table) return;
 
   const term =
-    search
-      .toLowerCase()
-      .trim();
+    search.toLowerCase().trim();
 
   const filtered =
-    customers.filter(
-      customer => {
+    customers.filter(customer => {
 
-        const text = [
-          customer.name,
-          customer.phone,
-          customer.email,
-          customer.city,
-          customer.postcode
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
+      const text = [
+        customer.name,
+        customer.phone,
+        customer.email,
+        customer.city,
+        customer.postcode
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
 
-        return text.includes(term);
-      }
-    );
+      return text.includes(term);
+    });
 
   if (!filtered.length) {
 
     table.innerHTML = `
       <div class="empty-state">
 
-        <div class="empty-icon">
-          👥
-        </div>
+        <div class="empty-icon">👥</div>
 
         <h3>No customers found</h3>
 
@@ -975,11 +824,8 @@ function renderCustomerTable(
   `;
 
   table
-    .querySelectorAll(
-      "[data-customer-id]"
-    )
+    .querySelectorAll("[data-customer-id]")
     .forEach(row => {
-
       row.addEventListener(
         "click",
         () =>
@@ -987,7 +833,6 @@ function renderCustomerTable(
             row.dataset.customerId
           )
       );
-
     });
 }
 
@@ -999,15 +844,11 @@ function renderCustomerTable(
 function showAddCustomerForm() {
 
   const modal =
-    document.createElement(
-      "div"
-    );
+    document.createElement("div");
 
-  modal.className =
-    "modal show";
+  modal.className = "modal show";
 
   modal.innerHTML = `
-
     <div class="modal-content">
 
       <div class="modal-header">
@@ -1017,63 +858,40 @@ function showAddCustomerForm() {
           <p>Create a customer record.</p>
         </div>
 
-        <button class="close">
-          ×
-        </button>
+        <button class="close">×</button>
 
       </div>
 
       <form id="customerForm">
 
         <label>Name *</label>
-
-        <input
-          id="customerName"
-          required
-        >
+        <input id="customerName" required>
 
         <label>Phone</label>
-
         <input id="customerPhone">
 
         <label>Email</label>
-
-        <input
-          id="customerEmail"
-          type="email"
-        >
+        <input id="customerEmail" type="email">
 
         <label>Address</label>
-
         <input id="customerAddress">
 
         <label>Town / City</label>
-
         <input id="customerCity">
 
         <label>Postcode</label>
-
         <input id="customerPostcode">
 
         <label>Notes</label>
-
-        <textarea
-          id="customerNotes"
-        ></textarea>
+        <textarea id="customerNotes"></textarea>
 
         <div class="modal-actions">
 
-          <button
-            type="button"
-            class="button secondary close"
-          >
+          <button type="button" class="button secondary close">
             Cancel
           </button>
 
-          <button
-            type="submit"
-            class="button primary"
-          >
+          <button type="submit" class="button primary">
             Save Customer
           </button>
 
@@ -1084,25 +902,18 @@ function showAddCustomerForm() {
     </div>
   `;
 
-  document.body.appendChild(
-    modal
-  );
+  document.body.appendChild(modal);
 
-  modal
-    .querySelectorAll(".close")
-    .forEach(button => {
-
+  modal.querySelectorAll(".close")
+    .forEach(button =>
       button.addEventListener(
         "click",
         () => modal.remove()
-      );
-
-    });
+      )
+    );
 
   modal
-    .querySelector(
-      "#customerForm"
-    )
+    .querySelector("#customerForm")
     .addEventListener(
       "submit",
       async event => {
@@ -1111,64 +922,42 @@ function showAddCustomerForm() {
 
         const customer = {
 
-          user_id:
-            currentUser.id,
+          user_id: currentUser.id,
 
           name:
             document
-              .getElementById(
-                "customerName"
-              )
-              .value
-              .trim(),
+              .getElementById("customerName")
+              .value.trim(),
 
           phone:
             document
-              .getElementById(
-                "customerPhone"
-              )
-              .value
-              .trim(),
+              .getElementById("customerPhone")
+              .value.trim(),
 
           email:
             document
-              .getElementById(
-                "customerEmail"
-              )
-              .value
-              .trim(),
+              .getElementById("customerEmail")
+              .value.trim(),
 
           address_line1:
             document
-              .getElementById(
-                "customerAddress"
-              )
-              .value
-              .trim(),
+              .getElementById("customerAddress")
+              .value.trim(),
 
           city:
             document
-              .getElementById(
-                "customerCity"
-              )
-              .value
-              .trim(),
+              .getElementById("customerCity")
+              .value.trim(),
 
           postcode:
             document
-              .getElementById(
-                "customerPostcode"
-              )
-              .value
-              .trim(),
+              .getElementById("customerPostcode")
+              .value.trim(),
 
           notes:
             document
-              .getElementById(
-                "customerNotes"
-              )
-              .value
-              .trim()
+              .getElementById("customerNotes")
+              .value.trim()
         };
 
         const { error } =
@@ -1177,11 +966,7 @@ function showAddCustomerForm() {
             .insert(customer);
 
         if (error) {
-
-          alert(
-            error.message
-          );
-
+          alert(error.message);
           return;
         }
 
@@ -1190,9 +975,7 @@ function showAddCustomerForm() {
         await loadCustomers();
 
         renderCustomersPage(
-          document.getElementById(
-            "pageContent"
-          )
+          document.getElementById("pageContent")
         );
       }
     );
@@ -1203,15 +986,12 @@ function showAddCustomerForm() {
 // CUSTOMER PROFILE
 // =====================================================
 
-function showCustomerProfile(
-  customerId
-) {
+function showCustomerProfile(customerId) {
 
   const customer =
     customers.find(
       item =>
-        String(item.id) ===
-        String(customerId)
+        String(item.id) === String(customerId)
     );
 
   if (!customer) return;
@@ -1226,54 +1006,34 @@ function showCustomerProfile(
   const totalValue =
     customerJobs.reduce(
       (total, job) =>
-        total +
-        Number(job.price || 0),
+        total + Number(job.price || 0),
       0
     );
 
   const content =
-    document.getElementById(
-      "pageContent"
-    );
+    document.getElementById("pageContent");
 
-  document
-    .getElementById(
-      "pageTitle"
-    )
-    .textContent =
+  document.getElementById("pageTitle").textContent =
     customer.name;
 
-  document
-    .getElementById(
-      "pageSubtitle"
-    )
-    .textContent =
+  document.getElementById("pageSubtitle").textContent =
     "Customer profile";
 
   content.innerHTML = `
 
     <div class="page-actions">
 
-      <button
-        id="backCustomers"
-        class="button secondary"
-      >
+      <button id="backCustomers" class="button secondary">
         ← Customers
       </button>
 
       <div>
 
-        <button
-          id="editCustomer"
-          class="button primary"
-        >
+        <button id="editCustomer" class="button primary">
           Edit Customer
         </button>
 
-        <button
-          id="deleteCustomer"
-          class="button danger"
-        >
+        <button id="deleteCustomer" class="button danger">
           Delete
         </button>
 
@@ -1291,63 +1051,37 @@ function showCustomerProfile(
 
           <div>
             <span>Name</span>
-            <strong>
-              ${escapeHtml(customer.name)}
-            </strong>
+            <strong>${escapeHtml(customer.name)}</strong>
           </div>
 
           <div>
             <span>Phone</span>
-            <strong>
-              ${escapeHtml(
-                customer.phone || "—"
-              )}
-            </strong>
+            <strong>${escapeHtml(customer.phone || "—")}</strong>
           </div>
 
           <div>
             <span>Email</span>
-            <strong>
-              ${escapeHtml(
-                customer.email || "—"
-              )}
-            </strong>
+            <strong>${escapeHtml(customer.email || "—")}</strong>
           </div>
 
           <div>
             <span>Address</span>
-            <strong>
-              ${escapeHtml(
-                customer.address_line1 || "—"
-              )}
-            </strong>
+            <strong>${escapeHtml(customer.address_line1 || "—")}</strong>
           </div>
 
           <div>
             <span>Town / City</span>
-            <strong>
-              ${escapeHtml(
-                customer.city || "—"
-              )}
-            </strong>
+            <strong>${escapeHtml(customer.city || "—")}</strong>
           </div>
 
           <div>
             <span>Postcode</span>
-            <strong>
-              ${escapeHtml(
-                customer.postcode || "—"
-              )}
-            </strong>
+            <strong>${escapeHtml(customer.postcode || "—")}</strong>
           </div>
 
           <div>
             <span>Notes</span>
-            <strong>
-              ${escapeHtml(
-                customer.notes || "—"
-              )}
-            </strong>
+            <strong>${escapeHtml(customer.notes || "—")}</strong>
           </div>
 
         </div>
@@ -1361,27 +1095,17 @@ function showCustomerProfile(
         <div class="stats">
 
           <div class="stat-card">
-
             <div>
               <span>Jobs</span>
-              <strong>
-                ${customerJobs.length}
-              </strong>
+              <strong>${customerJobs.length}</strong>
             </div>
-
           </div>
 
           <div class="stat-card">
-
             <div>
               <span>Job Value</span>
-
-              <strong>
-                £${totalValue.toFixed(2)}
-              </strong>
-
+              <strong>£${totalValue.toFixed(2)}</strong>
             </div>
-
           </div>
 
         </div>
@@ -1396,9 +1120,7 @@ function showCustomerProfile(
 
         <div>
           <h2>Job History</h2>
-          <p>
-            Previous and upcoming work.
-          </p>
+          <p>Previous and upcoming work.</p>
         </div>
 
       </div>
@@ -1425,26 +1147,16 @@ function showCustomerProfile(
                 </div>
 
                 <strong>
-                  £${Number(
-                    job.price || 0
-                  ).toFixed(2)}
+                  £${Number(job.price || 0).toFixed(2)}
                 </strong>
 
               </div>
             `).join("")
           : `
             <div class="empty-state">
-
-              <div class="empty-icon">
-                📋
-              </div>
-
+              <div class="empty-icon">📋</div>
               <h3>No jobs yet</h3>
-
-              <p>
-                This customer doesn't have any jobs.
-              </p>
-
+              <p>This customer doesn't have any jobs.</p>
             </div>
           `
       }
@@ -1453,53 +1165,34 @@ function showCustomerProfile(
   `;
 
   document
-    .getElementById(
-      "backCustomers"
-    )
+    .getElementById("backCustomers")
     .addEventListener(
       "click",
-      () =>
-        showPage("customers")
+      () => showPage("customers")
     );
 
   document
-    .getElementById(
-      "editCustomer"
-    )
+    .getElementById("editCustomer")
     .addEventListener(
       "click",
-      () =>
-        showEditCustomerForm(
-          customer.id
-        )
+      () => showEditCustomerForm(customer.id)
     );
 
   document
-    .getElementById(
-      "deleteCustomer"
-    )
+    .getElementById("deleteCustomer")
     .addEventListener(
       "click",
-      () =>
-        deleteCustomer(
-          customer.id
-        )
+      () => deleteCustomer(customer.id)
     );
 
   content
-    .querySelectorAll(
-      "[data-history-job]"
-    )
+    .querySelectorAll("[data-history-job]")
     .forEach(row => {
-
       row.addEventListener(
         "click",
         () =>
-          showJobProfile(
-            row.dataset.historyJob
-          )
+          showJobProfile(row.dataset.historyJob)
       );
-
     });
 }
 
@@ -1508,9 +1201,7 @@ function showCustomerProfile(
 // EDIT CUSTOMER
 // =====================================================
 
-function showEditCustomerForm(
-  customerId
-) {
+function showEditCustomerForm(customerId) {
 
   const customer =
     customers.find(
@@ -1522,12 +1213,9 @@ function showEditCustomerForm(
   if (!customer) return;
 
   const modal =
-    document.createElement(
-      "div"
-    );
+    document.createElement("div");
 
-  modal.className =
-    "modal show";
+  modal.className = "modal show";
 
   modal.innerHTML = `
 
@@ -1537,14 +1225,10 @@ function showEditCustomerForm(
 
         <div>
           <h2>Edit Customer</h2>
-          <p>
-            Update customer details.
-          </p>
+          <p>Update customer details.</p>
         </div>
 
-        <button class="close">
-          ×
-        </button>
+        <button class="close">×</button>
 
       </div>
 
@@ -1554,9 +1238,7 @@ function showEditCustomerForm(
 
         <input
           id="editCustomerName"
-          value="${escapeHtml(
-            customer.name || ""
-          )}"
+          value="${escapeHtml(customer.name || "")}"
           required
         >
 
@@ -1564,9 +1246,7 @@ function showEditCustomerForm(
 
         <input
           id="editCustomerPhone"
-          value="${escapeHtml(
-            customer.phone || ""
-          )}"
+          value="${escapeHtml(customer.phone || "")}"
         >
 
         <label>Email</label>
@@ -1574,59 +1254,43 @@ function showEditCustomerForm(
         <input
           id="editCustomerEmail"
           type="email"
-          value="${escapeHtml(
-            customer.email || ""
-          )}"
+          value="${escapeHtml(customer.email || "")}"
         >
 
         <label>Address</label>
 
         <input
           id="editCustomerAddress"
-          value="${escapeHtml(
-            customer.address_line1 || ""
-          )}"
+          value="${escapeHtml(customer.address_line1 || "")}"
         >
 
         <label>Town / City</label>
 
         <input
           id="editCustomerCity"
-          value="${escapeHtml(
-            customer.city || ""
-          )}"
+          value="${escapeHtml(customer.city || "")}"
         >
 
         <label>Postcode</label>
 
         <input
           id="editCustomerPostcode"
-          value="${escapeHtml(
-            customer.postcode || ""
-          )}"
+          value="${escapeHtml(customer.postcode || "")}"
         >
 
         <label>Notes</label>
 
-        <textarea
-          id="editCustomerNotes"
-        >${escapeHtml(
+        <textarea id="editCustomerNotes">${escapeHtml(
           customer.notes || ""
         )}</textarea>
 
         <div class="modal-actions">
 
-          <button
-            type="button"
-            class="button secondary close"
-          >
+          <button type="button" class="button secondary close">
             Cancel
           </button>
 
-          <button
-            type="submit"
-            class="button primary"
-          >
+          <button type="submit" class="button primary">
             Save Changes
           </button>
 
@@ -1637,25 +1301,18 @@ function showEditCustomerForm(
     </div>
   `;
 
-  document.body.appendChild(
-    modal
-  );
+  document.body.appendChild(modal);
 
-  modal
-    .querySelectorAll(".close")
-    .forEach(button => {
-
+  modal.querySelectorAll(".close")
+    .forEach(button =>
       button.addEventListener(
         "click",
         () => modal.remove()
-      );
-
-    });
+      )
+    );
 
   modal
-    .querySelector(
-      "#editCustomerForm"
-    )
+    .querySelector("#editCustomerForm")
     .addEventListener(
       "submit",
       async event => {
@@ -1666,76 +1323,48 @@ function showEditCustomerForm(
 
           name:
             document
-              .getElementById(
-                "editCustomerName"
-              )
-              .value
-              .trim(),
+              .getElementById("editCustomerName")
+              .value.trim(),
 
           phone:
             document
-              .getElementById(
-                "editCustomerPhone"
-              )
-              .value
-              .trim(),
+              .getElementById("editCustomerPhone")
+              .value.trim(),
 
           email:
             document
-              .getElementById(
-                "editCustomerEmail"
-              )
-              .value
-              .trim(),
+              .getElementById("editCustomerEmail")
+              .value.trim(),
 
           address_line1:
             document
-              .getElementById(
-                "editCustomerAddress"
-              )
-              .value
-              .trim(),
+              .getElementById("editCustomerAddress")
+              .value.trim(),
 
           city:
             document
-              .getElementById(
-                "editCustomerCity"
-              )
-              .value
-              .trim(),
+              .getElementById("editCustomerCity")
+              .value.trim(),
 
           postcode:
             document
-              .getElementById(
-                "editCustomerPostcode"
-              )
-              .value
-              .trim(),
+              .getElementById("editCustomerPostcode")
+              .value.trim(),
 
           notes:
             document
-              .getElementById(
-                "editCustomerNotes"
-              )
-              .value
-              .trim()
+              .getElementById("editCustomerNotes")
+              .value.trim()
         };
 
         const { error } =
           await supabase
             .from("customers")
             .update(updates)
-            .eq(
-              "id",
-              customer.id
-            );
+            .eq("id", customer.id);
 
         if (error) {
-
-          alert(
-            error.message
-          );
-
+          alert(error.message);
           return;
         }
 
@@ -1743,9 +1372,7 @@ function showEditCustomerForm(
 
         await loadCustomers();
 
-        showCustomerProfile(
-          customer.id
-        );
+        showCustomerProfile(customer.id);
       }
     );
 }
@@ -1755,9 +1382,7 @@ function showEditCustomerForm(
 // DELETE CUSTOMER
 // =====================================================
 
-async function deleteCustomer(
-  customerId
-) {
+async function deleteCustomer(customerId) {
 
   const customer =
     customers.find(
@@ -1779,17 +1404,10 @@ async function deleteCustomer(
     await supabase
       .from("customers")
       .delete()
-      .eq(
-        "id",
-        customer.id
-      );
+      .eq("id", customer.id);
 
   if (error) {
-
-    alert(
-      error.message
-    );
-
+    alert(error.message);
     return;
   }
 
@@ -1812,15 +1430,10 @@ function renderJobsPage(content) {
 
       <div>
         <h2>Jobs</h2>
-        <p>
-          Schedule and manage your work.
-        </p>
+        <p>Schedule and manage your work.</p>
       </div>
 
-      <button
-        id="addJobButton"
-        class="button primary"
-      >
+      <button id="addJobButton" class="button primary">
         + Add Job
       </button>
 
@@ -1846,14 +1459,11 @@ function renderJobsPage(content) {
 
                   <div class="muted">
 
-                    ${getCustomerName(
-                      job.customer_id
-                    )}
+                    ${getCustomerName(job.customer_id)}
 
                     ${
                       job.scheduled_date
-                        ? " • " +
-                          job.scheduled_date
+                        ? " • " + job.scheduled_date
                         : ""
                     }
 
@@ -1864,16 +1474,11 @@ function renderJobsPage(content) {
                 <div>
 
                   <span>
-                    ${escapeHtml(
-                      job.status ||
-                      "pending"
-                    )}
+                    ${escapeHtml(job.status || "pending")}
                   </span>
 
                   <strong>
-                    £${Number(
-                      job.price || 0
-                    ).toFixed(2)}
+                    £${Number(job.price || 0).toFixed(2)}
                   </strong>
 
                 </div>
@@ -1885,15 +1490,11 @@ function renderJobsPage(content) {
 
             <div class="empty-state">
 
-              <div class="empty-icon">
-                📋
-              </div>
+              <div class="empty-icon">📋</div>
 
               <h3>No jobs yet</h3>
 
-              <p>
-                Add your first job.
-              </p>
+              <p>Add your first job.</p>
 
             </div>
 
@@ -1904,28 +1505,19 @@ function renderJobsPage(content) {
   `;
 
   document
-    .getElementById(
-      "addJobButton"
-    )
+    .getElementById("addJobButton")
     .addEventListener(
       "click",
       showAddJobForm
     );
 
   content
-    .querySelectorAll(
-      "[data-job-id]"
-    )
+    .querySelectorAll("[data-job-id]")
     .forEach(row => {
-
       row.addEventListener(
         "click",
-        () =>
-          showJobProfile(
-            row.dataset.jobId
-          )
+        () => showJobProfile(row.dataset.jobId)
       );
-
     });
 }
 
@@ -1934,15 +1526,12 @@ function renderJobsPage(content) {
 // JOB PROFILE
 // =====================================================
 
-function showJobProfile(
-  jobId
-) {
+function showJobProfile(jobId) {
 
   const job =
     jobs.find(
       item =>
-        String(item.id) ===
-        String(jobId)
+        String(item.id) === String(jobId)
     );
 
   if (!job) return;
@@ -1955,69 +1544,43 @@ function showJobProfile(
     );
 
   const content =
-    document.getElementById(
-      "pageContent"
-    );
+    document.getElementById("pageContent");
 
-  document
-    .getElementById(
-      "pageTitle"
-    )
-    .textContent =
+  document.getElementById("pageTitle").textContent =
     job.title;
 
-  document
-    .getElementById(
-      "pageSubtitle"
-    )
-    .textContent =
+  document.getElementById("pageSubtitle").textContent =
     "Job details";
 
   content.innerHTML = `
 
     <div class="page-actions">
 
-      <button
-        id="backJobs"
-        class="button secondary"
-      >
+      <button id="backJobs" class="button secondary">
         ← Jobs
       </button>
 
       <div>
 
-        <button
-          id="editJob"
-          class="button primary"
-        >
+        <button id="editJob" class="button primary">
           Edit Job
         </button>
 
         ${
-          String(job.status).toLowerCase() ===
-          "invoiced"
+          String(job.status).toLowerCase() === "invoiced"
             ? `
-              <button
-                class="button secondary"
-                disabled
-              >
+              <button class="button secondary" disabled>
                 ✓ Invoiced
               </button>
             `
             : `
-              <button
-                id="convertJobInvoice"
-                class="button primary"
-              >
+              <button id="convertJobInvoice" class="button primary">
                 🧾 Convert to Invoice
               </button>
             `
         }
 
-        <button
-          id="deleteJob"
-          class="button danger"
-        >
+        <button id="deleteJob" class="button danger">
           Delete
         </button>
 
@@ -2035,82 +1598,43 @@ function showJobProfile(
 
           <div>
             <span>Customer</span>
-
             <strong>
               ${
                 customer
-                  ? escapeHtml(
-                      customer.name
-                    )
+                  ? escapeHtml(customer.name)
                   : "Unknown customer"
               }
             </strong>
-
           </div>
 
           <div>
             <span>Title</span>
-
-            <strong>
-              ${escapeHtml(
-                job.title
-              )}
-            </strong>
-
+            <strong>${escapeHtml(job.title)}</strong>
           </div>
 
           <div>
             <span>Description</span>
-
-            <strong>
-              ${escapeHtml(
-                job.description ||
-                "—"
-              )}
-            </strong>
-
+            <strong>${escapeHtml(job.description || "—")}</strong>
           </div>
 
           <div>
             <span>Date</span>
-
-            <strong>
-              ${job.scheduled_date || "—"}
-            </strong>
-
+            <strong>${job.scheduled_date || "—"}</strong>
           </div>
 
           <div>
             <span>Time</span>
-
-            <strong>
-              ${job.scheduled_time || "—"}
-            </strong>
-
+            <strong>${job.scheduled_time || "—"}</strong>
           </div>
 
           <div>
             <span>Status</span>
-
-            <strong>
-              ${escapeHtml(
-                job.status ||
-                "pending"
-              )}
-            </strong>
-
+            <strong>${escapeHtml(job.status || "pending")}</strong>
           </div>
 
           <div>
             <span>Notes</span>
-
-            <strong>
-              ${escapeHtml(
-                job.notes ||
-                "—"
-              )}
-            </strong>
-
+            <strong>${escapeHtml(job.notes || "—")}</strong>
           </div>
 
         </div>
@@ -2124,15 +1648,11 @@ function showJobProfile(
         <div class="detail-list">
 
           <div>
-
             <span>Price</span>
 
             <strong>
-              £${Number(
-                job.price || 0
-              ).toFixed(2)}
+              £${Number(job.price || 0).toFixed(2)}
             </strong>
-
           </div>
 
         </div>
@@ -2143,54 +1663,34 @@ function showJobProfile(
   `;
 
   document
-    .getElementById(
-      "backJobs"
-    )
+    .getElementById("backJobs")
     .addEventListener(
       "click",
-      () =>
-        showPage("jobs")
+      () => showPage("jobs")
     );
 
   document
-    .getElementById(
-      "editJob"
-    )
+    .getElementById("editJob")
     .addEventListener(
       "click",
-      () =>
-        showEditJobForm(
-          job.id
-        )
+      () => showEditJobForm(job.id)
     );
 
   document
-    .getElementById(
-      "deleteJob"
-    )
+    .getElementById("deleteJob")
     .addEventListener(
       "click",
-      () =>
-        deleteJob(
-          job.id
-        )
+      () => deleteJob(job.id)
     );
 
   const invoiceButton =
-    document.getElementById(
-      "convertJobInvoice"
-    );
+    document.getElementById("convertJobInvoice");
 
   if (invoiceButton) {
-
     invoiceButton.addEventListener(
       "click",
-      () =>
-        convertJobToInvoice(
-          job.id
-        )
+      () => convertJobToInvoice(job.id)
     );
-
   }
 }
 
@@ -2202,12 +1702,9 @@ function showJobProfile(
 function showAddJobForm() {
 
   const modal =
-    document.createElement(
-      "div"
-    );
+    document.createElement("div");
 
-  modal.className =
-    "modal show";
+  modal.className = "modal show";
 
   modal.innerHTML = `
 
@@ -2217,14 +1714,10 @@ function showAddJobForm() {
 
         <div>
           <h2>Add Job</h2>
-          <p>
-            Schedule work for a customer.
-          </p>
+          <p>Schedule work for a customer.</p>
         </div>
 
-        <button class="close">
-          ×
-        </button>
+        <button class="close">×</button>
 
       </div>
 
@@ -2232,10 +1725,7 @@ function showAddJobForm() {
 
         <label>Customer *</label>
 
-        <select
-          id="jobCustomer"
-          required
-        >
+        <select id="jobCustomer" required>
 
           <option value="">
             Select customer
@@ -2243,9 +1733,7 @@ function showAddJobForm() {
 
           ${customers.map(customer => `
             <option value="${customer.id}">
-              ${escapeHtml(
-                customer.name
-              )}
+              ${escapeHtml(customer.name)}
             </option>
           `).join("")}
 
@@ -2261,41 +1749,37 @@ function showAddJobForm() {
 
         <label>Description</label>
 
-        <textarea
-          id="jobDescription"
-        ></textarea>
+        <textarea id="jobDescription"></textarea>
 
         <label>Date</label>
 
-        <input
-          id="jobDate"
-          type="date"
-        >
+        <input id="jobDate" type="date">
 
         <label>Time</label>
 
-        <input
-          id="jobTime"
-          type="time"
-        >
+        <input id="jobTime" type="time">
 
         <label>Status</label>
 
         <select id="jobStatus">
 
-          <option value="pending">
+          <option value="pending"
+            ${userSettings?.default_job_status === "pending" ? "selected" : ""}>
             Pending
           </option>
 
-          <option value="scheduled">
+          <option value="scheduled"
+            ${userSettings?.default_job_status === "scheduled" ? "selected" : ""}>
             Scheduled
           </option>
 
-          <option value="completed">
+          <option value="completed"
+            ${userSettings?.default_job_status === "completed" ? "selected" : ""}>
             Completed
           </option>
 
-          <option value="cancelled">
+          <option value="cancelled"
+            ${userSettings?.default_job_status === "cancelled" ? "selected" : ""}>
             Cancelled
           </option>
 
@@ -2312,9 +1796,7 @@ function showAddJobForm() {
 
         <label>Notes</label>
 
-        <textarea
-          id="jobNotes"
-        ></textarea>
+        <textarea id="jobNotes"></textarea>
 
         <div class="modal-actions">
 
@@ -2339,25 +1821,18 @@ function showAddJobForm() {
     </div>
   `;
 
-  document.body.appendChild(
-    modal
-  );
+  document.body.appendChild(modal);
 
-  modal
-    .querySelectorAll(".close")
-    .forEach(button => {
-
+  modal.querySelectorAll(".close")
+    .forEach(button =>
       button.addEventListener(
         "click",
         () => modal.remove()
-      );
-
-    });
+      )
+    );
 
   modal
-    .querySelector(
-      "#jobForm"
-    )
+    .querySelector("#jobForm")
     .addEventListener(
       "submit",
       async event => {
@@ -2366,71 +1841,49 @@ function showAddJobForm() {
 
         const job = {
 
-          user_id:
-            currentUser.id,
+          user_id: currentUser.id,
 
           customer_id:
             document
-              .getElementById(
-                "jobCustomer"
-              )
+              .getElementById("jobCustomer")
               .value,
 
           title:
             document
-              .getElementById(
-                "jobTitle"
-              )
-              .value
-              .trim(),
+              .getElementById("jobTitle")
+              .value.trim(),
 
           description:
             document
-              .getElementById(
-                "jobDescription"
-              )
-              .value
-              .trim(),
+              .getElementById("jobDescription")
+              .value.trim(),
 
           scheduled_date:
             document
-              .getElementById(
-                "jobDate"
-              )
-              .value ||
-            null,
+              .getElementById("jobDate")
+              .value || null,
 
           scheduled_time:
             document
-              .getElementById(
-                "jobTime"
-              )
-              .value ||
-            null,
+              .getElementById("jobTime")
+              .value || null,
 
           status:
             document
-              .getElementById(
-                "jobStatus"
-              )
+              .getElementById("jobStatus")
               .value,
 
           price:
             Number(
               document
-                .getElementById(
-                  "jobPrice"
-                )
+                .getElementById("jobPrice")
                 .value
             ) || 0,
 
           notes:
             document
-              .getElementById(
-                "jobNotes"
-              )
-              .value
-              .trim()
+              .getElementById("jobNotes")
+              .value.trim()
         };
 
         const { error } =
@@ -2439,11 +1892,7 @@ function showAddJobForm() {
             .insert(job);
 
         if (error) {
-
-          alert(
-            error.message
-          );
-
+          alert(error.message);
           return;
         }
 
@@ -2461,9 +1910,7 @@ function showAddJobForm() {
 // EDIT JOB
 // =====================================================
 
-function showEditJobForm(
-  jobId
-) {
+function showEditJobForm(jobId) {
 
   const job =
     jobs.find(
@@ -2475,12 +1922,9 @@ function showEditJobForm(
   if (!job) return;
 
   const modal =
-    document.createElement(
-      "div"
-    );
+    document.createElement("div");
 
-  modal.className =
-    "modal show";
+  modal.className = "modal show";
 
   modal.innerHTML = `
 
@@ -2490,14 +1934,10 @@ function showEditJobForm(
 
         <div>
           <h2>Edit Job</h2>
-          <p>
-            Update job details.
-          </p>
+          <p>Update job details.</p>
         </div>
 
-        <button class="close">
-          ×
-        </button>
+        <button class="close">×</button>
 
       </div>
 
@@ -2505,10 +1945,7 @@ function showEditJobForm(
 
         <label>Customer *</label>
 
-        <select
-          id="editJobCustomer"
-          required
-        >
+        <select id="editJobCustomer" required>
 
           ${customers.map(customer => `
             <option
@@ -2520,9 +1957,7 @@ function showEditJobForm(
                   : ""
               }
             >
-              ${escapeHtml(
-                customer.name
-              )}
+              ${escapeHtml(customer.name)}
             </option>
           `).join("")}
 
@@ -2532,17 +1967,13 @@ function showEditJobForm(
 
         <input
           id="editJobTitle"
-          value="${escapeHtml(
-            job.title || ""
-          )}"
+          value="${escapeHtml(job.title || "")}"
           required
         >
 
         <label>Description</label>
 
-        <textarea
-          id="editJobDescription"
-        >${escapeHtml(
+        <textarea id="editJobDescription">${escapeHtml(
           job.description || ""
         )}</textarea>
 
@@ -2566,63 +1997,28 @@ function showEditJobForm(
 
         <select id="editJobStatus">
 
-          <option
-            value="pending"
-            ${
-              job.status ===
-              "pending"
-                ? "selected"
-                : ""
-            }
-          >
+          <option value="pending"
+            ${job.status === "pending" ? "selected" : ""}>
             Pending
           </option>
 
-          <option
-            value="scheduled"
-            ${
-              job.status ===
-              "scheduled"
-                ? "selected"
-                : ""
-            }
-          >
+          <option value="scheduled"
+            ${job.status === "scheduled" ? "selected" : ""}>
             Scheduled
           </option>
 
-          <option
-            value="completed"
-            ${
-              job.status ===
-              "completed"
-                ? "selected"
-                : ""
-            }
-          >
+          <option value="completed"
+            ${job.status === "completed" ? "selected" : ""}>
             Completed
           </option>
 
-          <option
-            value="cancelled"
-            ${
-              job.status ===
-              "cancelled"
-                ? "selected"
-                : ""
-            }
-          >
+          <option value="cancelled"
+            ${job.status === "cancelled" ? "selected" : ""}>
             Cancelled
           </option>
 
-          <option
-            value="invoiced"
-            ${
-              job.status ===
-              "invoiced"
-                ? "selected"
-                : ""
-            }
-          >
+          <option value="invoiced"
+            ${job.status === "invoiced" ? "selected" : ""}>
             Invoiced
           </option>
 
@@ -2634,16 +2030,12 @@ function showEditJobForm(
           id="editJobPrice"
           type="number"
           step="0.01"
-          value="${Number(
-            job.price || 0
-          ).toFixed(2)}"
+          value="${Number(job.price || 0).toFixed(2)}"
         >
 
         <label>Notes</label>
 
-        <textarea
-          id="editJobNotes"
-        >${escapeHtml(
+        <textarea id="editJobNotes">${escapeHtml(
           job.notes || ""
         )}</textarea>
 
@@ -2670,25 +2062,18 @@ function showEditJobForm(
     </div>
   `;
 
-  document.body.appendChild(
-    modal
-  );
+  document.body.appendChild(modal);
 
-  modal
-    .querySelectorAll(".close")
-    .forEach(button => {
-
+  modal.querySelectorAll(".close")
+    .forEach(button =>
       button.addEventListener(
         "click",
         () => modal.remove()
-      );
-
-    });
+      )
+    );
 
   modal
-    .querySelector(
-      "#editJobForm"
-    )
+    .querySelector("#editJobForm")
     .addEventListener(
       "submit",
       async event => {
@@ -2699,83 +2084,55 @@ function showEditJobForm(
 
           customer_id:
             document
-              .getElementById(
-                "editJobCustomer"
-              )
+              .getElementById("editJobCustomer")
               .value,
 
           title:
             document
-              .getElementById(
-                "editJobTitle"
-              )
-              .value
-              .trim(),
+              .getElementById("editJobTitle")
+              .value.trim(),
 
           description:
             document
-              .getElementById(
-                "editJobDescription"
-              )
-              .value
-              .trim(),
+              .getElementById("editJobDescription")
+              .value.trim(),
 
           scheduled_date:
             document
-              .getElementById(
-                "editJobDate"
-              )
-              .value ||
-            null,
+              .getElementById("editJobDate")
+              .value || null,
 
           scheduled_time:
             document
-              .getElementById(
-                "editJobTime"
-              )
-              .value ||
-            null,
+              .getElementById("editJobTime")
+              .value || null,
 
           status:
             document
-              .getElementById(
-                "editJobStatus"
-              )
+              .getElementById("editJobStatus")
               .value,
 
           price:
             Number(
               document
-                .getElementById(
-                  "editJobPrice"
-                )
+                .getElementById("editJobPrice")
                 .value
             ) || 0,
 
           notes:
             document
-              .getElementById(
-                "editJobNotes"
-              )
-              .value
-              .trim()
+              .getElementById("editJobNotes")
+              .value.trim()
         };
 
         const { error } =
           await supabase
             .from("jobs")
             .update(updates)
-            .eq(
-              "id",
-              job.id
-            );
+            .eq("id", job.id);
 
         if (error) {
-
-          alert(
-            error.message
-          );
-
+          alert(error.message);
           return;
         }
 
@@ -2783,9 +2140,7 @@ function showEditJobForm(
 
         await loadJobs();
 
-        showJobProfile(
-          job.id
-        );
+        showJobProfile(job.id);
       }
     );
 }
@@ -2795,9 +2150,7 @@ function showEditJobForm(
 // DELETE JOB
 // =====================================================
 
-async function deleteJob(
-  jobId
-) {
+async function deleteJob(jobId) {
 
   const job =
     jobs.find(
@@ -2819,17 +2172,10 @@ async function deleteJob(
     await supabase
       .from("jobs")
       .delete()
-      .eq(
-        "id",
-        job.id
-      );
+      .eq("id", job.id);
 
   if (error) {
-
-    alert(
-      error.message
-    );
-
+    alert(error.message);
     return;
   }
 
@@ -2843,9 +2189,7 @@ async function deleteJob(
 // QUOTES PAGE
 // =====================================================
 
-function renderQuotesPage(
-  content
-) {
+function renderQuotesPage(content) {
 
   content.innerHTML = `
 
@@ -2853,15 +2197,10 @@ function renderQuotesPage(
 
       <div>
         <h2>Quotes</h2>
-        <p>
-          Create and track quotations.
-        </p>
+        <p>Create and track quotations.</p>
       </div>
 
-      <button
-        id="addQuoteButton"
-        class="button primary"
-      >
+      <button id="addQuoteButton" class="button primary">
         + New Quote
       </button>
 
@@ -2877,25 +2216,18 @@ function renderQuotesPage(
                 customers.find(
                   c =>
                     String(c.id) ===
-                    String(
-                      quote.customer_id
-                    )
+                    String(quote.customer_id)
                 );
 
               return `
 
-                <div
-                  class="job-row"
-                  style="cursor:pointer;"
-                  data-quote-row="${quote.id}"
-                >
+                <div class="job-row">
 
                   <div>
 
                     <strong>
                       Quote #${escapeHtml(
-                        quote.quote_number ||
-                        "—"
+                        quote.quote_number || "—"
                       )}
                     </strong>
 
@@ -2903,9 +2235,7 @@ function renderQuotesPage(
 
                       ${
                         customer
-                          ? escapeHtml(
-                              customer.name
-                            )
+                          ? escapeHtml(customer.name)
                           : "Unknown customer"
                       }
 
@@ -2929,31 +2259,33 @@ function renderQuotesPage(
                     </strong>
 
                     <span class="muted">
-                      ${formatQuoteStatus(
-                        quote.status
+                      ${escapeHtml(
+                        quote.status || "draft"
                       )}
                     </span>
+
+                    <button
+                      class="button secondary quote-view"
+                      data-quote-id="${quote.id}"
+                    >
+                      View
+                    </button>
 
                   </div>
 
                 </div>
 
               `;
-
             }).join("")
           : `
 
             <div class="empty-state">
 
-              <div class="empty-icon">
-                💷
-              </div>
+              <div class="empty-icon">💷</div>
 
               <h3>No quotes yet</h3>
 
-              <p>
-                Create your first quote.
-              </p>
+              <p>Create your first quote.</p>
 
             </div>
 
@@ -2964,28 +2296,22 @@ function renderQuotesPage(
   `;
 
   document
-    .getElementById(
-      "addQuoteButton"
-    )
+    .getElementById("addQuoteButton")
     .addEventListener(
       "click",
       showAddQuoteForm
     );
 
   content
-    .querySelectorAll(
-      "[data-quote-row]"
-    )
-    .forEach(row => {
-
-      row.addEventListener(
+    .querySelectorAll(".quote-view")
+    .forEach(button => {
+      button.addEventListener(
         "click",
         () =>
           showQuoteProfile(
-            row.dataset.quoteRow
+            button.dataset.quoteId
           )
       );
-
     });
 }
 
@@ -2997,12 +2323,9 @@ function renderQuotesPage(
 function showAddQuoteForm() {
 
   const modal =
-    document.createElement(
-      "div"
-    );
+    document.createElement("div");
 
-  modal.className =
-    "modal show";
+  modal.className = "modal show";
 
   const quoteNumber =
     generateQuoteNumber();
@@ -3015,14 +2338,10 @@ function showAddQuoteForm() {
 
         <div>
           <h2>New Quote</h2>
-          <p>
-            Create a quotation for a customer.
-          </p>
+          <p>Create a quotation for a customer.</p>
         </div>
 
-        <button class="close">
-          ×
-        </button>
+        <button class="close">×</button>
 
       </div>
 
@@ -3030,10 +2349,7 @@ function showAddQuoteForm() {
 
         <label>Customer *</label>
 
-        <select
-          id="quoteCustomer"
-          required
-        >
+        <select id="quoteCustomer" required>
 
           <option value="">
             Select customer
@@ -3041,28 +2357,17 @@ function showAddQuoteForm() {
 
           ${customers.map(customer => `
             <option value="${customer.id}">
-              ${escapeHtml(
-                customer.name
-              )}
+              ${escapeHtml(customer.name)}
             </option>
           `).join("")}
 
         </select>
 
-        <label>Quote Number *</label>
-
-        <input
-          id="quoteNumber"
-          value="${escapeHtml(
-            quoteNumber
-          )}"
-          required
-        >
-
-        <label>Title</label>
+        <label>What is the quote for? *</label>
 
         <input
           id="quoteTitle"
+          required
           placeholder="e.g. Driveway cleaning"
         >
 
@@ -3073,23 +2378,15 @@ function showAddQuoteForm() {
           placeholder="Describe the work..."
         ></textarea>
 
-        <label>Status</label>
+        <h3>Quote Details</h3>
 
-        <select id="quoteStatus">
+        <label>Quote Number *</label>
 
-          <option value="draft">
-            Draft
-          </option>
-
-          <option value="sent">
-            Sent
-          </option>
-
-          <option value="accepted">
-            Accepted
-          </option>
-
-        </select>
+        <input
+          id="quoteNumber"
+          value="${escapeHtml(quoteNumber)}"
+          required
+        >
 
         <label>Subtotal</label>
 
@@ -3106,7 +2403,9 @@ function showAddQuoteForm() {
           id="quoteVatPercent"
           type="number"
           step="0.01"
-          value="20"
+          value="${Number(
+            userSettings?.default_vat_rate ?? 20
+          )}"
         >
 
         <label>VAT</label>
@@ -3129,6 +2428,16 @@ function showAddQuoteForm() {
           readonly
         >
 
+        <label>Status</label>
+
+        <select id="quoteStatus">
+
+          <option value="draft">Draft</option>
+          <option value="sent">Sent</option>
+          <option value="accepted">Accepted</option>
+
+        </select>
+
         <label>Valid Until</label>
 
         <input
@@ -3138,9 +2447,7 @@ function showAddQuoteForm() {
 
         <label>Notes</label>
 
-        <textarea
-          id="quoteNotes"
-        ></textarea>
+        <textarea id="quoteNotes"></textarea>
 
         <div class="modal-actions">
 
@@ -3165,67 +2472,62 @@ function showAddQuoteForm() {
     </div>
   `;
 
-  document.body.appendChild(
-    modal
-  );
+  document.body.appendChild(modal);
 
-  modal
-    .querySelectorAll(".close")
-    .forEach(button => {
-
+  modal.querySelectorAll(".close")
+    .forEach(button =>
       button.addEventListener(
         "click",
         () => modal.remove()
-      );
+      )
+    );
 
-    });
+  const validUntil =
+    modal.querySelector("#quoteValidUntil");
+
+  const validityDays =
+    Number(
+      userSettings?.quote_validity_days || 30
+    );
+
+  const validDate =
+    new Date();
+
+  validDate.setDate(
+    validDate.getDate() + validityDays
+  );
+
+  validUntil.value =
+    formatDateInput(validDate);
 
   const subtotalInput =
-    modal.querySelector(
-      "#quoteSubtotal"
-    );
+    modal.querySelector("#quoteSubtotal");
 
   const vatPercentInput =
-    modal.querySelector(
-      "#quoteVatPercent"
-    );
+    modal.querySelector("#quoteVatPercent");
 
   const vatInput =
-    modal.querySelector(
-      "#quoteVat"
-    );
+    modal.querySelector("#quoteVat");
 
   const totalInput =
-    modal.querySelector(
-      "#quoteTotal"
-    );
+    modal.querySelector("#quoteTotal");
 
   function updateQuoteTotal() {
 
     const subtotal =
-      Number(
-        subtotalInput.value
-      ) || 0;
+      Number(subtotalInput.value) || 0;
 
     const vatPercent =
-      Number(
-        vatPercentInput.value
-      ) || 0;
+      Number(vatPercentInput.value) || 0;
 
     const vat =
-      subtotal *
-      vatPercent /
-      100;
-
-    const total =
-      subtotal +
-      vat;
+      subtotal * vatPercent / 100;
 
     vatInput.value =
       vat.toFixed(2);
 
     totalInput.value =
-      total.toFixed(2);
+      (subtotal + vat).toFixed(2);
   }
 
   subtotalInput.addEventListener(
@@ -3241,9 +2543,7 @@ function showAddQuoteForm() {
   updateQuoteTotal();
 
   modal
-    .querySelector(
-      "#quoteForm"
-    )
+    .querySelector("#quoteForm")
     .addEventListener(
       "submit",
       async event => {
@@ -3257,84 +2557,59 @@ function showAddQuoteForm() {
 
           customer_id:
             document
-              .getElementById(
-                "quoteCustomer"
-              )
+              .getElementById("quoteCustomer")
               .value,
 
           quote_number:
             document
-              .getElementById(
-                "quoteNumber"
-              )
-              .value
-              .trim(),
+              .getElementById("quoteNumber")
+              .value.trim(),
 
           title:
             document
-              .getElementById(
-                "quoteTitle"
-              )
-              .value
-              .trim(),
+              .getElementById("quoteTitle")
+              .value.trim(),
 
           description:
             document
-              .getElementById(
-                "quoteDescription"
-              )
-              .value
-              .trim(),
+              .getElementById("quoteDescription")
+              .value.trim(),
 
           status:
             document
-              .getElementById(
-                "quoteStatus"
-              )
+              .getElementById("quoteStatus")
               .value,
 
           subtotal:
             Number(
               document
-                .getElementById(
-                  "quoteSubtotal"
-                )
+                .getElementById("quoteSubtotal")
                 .value
             ) || 0,
 
           vat:
             Number(
               document
-                .getElementById(
-                  "quoteVat"
-                )
+                .getElementById("quoteVat")
                 .value
             ) || 0,
 
           total:
             Number(
               document
-                .getElementById(
-                  "quoteTotal"
-                )
+                .getElementById("quoteTotal")
                 .value
             ) || 0,
 
           notes:
             document
-              .getElementById(
-                "quoteNotes"
-              )
-              .value
-              .trim(),
+              .getElementById("quoteNotes")
+              .value.trim(),
 
           valid_until:
             document
-              .getElementById(
-                "quoteValidUntil"
-              )
-              .value ||
-            null
+              .getElementById("quoteValidUntil")
+              .value || null
         };
 
         const { error } =
@@ -3343,11 +2618,7 @@ function showAddQuoteForm() {
             .insert(quote);
 
         if (error) {
-
-          alert(
-            error.message
-          );
-
+          alert(error.message);
           return;
         }
 
@@ -3365,9 +2636,7 @@ function showAddQuoteForm() {
 // QUOTE PROFILE
 // =====================================================
 
-function showQuoteProfile(
-  quoteId
-) {
+function showQuoteProfile(quoteId) {
 
   const quote =
     quotes.find(
@@ -3382,40 +2651,23 @@ function showQuoteProfile(
     customers.find(
       c =>
         String(c.id) ===
-        String(
-          quote.customer_id
-        )
+        String(quote.customer_id)
     );
 
   const content =
-    document.getElementById(
-      "pageContent"
-    );
+    document.getElementById("pageContent");
 
-  document
-    .getElementById(
-      "pageTitle"
-    )
-    .textContent =
-    `Quote #${
-      quote.quote_number || "—"
-    }`;
+  document.getElementById("pageTitle").textContent =
+    `Quote #${quote.quote_number || "—"}`;
 
-  document
-    .getElementById(
-      "pageSubtitle"
-    )
-    .textContent =
+  document.getElementById("pageSubtitle").textContent =
     "Quote details";
 
   content.innerHTML = `
 
     <div class="page-actions">
 
-      <button
-        id="backQuotes"
-        class="button secondary"
-      >
+      <button id="backQuotes" class="button secondary">
         ← Quotes
       </button>
 
@@ -3424,27 +2676,18 @@ function showQuoteProfile(
         ${
           quote.status !== "converted"
             ? `
-              <button
-                id="convertQuote"
-                class="button primary"
-              >
+              <button id="convertQuote" class="button primary">
                 📋 Convert to Job
               </button>
             `
             : `
-              <button
-                class="button secondary"
-                disabled
-              >
+              <button class="button secondary" disabled>
                 ✓ Converted to Job
               </button>
             `
         }
 
-        <button
-          id="deleteQuote"
-          class="button danger"
-        >
+        <button id="deleteQuote" class="button danger">
           Delete
         </button>
 
@@ -3462,80 +2705,54 @@ function showQuoteProfile(
 
           <div>
             <span>Quote Number</span>
-
             <strong>
-              ${escapeHtml(
-                quote.quote_number ||
-                "—"
-              )}
+              ${escapeHtml(quote.quote_number || "—")}
             </strong>
           </div>
 
           <div>
             <span>Customer</span>
-
             <strong>
               ${
                 customer
-                  ? escapeHtml(
-                      customer.name
-                    )
+                  ? escapeHtml(customer.name)
                   : "Unknown customer"
               }
             </strong>
           </div>
 
           <div>
-            <span>Title</span>
-
+            <span>For</span>
             <strong>
-              ${escapeHtml(
-                quote.title ||
-                "—"
-              )}
+              ${escapeHtml(quote.title || "—")}
             </strong>
           </div>
 
           <div>
             <span>Description</span>
-
             <strong>
-              ${escapeHtml(
-                quote.description ||
-                "—"
-              )}
+              ${escapeHtml(quote.description || "—")}
             </strong>
           </div>
 
           <div>
             <span>Status</span>
-
             <strong>
-              ${formatQuoteStatus(
-                quote.status
-              )}
+              ${escapeHtml(quote.status || "draft")}
             </strong>
           </div>
 
           <div>
             <span>Valid Until</span>
-
             <strong>
-              ${
-                quote.valid_until ||
-                "—"
-              }
+              ${quote.valid_until || "—"}
             </strong>
           </div>
 
           <div>
             <span>Notes</span>
-
             <strong>
-              ${escapeHtml(
-                quote.notes ||
-                "—"
-              )}
+              ${escapeHtml(quote.notes || "—")}
             </strong>
           </div>
 
@@ -3551,31 +2768,22 @@ function showQuoteProfile(
 
           <div>
             <span>Subtotal</span>
-
             <strong>
-              £${Number(
-                quote.subtotal || 0
-              ).toFixed(2)}
+              £${Number(quote.subtotal || 0).toFixed(2)}
             </strong>
           </div>
 
           <div>
             <span>VAT</span>
-
             <strong>
-              £${Number(
-                quote.vat || 0
-              ).toFixed(2)}
+              £${Number(quote.vat || 0).toFixed(2)}
             </strong>
           </div>
 
           <div>
             <span>Total</span>
-
             <strong>
-              £${Number(
-                quote.total || 0
-              ).toFixed(2)}
+              £${Number(quote.total || 0).toFixed(2)}
             </strong>
           </div>
 
@@ -3587,42 +2795,27 @@ function showQuoteProfile(
   `;
 
   document
-    .getElementById(
-      "backQuotes"
-    )
+    .getElementById("backQuotes")
     .addEventListener(
       "click",
-      () =>
-        showPage("quotes")
+      () => showPage("quotes")
     );
 
   const convertButton =
-    document.getElementById(
-      "convertQuote"
-    );
+    document.getElementById("convertQuote");
 
   if (convertButton) {
-
     convertButton.addEventListener(
       "click",
-      () =>
-        convertQuoteToJob(
-          quote.id
-        )
+      () => convertQuoteToJob(quote.id)
     );
-
   }
 
   document
-    .getElementById(
-      "deleteQuote"
-    )
+    .getElementById("deleteQuote")
     .addEventListener(
       "click",
-      () =>
-        deleteQuote(
-          quote.id
-        )
+      () => deleteQuote(quote.id)
     );
 }
 
@@ -3631,9 +2824,7 @@ function showQuoteProfile(
 // CONVERT QUOTE TO JOB
 // =====================================================
 
-async function convertQuoteToJob(
-  quoteId
-) {
+async function convertQuoteToJob(quoteId) {
 
   const quote =
     quotes.find(
@@ -3643,23 +2834,12 @@ async function convertQuoteToJob(
     );
 
   if (!quote) {
-
-    alert(
-      "Quote could not be found."
-    );
-
+    alert("Quote could not be found.");
     return;
   }
 
-  if (
-    quote.status ===
-    "converted"
-  ) {
-
-    alert(
-      "This quote has already been converted to a job."
-    );
-
+  if (quote.status === "converted") {
+    alert("This quote has already been converted to a job.");
     return;
   }
 
@@ -3667,27 +2847,17 @@ async function convertQuoteToJob(
     customers.find(
       c =>
         String(c.id) ===
-        String(
-          quote.customer_id
-        )
+        String(quote.customer_id)
     );
 
   if (!customer) {
-
-    alert(
-      "The customer attached to this quote could not be found."
-    );
-
+    alert("The customer attached to this quote could not be found.");
     return;
   }
 
   const confirmed =
     confirm(
-      `Convert Quote #${
-        quote.quote_number || ""
-      } into a job for ${
-        customer.name
-      }?`
+      `Convert Quote #${quote.quote_number || ""} into a job for ${customer.name}?`
     );
 
   if (!confirmed) return;
@@ -3702,14 +2872,10 @@ async function convertQuoteToJob(
 
     title:
       quote.title ||
-      `Quote #${
-        quote.quote_number ||
-        "Job"
-      }`,
+      `Quote #${quote.quote_number || "Job"}`,
 
     description:
-      quote.description ||
-      "",
+      quote.description || "",
 
     scheduled_date:
       null,
@@ -3721,13 +2887,10 @@ async function convertQuoteToJob(
       "pending",
 
     price:
-      Number(
-        quote.total || 0
-      ),
+      Number(quote.total || 0),
 
     notes:
-      quote.notes ||
-      ""
+      quote.notes || ""
   };
 
   const {
@@ -3742,9 +2905,7 @@ async function convertQuoteToJob(
 
   if (jobError) {
 
-    console.error(
-      jobError
-    );
+    console.error(jobError);
 
     alert(
       "The job could not be created:\n\n" +
@@ -3762,10 +2923,7 @@ async function convertQuoteToJob(
       .update({
         status: "converted"
       })
-      .eq(
-        "id",
-        quote.id
-      );
+      .eq("id", quote.id);
 
   if (quoteError) {
 
@@ -3784,14 +2942,10 @@ async function convertQuoteToJob(
   await loadJobs();
   await loadQuotes();
 
-  showJobProfile(
-    createdJob.id
-  );
+  showJobProfile(createdJob.id);
 
   alert(
-    `Quote #${
-      quote.quote_number || ""
-    } has been converted to a job.`
+    `Quote #${quote.quote_number || ""} has been converted to a job.`
   );
 }
 
@@ -3800,9 +2954,7 @@ async function convertQuoteToJob(
 // DELETE QUOTE
 // =====================================================
 
-async function deleteQuote(
-  quoteId
-) {
+async function deleteQuote(quoteId) {
 
   const quote =
     quotes.find(
@@ -3815,9 +2967,7 @@ async function deleteQuote(
 
   const confirmed =
     confirm(
-      `Delete Quote #${
-        quote.quote_number || ""
-      }? This cannot be undone.`
+      `Delete Quote #${quote.quote_number || ""}? This cannot be undone.`
     );
 
   if (!confirmed) return;
@@ -3826,17 +2976,10 @@ async function deleteQuote(
     await supabase
       .from("quotes")
       .delete()
-      .eq(
-        "id",
-        quote.id
-      );
+      .eq("id", quote.id);
 
   if (error) {
-
-    alert(
-      error.message
-    );
-
+    alert(error.message);
     return;
   }
 
@@ -3850,9 +2993,7 @@ async function deleteQuote(
 // INVOICES PAGE
 // =====================================================
 
-function renderInvoicesPage(
-  content
-) {
+function renderInvoicesPage(content) {
 
   content.innerHTML = `
 
@@ -3860,15 +3001,10 @@ function renderInvoicesPage(
 
       <div>
         <h2>Invoices</h2>
-        <p>
-          Create and track invoices.
-        </p>
+        <p>Create and track invoices.</p>
       </div>
 
-      <button
-        id="addInvoiceButton"
-        class="button primary"
-      >
+      <button id="addInvoiceButton" class="button primary">
         + New Invoice
       </button>
 
@@ -3884,25 +3020,22 @@ function renderInvoicesPage(
                 customers.find(
                   c =>
                     String(c.id) ===
-                    String(
-                      invoice.customer_id
-                    )
+                    String(invoice.customer_id)
                 );
 
               return `
 
                 <div
                   class="job-row"
-                  data-invoice-row="${invoice.id}"
                   style="cursor:pointer;"
+                  data-invoice-id="${invoice.id}"
                 >
 
                   <div>
 
                     <strong>
                       Invoice #${escapeHtml(
-                        invoice.invoice_number ||
-                        "—"
+                        invoice.invoice_number || "—"
                       )}
                     </strong>
 
@@ -3910,9 +3043,7 @@ function renderInvoicesPage(
 
                       ${
                         customer
-                          ? escapeHtml(
-                              customer.name
-                            )
+                          ? escapeHtml(customer.name)
                           : "Unknown customer"
                       }
 
@@ -3929,8 +3060,8 @@ function renderInvoicesPage(
                     </strong>
 
                     <span class="muted">
-                      ${formatInvoiceStatus(
-                        invoice.status
+                      ${escapeHtml(
+                        invoice.status || "sent"
                       )}
                     </span>
 
@@ -3939,20 +3070,17 @@ function renderInvoicesPage(
                 </div>
 
               `;
-
             }).join("")
           : `
 
             <div class="empty-state">
 
-              <div class="empty-icon">
-                🧾
-              </div>
+              <div class="empty-icon">🧾</div>
 
               <h3>No invoices yet</h3>
 
               <p>
-                Convert a job into an invoice.
+                Convert a completed job into an invoice.
               </p>
 
             </div>
@@ -3964,45 +3092,214 @@ function renderInvoicesPage(
   `;
 
   document
-    .getElementById(
-      "addInvoiceButton"
-    )
+    .getElementById("addInvoiceButton")
     .addEventListener(
       "click",
       showAddInvoiceForm
     );
 
   content
-    .querySelectorAll(
-      "[data-invoice-row]"
-    )
+    .querySelectorAll("[data-invoice-id]")
     .forEach(row => {
-
       row.addEventListener(
         "click",
         () =>
           showInvoiceProfile(
-            row.dataset.invoiceRow
+            row.dataset.invoiceId
           )
       );
-
     });
 }
 
 
 // =====================================================
-// ADD INVOICE MANUALLY
+// INVOICE PROFILE
+// =====================================================
+
+function showInvoiceProfile(invoiceId) {
+
+  const invoice =
+    invoices.find(
+      i =>
+        String(i.id) ===
+        String(invoiceId)
+    );
+
+  if (!invoice) return;
+
+  const customer =
+    customers.find(
+      c =>
+        String(c.id) ===
+        String(invoice.customer_id)
+    );
+
+  const content =
+    document.getElementById("pageContent");
+
+  document.getElementById("pageTitle").textContent =
+    `Invoice #${invoice.invoice_number || "—"}`;
+
+  document.getElementById("pageSubtitle").textContent =
+    "Invoice details";
+
+  content.innerHTML = `
+
+    <div class="page-actions">
+
+      <button id="backInvoices" class="button secondary">
+        ← Invoices
+      </button>
+
+      <div>
+
+        ${
+          invoice.status === "paid"
+            ? `
+              <button class="button secondary" disabled>
+                ✓ Paid
+              </button>
+            `
+            : `
+              <button id="markInvoicePaid" class="button primary">
+                ✓ Mark as Paid
+              </button>
+            `
+        }
+
+      </div>
+
+    </div>
+
+    <div class="content-grid">
+
+      <div class="panel">
+
+        <h2>Invoice Details</h2>
+
+        <div class="detail-list">
+
+          <div>
+            <span>Invoice Number</span>
+            <strong>
+              ${escapeHtml(invoice.invoice_number || "—")}
+            </strong>
+          </div>
+
+          <div>
+            <span>Customer</span>
+            <strong>
+              ${
+                customer
+                  ? escapeHtml(customer.name)
+                  : "Unknown customer"
+              }
+            </strong>
+          </div>
+
+          <div>
+            <span>Status</span>
+            <strong>
+              ${escapeHtml(invoice.status || "sent")}
+            </strong>
+          </div>
+
+          <div>
+            <span>Issue Date</span>
+            <strong>
+              ${invoice.issue_date || "—"}
+            </strong>
+          </div>
+
+          <div>
+            <span>Due Date</span>
+            <strong>
+              ${invoice.due_date || "—"}
+            </strong>
+          </div>
+
+          <div>
+            <span>Description</span>
+            <strong>
+              ${escapeHtml(invoice.description || "—")}
+            </strong>
+          </div>
+
+          <div>
+            <span>Notes</span>
+            <strong>
+              ${escapeHtml(invoice.notes || "—")}
+            </strong>
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="panel">
+
+        <h2>Financial Summary</h2>
+
+        <div class="detail-list">
+
+          <div>
+            <span>Subtotal</span>
+            <strong>
+              £${Number(invoice.subtotal || 0).toFixed(2)}
+            </strong>
+          </div>
+
+          <div>
+            <span>VAT</span>
+            <strong>
+              £${Number(invoice.vat || 0).toFixed(2)}
+            </strong>
+          </div>
+
+          <div>
+            <span>Total</span>
+            <strong>
+              £${Number(invoice.total || 0).toFixed(2)}
+            </strong>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  `;
+
+  document
+    .getElementById("backInvoices")
+    .addEventListener(
+      "click",
+      () => showPage("invoices")
+    );
+
+  const paidButton =
+    document.getElementById("markInvoicePaid");
+
+  if (paidButton) {
+
+    paidButton.addEventListener(
+      "click",
+      () => markInvoicePaid(invoice.id)
+    );
+  }
+}
+
+
+// =====================================================
+// ADD INVOICE
 // =====================================================
 
 function showAddInvoiceForm() {
 
   const modal =
-    document.createElement(
-      "div"
-    );
+    document.createElement("div");
 
-  modal.className =
-    "modal show";
+  modal.className = "modal show";
 
   const invoiceNumber =
     generateInvoiceNumber();
@@ -4015,14 +3312,10 @@ function showAddInvoiceForm() {
 
         <div>
           <h2>New Invoice</h2>
-          <p>
-            Create an invoice.
-          </p>
+          <p>Create an invoice.</p>
         </div>
 
-        <button class="close">
-          ×
-        </button>
+        <button class="close">×</button>
 
       </div>
 
@@ -4030,10 +3323,7 @@ function showAddInvoiceForm() {
 
         <label>Customer *</label>
 
-        <select
-          id="invoiceCustomer"
-          required
-        >
+        <select id="invoiceCustomer" required>
 
           <option value="">
             Select customer
@@ -4041,44 +3331,27 @@ function showAddInvoiceForm() {
 
           ${customers.map(customer => `
             <option value="${customer.id}">
-              ${escapeHtml(
-                customer.name
-              )}
+              ${escapeHtml(customer.name)}
             </option>
           `).join("")}
 
         </select>
 
+        <label>What is the invoice for? *</label>
+
+        <input
+          id="invoiceDescription"
+          required
+          placeholder="e.g. Window cleaning"
+        >
+
         <label>Invoice Number *</label>
 
         <input
           id="invoiceNumber"
-          value="${escapeHtml(
-            invoiceNumber
-          )}"
+          value="${escapeHtml(invoiceNumber)}"
           required
         >
-
-        <label>Description</label>
-
-        <textarea
-          id="invoiceDescription"
-          placeholder="Describe the work..."
-        ></textarea>
-
-        <label>Status</label>
-
-        <select id="invoiceStatus">
-
-          <option value="sent">
-            Sent
-          </option>
-
-          <option value="paid">
-            Paid
-          </option>
-
-        </select>
 
         <label>Subtotal</label>
 
@@ -4095,7 +3368,9 @@ function showAddInvoiceForm() {
           id="invoiceVatPercent"
           type="number"
           step="0.01"
-          value="20"
+          value="${Number(
+            userSettings?.default_vat_rate ?? 20
+          )}"
         >
 
         <label>VAT</label>
@@ -4118,6 +3393,13 @@ function showAddInvoiceForm() {
           readonly
         >
 
+        <label>Status</label>
+
+        <select id="invoiceStatus">
+          <option value="sent">Sent</option>
+          <option value="paid">Paid</option>
+        </select>
+
         <label>Issue Date</label>
 
         <input
@@ -4135,9 +3417,7 @@ function showAddInvoiceForm() {
 
         <label>Notes</label>
 
-        <textarea
-          id="invoiceNotes"
-        ></textarea>
+        <textarea id="invoiceNotes"></textarea>
 
         <div class="modal-actions">
 
@@ -4162,66 +3442,44 @@ function showAddInvoiceForm() {
     </div>
   `;
 
-  document.body.appendChild(
-    modal
-  );
+  document.body.appendChild(modal);
 
-  modal
-    .querySelectorAll(".close")
-    .forEach(button => {
-
+  modal.querySelectorAll(".close")
+    .forEach(button =>
       button.addEventListener(
         "click",
         () => modal.remove()
-      );
-
-    });
+      )
+    );
 
   const subtotalInput =
-    modal.querySelector(
-      "#invoiceSubtotal"
-    );
+    modal.querySelector("#invoiceSubtotal");
 
   const vatPercentInput =
-    modal.querySelector(
-      "#invoiceVatPercent"
-    );
+    modal.querySelector("#invoiceVatPercent");
 
   const vatInput =
-    modal.querySelector(
-      "#invoiceVat"
-    );
+    modal.querySelector("#invoiceVat");
 
   const totalInput =
-    modal.querySelector(
-      "#invoiceTotal"
-    );
+    modal.querySelector("#invoiceTotal");
 
   function calculateInvoice() {
 
     const subtotal =
-      Number(
-        subtotalInput.value
-      ) || 0;
+      Number(subtotalInput.value) || 0;
 
     const vatPercent =
-      Number(
-        vatPercentInput.value
-      ) || 0;
+      Number(vatPercentInput.value) || 0;
 
     const vat =
-      subtotal *
-      vatPercent /
-      100;
+      subtotal * vatPercent / 100;
 
     vatInput.value =
       vat.toFixed(2);
 
     totalInput.value =
-      (
-        subtotal +
-        vat
-      ).toFixed(2);
+      (subtotal + vat).toFixed(2);
   }
 
   subtotalInput.addEventListener(
@@ -4237,9 +3495,7 @@ function showAddInvoiceForm() {
   calculateInvoice();
 
   modal
-    .querySelector(
-      "#invoiceForm"
-    )
+    .querySelector("#invoiceForm")
     .addEventListener(
       "submit",
       async event => {
@@ -4248,9 +3504,7 @@ function showAddInvoiceForm() {
 
         const status =
           document
-            .getElementById(
-              "invoiceStatus"
-            )
+            .getElementById("invoiceStatus")
             .value;
 
         const invoice = {
@@ -4260,72 +3514,51 @@ function showAddInvoiceForm() {
 
           customer_id:
             document
-              .getElementById(
-                "invoiceCustomer"
-              )
+              .getElementById("invoiceCustomer")
               .value,
 
           invoice_number:
             document
-              .getElementById(
-                "invoiceNumber"
-              )
-              .value
-              .trim(),
-
-          status:
-            status,
+              .getElementById("invoiceNumber")
+              .value.trim(),
 
           description:
             document
-              .getElementById(
-                "invoiceDescription"
-              )
-              .value
-              .trim(),
+              .getElementById("invoiceDescription")
+              .value.trim(),
+
+          status,
 
           subtotal:
             Number(
               document
-                .getElementById(
-                  "invoiceSubtotal"
-                )
+                .getElementById("invoiceSubtotal")
                 .value
             ) || 0,
 
           vat:
             Number(
               document
-                .getElementById(
-                  "invoiceVat"
-                )
+                .getElementById("invoiceVat")
                 .value
             ) || 0,
 
           total:
             Number(
               document
-                .getElementById(
-                  "invoiceTotal"
-                )
+                .getElementById("invoiceTotal")
                 .value
             ) || 0,
 
           issue_date:
             document
-              .getElementById(
-                "invoiceIssueDate"
-              )
-              .value ||
-            todayDate(),
+              .getElementById("invoiceIssueDate")
+              .value || todayDate(),
 
           due_date:
             document
-              .getElementById(
-                "invoiceDueDate"
-              )
-              .value ||
-            null,
+              .getElementById("invoiceDueDate")
+              .value || null,
 
           paid_date:
             status === "paid"
@@ -4334,11 +3567,8 @@ function showAddInvoiceForm() {
 
           notes:
             document
-              .getElementById(
-                "invoiceNotes"
-              )
-              .value
-              .trim()
+              .getElementById("invoiceNotes")
+              .value.trim()
         };
 
         const { error } =
@@ -4347,11 +3577,7 @@ function showAddInvoiceForm() {
             .insert(invoice);
 
         if (error) {
-
-          alert(
-            error.message
-          );
-
+          alert(error.message);
           return;
         }
 
@@ -4366,397 +3592,14 @@ function showAddInvoiceForm() {
 
 
 // =====================================================
-// INVOICE PROFILE
+// MARK INVOICE PAID
 // =====================================================
 
-function showInvoiceProfile(
-  invoiceId
-) {
-
-  const invoice =
-    invoices.find(
-      item =>
-        String(item.id) ===
-        String(invoiceId)
-    );
-
-  if (!invoice) return;
-
-  const customer =
-    customers.find(
-      c =>
-        String(c.id) ===
-        String(
-          invoice.customer_id
-        )
-    );
-
-  const content =
-    document.getElementById(
-      "pageContent"
-    );
-
-  document
-    .getElementById(
-      "pageTitle"
-    )
-    .textContent =
-    `Invoice #${
-      invoice.invoice_number ||
-      "—"
-    }`;
-
-  document
-    .getElementById(
-      "pageSubtitle"
-    )
-    .textContent =
-    "Invoice details";
-
-  content.innerHTML = `
-
-    <div class="page-actions">
-
-      <button
-        id="backInvoices"
-        class="button secondary"
-      >
-        ← Invoices
-      </button>
-
-      <div>
-
-        ${
-          String(
-            invoice.status
-          ).toLowerCase() ===
-          "paid"
-            ? `
-              <button
-                id="markInvoiceSent"
-                class="button secondary"
-              >
-                Mark as Sent
-              </button>
-            `
-            : `
-              <button
-                id="markInvoicePaid"
-                class="button primary"
-              >
-                ✓ Mark as Paid
-              </button>
-            `
-        }
-
-        <button
-          id="deleteInvoice"
-          class="button danger"
-        >
-          Delete
-        </button>
-
-      </div>
-
-    </div>
-
-    <div class="content-grid">
-
-      <div class="panel">
-
-        <h2>Invoice Details</h2>
-
-        <div class="detail-list">
-
-          <div>
-
-            <span>Invoice Number</span>
-
-            <strong>
-              ${escapeHtml(
-                invoice.invoice_number ||
-                "—"
-              )}
-            </strong>
-
-          </div>
-
-          <div>
-
-            <span>Customer</span>
-
-            <strong>
-              ${
-                customer
-                  ? escapeHtml(
-                      customer.name
-                    )
-                  : "Unknown customer"
-              }
-            </strong>
-
-          </div>
-
-          <div>
-
-            <span>Status</span>
-
-            <strong>
-              ${formatInvoiceStatus(
-                invoice.status
-              )}
-            </strong>
-
-          </div>
-
-          <div>
-
-            <span>Description</span>
-
-            <strong>
-              ${escapeHtml(
-                invoice.description ||
-                "—"
-              )}
-            </strong>
-
-          </div>
-
-          <div>
-
-            <span>Issue Date</span>
-
-            <strong>
-              ${
-                invoice.issue_date ||
-                "—"
-              }
-            </strong>
-
-          </div>
-
-          <div>
-
-            <span>Due Date</span>
-
-            <strong>
-              ${
-                invoice.due_date ||
-                "—"
-              }
-            </strong>
-
-          </div>
-
-          <div>
-
-            <span>Paid Date</span>
-
-            <strong>
-              ${
-                invoice.paid_date ||
-                "—"
-              }
-            </strong>
-
-          </div>
-
-          <div>
-
-            <span>Notes</span>
-
-            <strong>
-              ${escapeHtml(
-                invoice.notes ||
-                "—"
-              )}
-            </strong>
-
-          </div>
-
-        </div>
-
-      </div>
-
-      <div class="panel">
-
-        <h2>Financial Summary</h2>
-
-        <div class="detail-list">
-
-          <div>
-
-            <span>Subtotal</span>
-
-            <strong>
-              £${Number(
-                invoice.subtotal || 0
-              ).toFixed(2)}
-            </strong>
-
-          </div>
-
-          <div>
-
-            <span>VAT</span>
-
-            <strong>
-              £${Number(
-                invoice.vat || 0
-              ).toFixed(2)}
-            </strong>
-
-          </div>
-
-          <div>
-
-            <span>Total</span>
-
-            <strong>
-              £${Number(
-                invoice.total || 0
-              ).toFixed(2)}
-            </strong>
-
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-  `;
-
-  document
-    .getElementById(
-      "backInvoices"
-    )
-    .addEventListener(
-      "click",
-      () =>
-        showPage("invoices")
-    );
-
-  const paidButton =
-    document.getElementById(
-      "markInvoicePaid"
-    );
-
-  if (paidButton) {
-
-    paidButton.addEventListener(
-      "click",
-      () =>
-        updateInvoiceStatus(
-          invoice.id,
-          "paid"
-        )
-    );
-
-  }
-
-  const sentButton =
-    document.getElementById(
-      "markInvoiceSent"
-    );
-
-  if (sentButton) {
-
-    sentButton.addEventListener(
-      "click",
-      () =>
-        updateInvoiceStatus(
-          invoice.id,
-          "sent"
-        )
-    );
-
-  }
-
-  document
-    .getElementById(
-      "deleteInvoice"
-    )
-    .addEventListener(
-      "click",
-      () =>
-        deleteInvoice(
-          invoice.id
-        )
-    );
-}
-
-
-// =====================================================
-// UPDATE INVOICE STATUS
-// =====================================================
-
-async function updateInvoiceStatus(
-  invoiceId,
-  status
-) {
-
-  const updates = {
-
-    status:
-      status,
-
-    paid_date:
-      status === "paid"
-        ? todayDate()
-        : null
-
-  };
-
-  const { error } =
-    await supabase
-      .from("invoices")
-      .update(updates)
-      .eq(
-        "id",
-        invoiceId
-      );
-
-  if (error) {
-
-    alert(
-      error.message
-    );
-
-    return;
-  }
-
-  await loadInvoices();
-
-  showInvoiceProfile(
-    invoiceId
-  );
-}
-
-
-// =====================================================
-// DELETE INVOICE
-// =====================================================
-
-async function deleteInvoice(
-  invoiceId
-) {
-
-  const invoice =
-    invoices.find(
-      item =>
-        String(item.id) ===
-        String(invoiceId)
-    );
-
-  if (!invoice) return;
+async function markInvoicePaid(invoiceId) {
 
   const confirmed =
     confirm(
-      `Delete Invoice #${
-        invoice.invoice_number ||
-        ""
-      }? This cannot be undone.`
+      "Mark this invoice as paid?"
     );
 
   if (!confirmed) return;
@@ -4764,24 +3607,20 @@ async function deleteInvoice(
   const { error } =
     await supabase
       .from("invoices")
-      .delete()
-      .eq(
-        "id",
-        invoice.id
-      );
+      .update({
+        status: "paid",
+        paid_date: todayDate()
+      })
+      .eq("id", invoiceId);
 
   if (error) {
-
-    alert(
-      error.message
-    );
-
+    alert(error.message);
     return;
   }
 
   await loadInvoices();
 
-  showPage("invoices");
+  showInvoiceProfile(invoiceId);
 }
 
 
@@ -4789,9 +3628,7 @@ async function deleteInvoice(
 // CONVERT JOB TO INVOICE
 // =====================================================
 
-async function convertJobToInvoice(
-  jobId
-) {
+async function convertJobToInvoice(jobId) {
 
   const job =
     jobs.find(
@@ -4801,11 +3638,7 @@ async function convertJobToInvoice(
     );
 
   if (!job) {
-
-    alert(
-      "Job could not be found."
-    );
-
+    alert("Job could not be found.");
     return;
   }
 
@@ -4813,11 +3646,7 @@ async function convertJobToInvoice(
     String(job.status).toLowerCase() ===
     "invoiced"
   ) {
-
-    alert(
-      "This job has already been invoiced."
-    );
-
+    alert("This job has already been invoiced.");
     return;
   }
 
@@ -4825,25 +3654,19 @@ async function convertJobToInvoice(
     customers.find(
       c =>
         String(c.id) ===
-        String(
-          job.customer_id
-        )
+        String(job.customer_id)
     );
 
   if (!customer) {
-
     alert(
       "The customer attached to this job could not be found."
     );
-
     return;
   }
 
   const confirmed =
     confirm(
-      `Create an invoice for ${
-        customer.name
-      } for £${Number(
+      `Create an invoice for ${customer.name} for £${Number(
         job.price || 0
       ).toFixed(2)}?`
     );
@@ -4851,9 +3674,7 @@ async function convertJobToInvoice(
   if (!confirmed) return;
 
   const subtotal =
-    Number(
-      job.price || 0
-    );
+    Number(job.price || 0);
 
   const invoice = {
 
@@ -4866,13 +3687,11 @@ async function convertJobToInvoice(
     invoice_number:
       generateInvoiceNumber(),
 
+    description:
+      job.title || "Job",
+
     status:
       "sent",
-
-    description:
-      job.description ||
-      job.title ||
-      "",
 
     subtotal:
       subtotal,
@@ -4887,14 +3706,17 @@ async function convertJobToInvoice(
       todayDate(),
 
     due_date:
-      null,
+      calculateDueDate(
+        Number(
+          userSettings?.invoice_payment_terms || 30
+        )
+      ),
 
     paid_date:
       null,
 
     notes:
-      job.notes ||
-      ""
+      job.notes || ""
   };
 
   const {
@@ -4930,10 +3752,7 @@ async function convertJobToInvoice(
       .update({
         status: "invoiced"
       })
-      .eq(
-        "id",
-        job.id
-      );
+      .eq("id", job.id);
 
   if (jobError) {
 
@@ -4958,84 +3777,815 @@ async function convertJobToInvoice(
   await loadInvoices();
   await loadJobs();
 
-  showInvoiceProfile(
-    createdInvoice.id
-  );
+  showInvoiceProfile(createdInvoice.id);
 
   alert(
-    `Invoice #${
-      createdInvoice.invoice_number
-    } has been created.`
+    `Invoice #${createdInvoice.invoice_number} has been created.`
   );
 }
 
 
 // =====================================================
-// INVOICE NUMBER
+// SETTINGS PAGE
+// =====================================================
+
+function renderSettings(content) {
+
+  const settings =
+    userSettings || {};
+
+  content.innerHTML = `
+
+    <div class="settings-grid">
+
+      <!-- BUSINESS -->
+
+      <div class="panel">
+
+        <div class="panel-header">
+
+          <div>
+            <h2>🏢 Business Details</h2>
+            <p>These details can be used on your quotes and invoices.</p>
+          </div>
+
+        </div>
+
+        <div class="form-grid">
+
+          <div>
+            <label>Business Name</label>
+            <input
+              id="settingsBusinessName"
+              value="${escapeHtml(settings.business_name || "")}"
+              placeholder="Your business name"
+            >
+          </div>
+
+          <div>
+            <label>Contact Name</label>
+            <input
+              id="settingsContactName"
+              value="${escapeHtml(settings.contact_name || "")}"
+              placeholder="Your name"
+            >
+          </div>
+
+          <div>
+            <label>Phone</label>
+            <input
+              id="settingsPhone"
+              value="${escapeHtml(settings.phone || "")}"
+              placeholder="Phone number"
+            >
+          </div>
+
+          <div>
+            <label>Email</label>
+            <input
+              id="settingsEmail"
+              type="email"
+              value="${escapeHtml(settings.email || currentUser.email || "")}"
+              placeholder="Business email"
+            >
+          </div>
+
+          <div>
+            <label>Website</label>
+            <input
+              id="settingsWebsite"
+              value="${escapeHtml(settings.website || "")}"
+              placeholder="https://example.com"
+            >
+          </div>
+
+          <div>
+            <label>Logo URL</label>
+            <input
+              id="settingsLogo"
+              value="${escapeHtml(settings.business_logo_url || "")}"
+              placeholder="https://..."
+            >
+          </div>
+
+        </div>
+
+        <label>Business Address</label>
+
+        <input
+          id="settingsAddress"
+          value="${escapeHtml(settings.address_line1 || "")}"
+          placeholder="Address"
+        >
+
+        <div class="form-grid">
+
+          <div>
+            <label>Town / City</label>
+            <input
+              id="settingsCity"
+              value="${escapeHtml(settings.city || "")}"
+            >
+          </div>
+
+          <div>
+            <label>Postcode</label>
+            <input
+              id="settingsPostcode"
+              value="${escapeHtml(settings.postcode || "")}"
+            >
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <!-- INVOICES -->
+
+      <div class="panel">
+
+        <div class="panel-header">
+
+          <div>
+            <h2>🧾 Invoice Settings</h2>
+            <p>Control your invoice numbering and defaults.</p>
+          </div>
+
+        </div>
+
+        <div class="form-grid">
+
+          <div>
+            <label>Invoice Prefix</label>
+            <input
+              id="settingsInvoicePrefix"
+              value="${escapeHtml(settings.invoice_prefix || "INV-")}"
+            >
+          </div>
+
+          <div>
+            <label>Next Invoice Number</label>
+            <input
+              id="settingsNextInvoice"
+              type="number"
+              min="1"
+              value="${Number(settings.next_invoice_number || 1)}"
+            >
+          </div>
+
+          <div>
+            <label>Default Payment Terms</label>
+
+            <select id="settingsPaymentTerms">
+
+              <option value="0"
+                ${Number(settings.invoice_payment_terms) === 0 ? "selected" : ""}>
+                Due immediately
+              </option>
+
+              <option value="7"
+                ${Number(settings.invoice_payment_terms) === 7 ? "selected" : ""}>
+                7 days
+              </option>
+
+              <option value="14"
+                ${Number(settings.invoice_payment_terms) === 14 ? "selected" : ""}>
+                14 days
+              </option>
+
+              <option value="30"
+                ${Number(settings.invoice_payment_terms) === 30 ? "selected" : ""}>
+                30 days
+              </option>
+
+              <option value="60"
+                ${Number(settings.invoice_payment_terms) === 60 ? "selected" : ""}>
+                60 days
+              </option>
+
+            </select>
+          </div>
+
+          <div>
+            <label>Default VAT Rate %</label>
+            <input
+              id="settingsVatRate"
+              type="number"
+              step="0.01"
+              value="${Number(settings.default_vat_rate ?? 20)}"
+            >
+          </div>
+
+        </div>
+
+        <label>Invoice Footer / Payment Instructions</label>
+
+        <textarea
+          id="settingsInvoiceFooter"
+          placeholder="Payment due within 30 days..."
+        >${escapeHtml(settings.invoice_footer || "")}</textarea>
+
+      </div>
+
+
+      <!-- QUOTES -->
+
+      <div class="panel">
+
+        <div class="panel-header">
+
+          <div>
+            <h2>💷 Quote Settings</h2>
+            <p>Control your quote numbering and defaults.</p>
+          </div>
+
+        </div>
+
+        <div class="form-grid">
+
+          <div>
+            <label>Quote Prefix</label>
+            <input
+              id="settingsQuotePrefix"
+              value="${escapeHtml(settings.quote_prefix || "QUO-")}"
+            >
+          </div>
+
+          <div>
+            <label>Next Quote Number</label>
+            <input
+              id="settingsNextQuote"
+              type="number"
+              min="1"
+              value="${Number(settings.next_quote_number || 1)}"
+            >
+          </div>
+
+          <div>
+            <label>Quote Validity</label>
+
+            <select id="settingsQuoteValidity">
+
+              <option value="7"
+                ${Number(settings.quote_validity_days) === 7 ? "selected" : ""}>
+                7 days
+              </option>
+
+              <option value="14"
+                ${Number(settings.quote_validity_days) === 14 ? "selected" : ""}>
+                14 days
+              </option>
+
+              <option value="30"
+                ${Number(settings.quote_validity_days) === 30 ? "selected" : ""}>
+                30 days
+              </option>
+
+              <option value="60"
+                ${Number(settings.quote_validity_days) === 60 ? "selected" : ""}>
+                60 days
+              </option>
+
+              <option value="90"
+                ${Number(settings.quote_validity_days) === 90 ? "selected" : ""}>
+                90 days
+              </option>
+
+            </select>
+
+          </div>
+
+        </div>
+
+        <label>Quote Footer / Terms</label>
+
+        <textarea
+          id="settingsQuoteFooter"
+          placeholder="Thank you for your enquiry..."
+        >${escapeHtml(settings.quote_footer || "")}</textarea>
+
+      </div>
+
+
+      <!-- JOBS -->
+
+      <div class="panel">
+
+        <div class="panel-header">
+
+          <div>
+            <h2>📋 Job Settings</h2>
+            <p>Set the defaults used when creating jobs.</p>
+          </div>
+
+        </div>
+
+        <div class="form-grid">
+
+          <div>
+
+            <label>Default Job Status</label>
+
+            <select id="settingsJobStatus">
+
+              <option value="pending"
+                ${settings.default_job_status === "pending" ? "selected" : ""}>
+                Pending
+              </option>
+
+              <option value="scheduled"
+                ${settings.default_job_status === "scheduled" ? "selected" : ""}>
+                Scheduled
+              </option>
+
+              <option value="completed"
+                ${settings.default_job_status === "completed" ? "selected" : ""}>
+                Completed
+              </option>
+
+              <option value="cancelled"
+                ${settings.default_job_status === "cancelled" ? "selected" : ""}>
+                Cancelled
+              </option>
+
+            </select>
+
+          </div>
+
+          <div>
+
+            <label>Default Job Duration</label>
+
+            <select id="settingsJobDuration">
+
+              <option value="30"
+                ${Number(settings.default_job_duration) === 30 ? "selected" : ""}>
+                30 minutes
+              </option>
+
+              <option value="60"
+                ${Number(settings.default_job_duration) === 60 ? "selected" : ""}>
+                1 hour
+              </option>
+
+              <option value="90"
+                ${Number(settings.default_job_duration) === 90 ? "selected" : ""}>
+                1.5 hours
+              </option>
+
+              <option value="120"
+                ${Number(settings.default_job_duration) === 120 ? "selected" : ""}>
+                2 hours
+              </option>
+
+              <option value="180"
+                ${Number(settings.default_job_duration) === 180 ? "selected" : ""}>
+                3 hours
+              </option>
+
+            </select>
+
+          </div>
+
+          <div>
+
+            <label>Currency</label>
+
+            <select id="settingsCurrency">
+
+              <option value="GBP"
+                ${settings.currency === "GBP" ? "selected" : ""}>
+                £ GBP — British Pound
+              </option>
+
+              <option value="EUR"
+                ${settings.currency === "EUR" ? "selected" : ""}>
+                € EUR — Euro
+              </option>
+
+              <option value="USD"
+                ${settings.currency === "USD" ? "selected" : ""}>
+                $ USD — US Dollar
+              </option>
+
+            </select>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <!-- ACCOUNT -->
+
+      <div class="panel">
+
+        <div class="panel-header">
+
+          <div>
+            <h2>👤 Account</h2>
+            <p>Manage your JobPilot account.</p>
+          </div>
+
+        </div>
+
+        <div class="detail-list">
+
+          <div>
+            <span>Signed in as</span>
+            <strong>
+              ${escapeHtml(currentUser.email)}
+            </strong>
+          </div>
+
+        </div>
+
+        <div class="modal-actions">
+
+          <button
+            id="changePasswordButton"
+            class="button secondary"
+          >
+            Change Password
+          </button>
+
+          <button
+            id="settingsLogoutButton"
+            class="button danger"
+          >
+            Sign Out
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <!-- SAVE -->
+
+      <div class="settings-save">
+
+        <button
+          id="saveSettingsButton"
+          class="button primary"
+        >
+          💾 Save Settings
+        </button>
+
+        <div id="settingsMessage"></div>
+
+      </div>
+
+    </div>
+  `;
+
+  document
+    .getElementById("saveSettingsButton")
+    .addEventListener(
+      "click",
+      saveSettings
+    );
+
+  document
+    .getElementById("changePasswordButton")
+    .addEventListener(
+      "click",
+      changePassword
+    );
+
+  document
+    .getElementById("settingsLogoutButton")
+    .addEventListener(
+      "click",
+      logout
+    );
+}
+
+
+// =====================================================
+// SAVE SETTINGS
+// =====================================================
+
+async function saveSettings() {
+
+  const button =
+    document.getElementById(
+      "saveSettingsButton"
+    );
+
+  const message =
+    document.getElementById(
+      "settingsMessage"
+    );
+
+  button.disabled = true;
+  button.textContent = "Saving...";
+
+  const updates = {
+
+    business_name:
+      document
+        .getElementById("settingsBusinessName")
+        .value.trim(),
+
+    contact_name:
+      document
+        .getElementById("settingsContactName")
+        .value.trim(),
+
+    phone:
+      document
+        .getElementById("settingsPhone")
+        .value.trim(),
+
+    email:
+      document
+        .getElementById("settingsEmail")
+        .value.trim(),
+
+    website:
+      document
+        .getElementById("settingsWebsite")
+        .value.trim(),
+
+    address_line1:
+      document
+        .getElementById("settingsAddress")
+        .value.trim(),
+
+    city:
+      document
+        .getElementById("settingsCity")
+        .value.trim(),
+
+    postcode:
+      document
+        .getElementById("settingsPostcode")
+        .value.trim(),
+
+    business_logo_url:
+      document
+        .getElementById("settingsLogo")
+        .value.trim(),
+
+    invoice_prefix:
+      document
+        .getElementById("settingsInvoicePrefix")
+        .value.trim(),
+
+    next_invoice_number:
+      Number(
+        document
+          .getElementById("settingsNextInvoice")
+          .value
+      ) || 1,
+
+    invoice_payment_terms:
+      Number(
+        document
+          .getElementById("settingsPaymentTerms")
+          .value
+      ),
+
+    default_vat_rate:
+      Number(
+        document
+          .getElementById("settingsVatRate")
+          .value
+      ) || 0,
+
+    invoice_footer:
+      document
+        .getElementById("settingsInvoiceFooter")
+        .value.trim(),
+
+    quote_prefix:
+      document
+        .getElementById("settingsQuotePrefix")
+        .value.trim(),
+
+    next_quote_number:
+      Number(
+        document
+          .getElementById("settingsNextQuote")
+          .value
+      ) || 1,
+
+    quote_validity_days:
+      Number(
+        document
+          .getElementById("settingsQuoteValidity")
+          .value
+      ) || 30,
+
+    quote_footer:
+      document
+        .getElementById("settingsQuoteFooter")
+        .value.trim(),
+
+    default_job_status:
+      document
+        .getElementById("settingsJobStatus")
+        .value,
+
+    default_job_duration:
+      Number(
+        document
+          .getElementById("settingsJobDuration")
+          .value
+      ) || 60,
+
+    currency:
+      document
+        .getElementById("settingsCurrency")
+        .value,
+
+    updated_at:
+      new Date().toISOString()
+  };
+
+  const { data, error } =
+    await supabase
+      .from("user_settings")
+      .update(updates)
+      .eq("user_id", currentUser.id)
+      .select()
+      .single();
+
+  if (error) {
+
+    console.error(error);
+
+    message.textContent =
+      "Could not save settings: " +
+      error.message;
+
+    message.style.color =
+      "#dc2626";
+
+    button.disabled = false;
+    button.textContent =
+      "💾 Save Settings";
+
+    return;
+  }
+
+  userSettings = data;
+
+  message.textContent =
+    "✓ Settings saved successfully.";
+
+  message.style.color =
+    "#16a34a";
+
+  button.disabled = false;
+  button.textContent =
+    "💾 Save Settings";
+
+  setTimeout(() => {
+
+    if (message) {
+      message.textContent = "";
+    }
+
+  }, 3000);
+}
+
+
+// =====================================================
+// CHANGE PASSWORD
+// =====================================================
+
+async function changePassword() {
+
+  const password =
+    prompt(
+      "Enter your new password (minimum 6 characters):"
+    );
+
+  if (password === null) return;
+
+  if (password.length < 6) {
+
+    alert(
+      "Password must be at least 6 characters."
+    );
+
+    return;
+  }
+
+  const { error } =
+    await supabase.auth.updateUser({
+      password
+    });
+
+  if (error) {
+
+    alert(
+      "Could not change password:\n\n" +
+      error.message
+    );
+
+    return;
+  }
+
+  alert(
+    "Your password has been changed successfully."
+  );
+}
+
+
+// =====================================================
+// NUMBERING
 // =====================================================
 
 function generateInvoiceNumber() {
 
-  const year =
-    new Date().getFullYear();
+  const prefix =
+    userSettings?.invoice_prefix || "INV-";
 
-  const next =
-    invoices.length + 1;
+  const number =
+    Number(
+      userSettings?.next_invoice_number ||
+      invoices.length + 1
+    );
 
-  return `${year}-${String(
-    next
-  ).padStart(4, "0")}`;
+  return `${prefix}${String(number).padStart(4, "0")}`;
 }
 
-
-// =====================================================
-// QUOTE NUMBER
-// =====================================================
 
 function generateQuoteNumber() {
 
-  const year =
-    new Date().getFullYear();
+  const prefix =
+    userSettings?.quote_prefix || "QUO-";
 
-  const next =
-    quotes.length + 1;
+  const number =
+    Number(
+      userSettings?.next_quote_number ||
+      quotes.length + 1
+    );
 
-  return `${year}-${String(
-    next
-  ).padStart(4, "0")}`;
+  return `${prefix}${String(number).padStart(4, "0")}`;
 }
 
 
 // =====================================================
-// SETTINGS
+// SETTINGS NUMBER INCREMENT
 // =====================================================
 
-function renderSettings(
-  content
-) {
+async function incrementInvoiceNumber() {
 
-  content.innerHTML = `
+  const current =
+    Number(
+      userSettings?.next_invoice_number || 1
+    );
 
-    <div class="panel settings-panel">
+  const next =
+    current + 1;
 
-      <h2>Account</h2>
+  const { data, error } =
+    await supabase
+      .from("user_settings")
+      .update({
+        next_invoice_number: next,
+        updated_at: new Date().toISOString()
+      })
+      .eq("user_id", currentUser.id)
+      .select()
+      .single();
 
-      <p class="muted">
-        ${escapeHtml(
-          currentUser.email
-        )}
-      </p>
+  if (!error && data) {
+    userSettings = data;
+  }
+}
 
-      <hr>
 
-      <h3>JobPilot</h3>
+async function incrementQuoteNumber() {
 
-      <p class="muted">
-        CRM for UK tradespeople.
-      </p>
+  const current =
+    Number(
+      userSettings?.next_quote_number || 1
+    );
 
-    </div>
-  `;
+  const next =
+    current + 1;
+
+  const { data, error } =
+    await supabase
+      .from("user_settings")
+      .update({
+        next_quote_number: next,
+        updated_at: new Date().toISOString()
+      })
+      .eq("user_id", currentUser.id)
+      .select()
+      .single();
+
+  if (!error && data) {
+    userSettings = data;
+  }
 }
 
 
@@ -5044,7 +4594,6 @@ function renderSettings(
 // =====================================================
 
 async function logout() {
-
   await supabase.auth.signOut();
 }
 
@@ -5053,9 +4602,7 @@ async function logout() {
 // HELPERS
 // =====================================================
 
-function getCustomerName(
-  customerId
-) {
+function getCustomerName(customerId) {
 
   const customer =
     customers.find(
@@ -5065,54 +4612,8 @@ function getCustomerName(
     );
 
   return customer
-    ? escapeHtml(
-        customer.name
-      )
+    ? escapeHtml(customer.name)
     : "Unknown customer";
-}
-
-
-function formatQuoteStatus(
-  status
-) {
-
-  const value =
-    String(
-      status ||
-      "draft"
-    ).toLowerCase();
-
-  if (value === "accepted") {
-    return "Accepted";
-  }
-
-  if (value === "sent") {
-    return "Sent";
-  }
-
-  if (value === "converted") {
-    return "Converted";
-  }
-
-  return "Draft";
-}
-
-
-function formatInvoiceStatus(
-  status
-) {
-
-  const value =
-    String(
-      status ||
-      "sent"
-    ).toLowerCase();
-
-  if (value === "paid") {
-    return "Paid";
-  }
-
-  return "Sent";
 }
 
 
@@ -5125,44 +4626,55 @@ function todayDate() {
     now.getFullYear();
 
   const month =
-    String(
-      now.getMonth() + 1
-    ).padStart(2, "0");
+    String(now.getMonth() + 1)
+      .padStart(2, "0");
 
   const day =
-    String(
-      now.getDate()
-    ).padStart(2, "0");
+    String(now.getDate())
+      .padStart(2, "0");
 
   return `${year}-${month}-${day}`;
 }
 
 
-function escapeHtml(
-  value
-) {
+function formatDateInput(date) {
+
+  const year =
+    date.getFullYear();
+
+  const month =
+    String(date.getMonth() + 1)
+      .padStart(2, "0");
+
+  const day =
+    String(date.getDate())
+      .padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+
+function calculateDueDate(days) {
+
+  const date =
+    new Date();
+
+  date.setDate(
+    date.getDate() + Number(days || 0)
+  );
+
+  return formatDateInput(date);
+}
+
+
+function escapeHtml(value) {
 
   return String(value)
-    .replace(
-      /&/g,
-      "&amp;"
-    )
-    .replace(
-      /</g,
-      "&lt;"
-    )
-    .replace(
-      />/g,
-      "&gt;"
-    )
-    .replace(
-      /"/g,
-      "&quot;"
-    )
-    .replace(
-      /'/g,
-      "&#039;"
-    );
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 

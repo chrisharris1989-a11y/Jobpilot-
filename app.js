@@ -1402,6 +1402,7 @@ function renderJobsPage(content) {
 // =====================================================
 
 function showJobProfile(jobId) {
+
   const job =
     jobs.find(
       item =>
@@ -1419,47 +1420,272 @@ function showJobProfile(jobId) {
   const content =
     document.getElementById("pageContent");
 
+
+  // =====================================================
+  // RECURRING JOB INFORMATION
+  // =====================================================
+
+  const isRecurring =
+    job.recurring === true ||
+    job.recurring === "true";
+
+
+  let recurringJobs = [];
+
+
+  if (isRecurring) {
+
+    const seriesId =
+      job.recurring_parent_id || job.id;
+
+    recurringJobs =
+      jobs
+        .filter(item => {
+
+          const itemSeriesId =
+            item.recurring_parent_id || item.id;
+
+          return (
+            String(itemSeriesId) ===
+            String(seriesId)
+          );
+
+        })
+        .sort((a, b) => {
+
+          const dateA =
+            a.scheduled_date || "9999-12-31";
+
+          const dateB =
+            b.scheduled_date || "9999-12-31";
+
+          return dateA.localeCompare(dateB);
+
+        });
+
+  }
+
+
+  const recurringInterval =
+    Number(
+      job.recurring_interval_weeks
+    ) || 4;
+
+
+  const nextRecurringJob =
+    recurringJobs.find(
+      item =>
+        String(item.status).toLowerCase() !==
+          "completed" &&
+        String(item.status).toLowerCase() !==
+          "cancelled" &&
+        String(item.id) !== String(job.id)
+    );
+
+
+  let recurringSection = "";
+
+
+  if (isRecurring) {
+
+    recurringSection = `
+
+      <div class="panel">
+
+        <h2>🔄 Recurring Job</h2>
+
+        <div class="detail-list">
+
+          <div>
+
+            <span>Frequency</span>
+
+            <strong>
+              Every ${recurringInterval} weeks
+            </strong>
+
+          </div>
+
+          <div>
+
+            <span>Next Appointment</span>
+
+            <strong>
+              ${
+                nextRecurringJob
+                  ? (
+                      nextRecurringJob.scheduled_date ||
+                      "Not scheduled"
+                    )
+                  : "No future appointment"
+              }
+            </strong>
+
+          </div>
+
+        </div>
+
+
+        <h3 style="margin-top:25px;">
+          Recurring Series
+        </h3>
+
+
+        <div>
+
+          ${
+            recurringJobs.length
+
+              ? recurringJobs.map(seriesJob => `
+
+                  <div
+                    class="job-row"
+                    style="
+                      cursor:pointer;
+                      margin-bottom:8px;
+                    "
+                    data-recurring-job-id="${seriesJob.id}"
+                  >
+
+                    <div>
+
+                      <strong>
+                        ${
+                          seriesJob.scheduled_date ||
+                          "No date"
+                        }
+                      </strong>
+
+                      <div class="muted">
+
+                        ${escapeHtml(
+                          seriesJob.title || "Job"
+                        )}
+
+                      </div>
+
+                    </div>
+
+
+                    <div>
+
+                      <span class="muted">
+
+                        ${escapeHtml(
+                          seriesJob.status ||
+                          "pending"
+                        )}
+
+                      </span>
+
+                      <strong>
+
+                        £${Number(
+                          seriesJob.price || 0
+                        ).toFixed(2)}
+
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+                `).join("")
+
+              : `
+
+                  <div class="empty-state">
+
+                    <p>
+                      No recurring appointments found.
+                    </p>
+
+                  </div>
+
+                `
+          }
+
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  // =====================================================
+  // PAGE
+  // =====================================================
+
   document.getElementById("pageTitle").textContent =
     job.title;
 
   document.getElementById("pageSubtitle").textContent =
     "Job details";
 
+
   content.innerHTML = `
 
     <div class="page-actions">
 
-      <button id="backJobs" class="button secondary">
+      <button
+        id="backJobs"
+        class="button secondary"
+      >
         ← Jobs
       </button>
 
+
       <div>
 
-        <button id="editJob" class="button primary">
+        <button
+          id="editJob"
+          class="button primary"
+        >
           Edit Job
         </button>
 
+
         ${
-          String(job.status).toLowerCase() === "invoiced"
+          String(job.status).toLowerCase() ===
+          "invoiced"
+
             ? `
-              <button class="button secondary" disabled>
+
+              <button
+                class="button secondary"
+                disabled
+              >
                 ✓ Invoiced
               </button>
+
             `
+
             : `
-              <button id="convertJobInvoice" class="button primary">
+
+              <button
+                id="convertJobInvoice"
+                class="button primary"
+              >
                 🧾 Convert to Invoice
               </button>
+
             `
         }
 
-        <button id="deleteJob" class="button danger">
+
+        <button
+          id="deleteJob"
+          class="button danger"
+        >
           Delete
         </button>
 
       </div>
 
     </div>
+
 
     <div class="content-grid">
 
@@ -1470,49 +1696,97 @@ function showJobProfile(jobId) {
         <div class="detail-list">
 
           <div>
+
             <span>Customer</span>
+
             <strong>
+
               ${
                 customer
                   ? escapeHtml(customer.name)
                   : "Unknown customer"
               }
+
             </strong>
+
           </div>
 
+
           <div>
+
             <span>Title</span>
-            <strong>${escapeHtml(job.title)}</strong>
+
+            <strong>
+              ${escapeHtml(job.title)}
+            </strong>
+
           </div>
 
+
           <div>
+
             <span>Description</span>
-            <strong>${escapeHtml(job.description || "—")}</strong>
+
+            <strong>
+              ${escapeHtml(
+                job.description || "—"
+              )}
+            </strong>
+
           </div>
 
+
           <div>
+
             <span>Date</span>
-            <strong>${job.scheduled_date || "—"}</strong>
+
+            <strong>
+              ${job.scheduled_date || "—"}
+            </strong>
+
           </div>
 
+
           <div>
+
             <span>Time</span>
-            <strong>${job.scheduled_time || "—"}</strong>
+
+            <strong>
+              ${job.scheduled_time || "—"}
+            </strong>
+
           </div>
 
+
           <div>
+
             <span>Status</span>
-            <strong>${escapeHtml(job.status || "pending")}</strong>
+
+            <strong>
+              ${escapeHtml(
+                job.status || "pending"
+              )}
+            </strong>
+
           </div>
 
+
           <div>
+
             <span>Notes</span>
-            <strong>${escapeHtml(job.notes || "—")}</strong>
+
+            <strong>
+              ${escapeHtml(
+                job.notes || "—"
+              )}
+            </strong>
+
           </div>
 
         </div>
 
       </div>
+
 
       <div class="panel">
 
@@ -1521,11 +1795,15 @@ function showJobProfile(jobId) {
         <div class="detail-list">
 
           <div>
+
             <span>Price</span>
 
             <strong>
-              £${Number(job.price || 0).toFixed(2)}
+              £${Number(
+                job.price || 0
+              ).toFixed(2)}
             </strong>
+
           </div>
 
         </div>
@@ -1533,7 +1811,16 @@ function showJobProfile(jobId) {
       </div>
 
     </div>
+
+
+    ${recurringSection}
+
   `;
+
+
+  // =====================================================
+  // BUTTON EVENTS
+  // =====================================================
 
   document
     .getElementById("backJobs")
@@ -1542,12 +1829,14 @@ function showJobProfile(jobId) {
       () => showPage("jobs")
     );
 
+
   document
     .getElementById("editJob")
     .addEventListener(
       "click",
       () => showEditJobForm(job.id)
     );
+
 
   document
     .getElementById("deleteJob")
@@ -1556,17 +1845,48 @@ function showJobProfile(jobId) {
       () => deleteJob(job.id)
     );
 
+
   const invoiceButton =
-    document.getElementById("convertJobInvoice");
+    document.getElementById(
+      "convertJobInvoice"
+    );
+
 
   if (invoiceButton) {
+
     invoiceButton.addEventListener(
       "click",
-      () => convertJobToInvoice(job.id)
+      () =>
+        convertJobToInvoice(job.id)
     );
-  }
-}
 
+  }
+
+
+  // =====================================================
+  // RECURRING SERIES CLICKS
+  // =====================================================
+
+  content
+    .querySelectorAll(
+      "[data-recurring-job-id]"
+    )
+    .forEach(row => {
+
+      row.addEventListener(
+        "click",
+        () => {
+
+          showJobProfile(
+            row.dataset.recurringJobId
+          );
+
+        }
+      );
+
+    });
+
+}
 
 // =====================================================
 // ADD JOB

@@ -2141,34 +2141,26 @@ function renderQuotesPage(content) {
 // =====================================================
 
 function showAddQuoteForm() {
+
   const modal = document.createElement("div");
 
   modal.className = "modal show";
 
-  // Find the highest existing quote number
-  let nextNumber = 1;
+  const settings = JSON.parse(
+    localStorage.getItem("jobpilot_settings") || "{}"
+  );
 
-  if (quotes && quotes.length) {
-    const numbers = quotes
-      .map(quote => {
-        const match = String(
-          quote.quote_number || ""
-        ).match(/(\d+)$/);
+  let nextNumber =
+    Number(settings.nextQuoteNumber) || 1;
 
-        return match
-          ? parseInt(match[1], 10)
-          : 0;
-      })
-      .filter(number => !isNaN(number));
-
-    if (numbers.length) {
-      nextNumber =
-        Math.max(...numbers) + 1;
-    }
-  }
+  const prefix =
+    settings.quotePrefix || "QUO-";
 
   const quoteNumber =
-    `QUO-${String(nextNumber).padStart(4, "0")}`;
+    `${prefix}${String(nextNumber).padStart(4, "0")}`;
+
+  const defaultVatRate =
+    Number(settings.vatRate ?? 20);
 
   modal.innerHTML = `
 
@@ -2203,7 +2195,6 @@ function showAddQuoteForm() {
 
         </select>
 
-        <h3>Quote Details</h3>
 
         <label>Quote Number *</label>
 
@@ -2213,14 +2204,28 @@ function showAddQuoteForm() {
           required
         >
 
+
+        <label>Job / Quote Details *</label>
+
+        <textarea
+          id="quoteDescription"
+          placeholder="Describe the work being quoted..."
+          required
+        ></textarea>
+
+
+        <h3>Pricing</h3>
+
         <label>Subtotal</label>
 
         <input
           id="quoteSubtotal"
           type="number"
           step="0.01"
+          min="0"
           value="0"
         >
+
 
         <label>VAT %</label>
 
@@ -2228,8 +2233,10 @@ function showAddQuoteForm() {
           id="quoteVatPercent"
           type="number"
           step="0.01"
-          value="20"
+          min="0"
+          value="${defaultVatRate}"
         >
+
 
         <label>VAT</label>
 
@@ -2241,6 +2248,7 @@ function showAddQuoteForm() {
           readonly
         >
 
+
         <label>Total</label>
 
         <input
@@ -2251,6 +2259,7 @@ function showAddQuoteForm() {
           readonly
         >
 
+
         <label>Valid Until</label>
 
         <input
@@ -2258,9 +2267,54 @@ function showAddQuoteForm() {
           type="date"
         >
 
+
         <label>Notes</label>
 
-        <textarea id="quoteNotes"></textarea>
+        <textarea
+          id="quoteNotes"
+          placeholder="Additional notes or terms..."
+        ></textarea>
+
+
+        <h3>Recurring Job</h3>
+
+        <label>
+
+          <input
+            type="checkbox"
+            id="quoteRecurring"
+          >
+
+          Make this a recurring job
+
+        </label>
+
+
+        <div
+          id="recurringOptions"
+          style="display:none;"
+        >
+
+          <label>Repeat Every</label>
+
+          <select id="quoteRecurringInterval">
+
+            <option value="4">
+              Every 4 weeks
+            </option>
+
+            <option value="6">
+              Every 6 weeks
+            </option>
+
+            <option value="8">
+              Every 8 weeks
+            </option>
+
+          </select>
+
+        </div>
+
 
         <div class="modal-actions">
 
@@ -2287,14 +2341,22 @@ function showAddQuoteForm() {
 
   document.body.appendChild(modal);
 
+
+  // CLOSE MODAL
+
   modal
     .querySelectorAll(".close")
     .forEach(button => {
+
       button.addEventListener(
         "click",
         () => modal.remove()
       );
+
     });
+
+
+  // PRICING
 
   const subtotalInput =
     modal.querySelector("#quoteSubtotal");
@@ -2307,6 +2369,7 @@ function showAddQuoteForm() {
 
   const totalInput =
     modal.querySelector("#quoteTotal");
+
 
   function updateQuoteTotal() {
 
@@ -2324,7 +2387,9 @@ function showAddQuoteForm() {
 
     totalInput.value =
       (subtotal + vat).toFixed(2);
+
   }
+
 
   subtotalInput.addEventListener(
     "input",
@@ -2338,6 +2403,31 @@ function showAddQuoteForm() {
 
   updateQuoteTotal();
 
+
+  // RECURRING OPTIONS
+
+  const recurringCheckbox =
+    modal.querySelector("#quoteRecurring");
+
+  const recurringOptions =
+    modal.querySelector("#recurringOptions");
+
+
+  recurringCheckbox.addEventListener(
+    "change",
+    () => {
+
+      recurringOptions.style.display =
+        recurringCheckbox.checked
+          ? "block"
+          : "none";
+
+    }
+  );
+
+
+  // SAVE QUOTE
+
   modal
     .querySelector("#quoteForm")
     .addEventListener(
@@ -2345,6 +2435,11 @@ function showAddQuoteForm() {
       async event => {
 
         event.preventDefault();
+
+
+        const recurring =
+          recurringCheckbox.checked;
+
 
         const quote = {
 
@@ -2363,6 +2458,11 @@ function showAddQuoteForm() {
 
           status:
             "draft",
+
+          description:
+            modal.querySelector(
+              "#quoteDescription"
+            ).value.trim(),
 
           subtotal:
             Number(
@@ -2393,26 +2493,61 @@ function showAddQuoteForm() {
           valid_until:
             modal.querySelector(
               "#quoteValidUntil"
-            ).value || null
+            ).value || null,
+
+          recurring:
+            recurring,
+
+          recurring_interval_weeks:
+            recurring
+              ? Number(
+                  modal.querySelector(
+                    "#quoteRecurringInterval"
+                  ).value
+                )
+              : null
+
         };
+
 
         const { error } =
           await supabase
             .from("quotes")
             .insert(quote);
 
+
         if (error) {
-          alert(error.message);
+
+          alert(
+            "The quote could not be saved:\n\n" +
+            error.message
+          );
+
           return;
+
         }
+
+
+        // Increase next quote number
+
+        settings.nextQuoteNumber =
+          nextNumber + 1;
+
+        localStorage.setItem(
+          "jobpilot_settings",
+          JSON.stringify(settings)
+        );
+
 
         modal.remove();
 
         await loadQuotes();
 
         showPage("quotes");
+
       }
     );
+
 }
 
 // =====================================================

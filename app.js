@@ -1494,6 +1494,30 @@ function showJobProfile(jobId) {
 
         <h2>🔄 Recurring Job</h2>
 
+<div
+  style="
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin:15px 0;
+  "
+>
+
+  <button
+    id="skipRecurringJob"
+    class="button secondary"
+  >
+    ⏭ Skip Next Appointment
+  </button>
+
+  <button
+    id="stopRecurringJob"
+    class="button danger"
+  >
+    ⏹ Stop Recurring
+  </button>
+
+</div>
         <div class="detail-list">
 
           <div>
@@ -2615,7 +2639,163 @@ function showEditJobForm(jobId) {
 
 }
 
+// =====================================================
+// SKIP NEXT RECURRING JOB
+// =====================================================
 
+async function skipNextRecurringJob(jobId) {
+
+  const job =
+    jobs.find(
+      item =>
+        String(item.id) === String(jobId)
+    );
+
+  if (!job) return;
+
+  if (
+    !job.recurring ||
+    !job.recurring_active
+  ) {
+    alert("This job is not currently recurring.");
+    return;
+  }
+
+  const confirmed =
+    confirm(
+      "Skip the next recurring appointment?"
+    );
+
+  if (!confirmed) return;
+
+  const nextJob =
+    jobs.find(item => {
+
+      const parentId =
+        item.recurring_parent_id ||
+        item.id;
+
+      const currentSeriesId =
+        job.recurring_parent_id ||
+        job.id;
+
+      return (
+        String(parentId) ===
+        String(currentSeriesId) &&
+
+        String(item.id) !==
+        String(job.id) &&
+
+        String(item.status).toLowerCase() !==
+        "completed" &&
+
+        String(item.status).toLowerCase() !==
+        "cancelled"
+      );
+
+    });
+
+  if (!nextJob) {
+
+    alert(
+      "There is no upcoming recurring appointment to skip."
+    );
+
+    return;
+  }
+
+  const { error } =
+    await supabase
+      .from("jobs")
+      .update({
+        status: "cancelled"
+      })
+      .eq("id", nextJob.id);
+
+  if (error) {
+
+    alert(
+      "Could not skip the appointment:\n\n" +
+      error.message
+    );
+
+    return;
+  }
+
+  await loadJobs();
+
+  showJobProfile(job.id);
+
+  alert(
+    "The next recurring appointment has been skipped."
+  );
+}
+
+
+// =====================================================
+// STOP RECURRING JOB
+// =====================================================
+
+async function stopRecurringJob(jobId) {
+
+  const job =
+    jobs.find(
+      item =>
+        String(item.id) === String(jobId)
+    );
+
+  if (!job) return;
+
+  if (!job.recurring) {
+
+    alert(
+      "This job is not a recurring job."
+    );
+
+    return;
+  }
+
+  const confirmed =
+    confirm(
+      "Stop this recurring job?\n\nExisting appointments will remain, but no new recurring appointments will be created."
+    );
+
+  if (!confirmed) return;
+
+  const seriesId =
+    job.recurring_parent_id ||
+    job.id;
+
+
+  const { error } =
+    await supabase
+      .from("jobs")
+      .update({
+        recurring_active: false
+      })
+      .or(
+        `id.eq.${seriesId},recurring_parent_id.eq.${seriesId}`
+      );
+
+
+  if (error) {
+
+    alert(
+      "Could not stop recurring:\n\n" +
+      error.message
+    );
+
+    return;
+  }
+
+  await loadJobs();
+
+  showJobProfile(job.id);
+
+  alert(
+    "Recurring appointments have been stopped."
+  );
+}
 // =====================================================
 // DELETE JOB
 // =====================================================

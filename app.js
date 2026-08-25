@@ -47,7 +47,6 @@ function showLogin() {
 
         <div class="auth-logo">
           <div class="logo-mark">J</div>
-
           <div>
             <strong>JobPilot</strong>
             <span>Trades CRM</span>
@@ -290,14 +289,12 @@ function renderApp() {
       <aside class="sidebar">
 
         <div class="logo">
-
           <div class="logo-mark">J</div>
 
           <div>
             <strong>JobPilot</strong>
             <span>Trades CRM</span>
           </div>
-
         </div>
 
         <nav>
@@ -343,15 +340,11 @@ function renderApp() {
         <header class="topbar">
 
           <div>
-
-            <h1 id="pageTitle">
-              Dashboard
-            </h1>
+            <h1 id="pageTitle">Dashboard</h1>
 
             <p id="pageSubtitle">
               Here's what's happening with your business.
             </p>
-
           </div>
 
           <div class="avatar">
@@ -393,11 +386,12 @@ function renderApp() {
 // =====================================================
 
 function showPage(page) {
+
   document
     .querySelectorAll(".nav-item")
-    .forEach(button => {
-      button.classList.remove("active");
-    });
+    .forEach(button =>
+      button.classList.remove("active")
+    );
 
   const activeButton =
     document.querySelector(
@@ -409,6 +403,7 @@ function showPage(page) {
   }
 
   const titles = {
+
     dashboard: [
       "Dashboard",
       "Here's what's happening with your business."
@@ -438,6 +433,7 @@ function showPage(page) {
       "Settings",
       "Manage your JobPilot account."
     ]
+
   };
 
   document.getElementById("pageTitle").textContent =
@@ -449,29 +445,23 @@ function showPage(page) {
   const content =
     document.getElementById("pageContent");
 
-  if (page === "dashboard") {
+  if (page === "dashboard")
     renderDashboard(content);
-  }
 
-  if (page === "customers") {
+  if (page === "customers")
     renderCustomersPage(content);
-  }
 
-  if (page === "jobs") {
+  if (page === "jobs")
     renderJobsPage(content);
-  }
 
-  if (page === "quotes") {
+  if (page === "quotes")
     renderQuotesPage(content);
-  }
 
-  if (page === "invoices") {
+  if (page === "invoices")
     renderInvoicesPage(content);
-  }
 
-  if (page === "settings") {
+  if (page === "settings")
     renderSettings(content);
-  }
 }
 
 
@@ -480,6 +470,7 @@ function showPage(page) {
 // =====================================================
 
 function renderDashboard(content) {
+
   content.innerHTML = `
 
     <div class="stats">
@@ -523,12 +514,10 @@ function renderDashboard(content) {
       <div class="panel">
 
         <div class="panel-header">
-
           <div>
             <h2>Upcoming Jobs</h2>
             <p>Your scheduled work</p>
           </div>
-
         </div>
 
         ${
@@ -541,13 +530,21 @@ function renderDashboard(content) {
                 >
 
                   <div>
+
                     <strong>
                       ${escapeHtml(job.title)}
                     </strong>
 
                     <div class="muted">
-                      ${job.scheduled_date || "No date"}
+                      ${getCustomerName(job.customer_id)}
+
+                      ${
+                        job.scheduled_date
+                          ? " • " + job.scheduled_date
+                          : ""
+                      }
                     </div>
+
                   </div>
 
                   <span>
@@ -558,9 +555,13 @@ function renderDashboard(content) {
               `).join("")
             : `
               <div class="empty-state">
+
                 <div class="empty-icon">📋</div>
+
                 <h3>No jobs yet</h3>
+
                 <p>Add your first job to get started.</p>
+
               </div>
             `
         }
@@ -599,26 +600,24 @@ function renderDashboard(content) {
     </div>
   `;
 
-  document
+  content
     .querySelectorAll("[data-action]")
-    .forEach(button => {
+    .forEach(button =>
       button.addEventListener(
         "click",
         () => showPage(button.dataset.action)
-      );
-    });
+      )
+    );
 
   content
     .querySelectorAll("[data-dashboard-job]")
-    .forEach(row => {
+    .forEach(row =>
       row.addEventListener(
         "click",
         () =>
-          showJobProfile(
-            row.dataset.dashboardJob
-          )
-      );
-    });
+          showJobProfile(row.dataset.dashboardJob)
+      )
+    );
 }
 
 
@@ -627,6 +626,7 @@ function renderDashboard(content) {
 // =====================================================
 
 function renderCustomersPage(content) {
+
   content.innerHTML = `
 
     <div class="page-actions">
@@ -679,6 +679,7 @@ function renderCustomersPage(content) {
 // =====================================================
 
 function renderCustomerTable(search = "") {
+
   const table =
     document.getElementById("customerTable");
 
@@ -705,6 +706,7 @@ function renderCustomerTable(search = "") {
     });
 
   if (!filtered.length) {
+
     table.innerHTML = `
       <div class="empty-state">
 
@@ -763,15 +765,15 @@ function renderCustomerTable(search = "") {
 
   table
     .querySelectorAll("[data-customer-id]")
-    .forEach(row => {
+    .forEach(row =>
       row.addEventListener(
         "click",
         () =>
           showCustomerProfile(
             row.dataset.customerId
           )
-      );
-    });
+      )
+    );
 }
 
 
@@ -780,6 +782,7 @@ function renderCustomerTable(search = "") {
 // =====================================================
 
 function showAddCustomerForm() {
+
   const modal =
     document.createElement("div");
 
@@ -824,11 +827,17 @@ function showAddCustomerForm() {
 
         <div class="modal-actions">
 
-          <button type="button" class="button secondary close">
+          <button
+            type="button"
+            class="button secondary close"
+          >
             Cancel
           </button>
 
-          <button type="submit" class="button primary">
+          <button
+            type="submit"
+            class="button primary"
+          >
             Save Customer
           </button>
 
@@ -858,6 +867,7 @@ function showAddCustomerForm() {
         event.preventDefault();
 
         const customer = {
+
           user_id: currentUser.id,
 
           name:
@@ -923,6 +933,7 @@ function showAddCustomerForm() {
 // =====================================================
 
 function showCustomerProfile(customerId) {
+
   const customer =
     customers.find(
       item =>
@@ -1030,17 +1041,21 @@ function showCustomerProfile(customerId) {
         <div class="stats">
 
           <div class="stat-card">
+
             <div>
               <span>Jobs</span>
               <strong>${customerJobs.length}</strong>
             </div>
+
           </div>
 
           <div class="stat-card">
+
             <div>
               <span>Job Value</span>
               <strong>£${totalValue.toFixed(2)}</strong>
             </div>
+
           </div>
 
         </div>
@@ -1089,9 +1104,13 @@ function showCustomerProfile(customerId) {
             `).join("")
           : `
             <div class="empty-state">
+
               <div class="empty-icon">📋</div>
+
               <h3>No jobs yet</h3>
+
               <p>This customer doesn't have any jobs.</p>
+
             </div>
           `
       }
@@ -1122,13 +1141,13 @@ function showCustomerProfile(customerId) {
 
   content
     .querySelectorAll("[data-history-job]")
-    .forEach(row => {
+    .forEach(row =>
       row.addEventListener(
         "click",
         () =>
           showJobProfile(row.dataset.historyJob)
-      );
-    });
+      )
+    );
 }
 
 
@@ -1137,11 +1156,11 @@ function showCustomerProfile(customerId) {
 // =====================================================
 
 function showEditCustomerForm(customerId) {
+
   const customer =
     customers.find(
       item =>
-        String(item.id) ===
-        String(customerId)
+        String(item.id) === String(customerId)
     );
 
   if (!customer) return;
@@ -1220,11 +1239,17 @@ function showEditCustomerForm(customerId) {
 
         <div class="modal-actions">
 
-          <button type="button" class="button secondary close">
+          <button
+            type="button"
+            class="button secondary close"
+          >
             Cancel
           </button>
 
-          <button type="submit" class="button primary">
+          <button
+            type="submit"
+            class="button primary"
+          >
             Save Changes
           </button>
 
@@ -1317,21 +1342,20 @@ function showEditCustomerForm(customerId) {
 // =====================================================
 
 async function deleteCustomer(customerId) {
+
   const customer =
     customers.find(
       item =>
-        String(item.id) ===
-        String(customerId)
+        String(item.id) === String(customerId)
     );
 
   if (!customer) return;
 
-  const confirmed =
-    confirm(
+  if (
+    !confirm(
       `Delete ${customer.name}? This cannot be undone.`
-    );
-
-  if (!confirmed) return;
+    )
+  ) return;
 
   const { error } =
     await supabase
@@ -1356,6 +1380,7 @@ async function deleteCustomer(customerId) {
 // =====================================================
 
 function renderJobsPage(content) {
+
   content.innerHTML = `
 
     <div class="page-actions">
@@ -1406,7 +1431,7 @@ function renderJobsPage(content) {
                 <div>
 
                   <span>
-                    ${escapeHtml(job.status || "pending")}
+                    ${formatJobStatus(job.status)}
                   </span>
 
                   <strong>
@@ -1445,12 +1470,12 @@ function renderJobsPage(content) {
 
   content
     .querySelectorAll("[data-job-id]")
-    .forEach(row => {
+    .forEach(row =>
       row.addEventListener(
         "click",
         () => showJobProfile(row.dataset.jobId)
-      );
-    });
+      )
+    );
 }
 
 
@@ -1459,6 +1484,7 @@ function renderJobsPage(content) {
 // =====================================================
 
 function showJobProfile(jobId) {
+
   const job =
     jobs.find(
       item =>
@@ -1472,6 +1498,14 @@ function showJobProfile(jobId) {
       c =>
         String(c.id) ===
         String(job.customer_id)
+    );
+
+  const linkedInvoice =
+    invoices.find(
+      invoice =>
+        invoice.job_id &&
+        String(invoice.job_id) ===
+        String(job.id)
     );
 
   const content =
@@ -1498,14 +1532,21 @@ function showJobProfile(jobId) {
         </button>
 
         ${
+          linkedInvoice ||
           String(job.status).toLowerCase() === "invoiced"
             ? `
-              <button class="button secondary" disabled>
-                ✓ Invoiced
+              <button
+                id="openJobInvoice"
+                class="button secondary"
+              >
+                🧾 View Invoice
               </button>
             `
             : `
-              <button id="convertJobInvoice" class="button primary">
+              <button
+                id="convertJobInvoice"
+                class="button primary"
+              >
                 🧾 Convert to Invoice
               </button>
             `
@@ -1529,6 +1570,7 @@ function showJobProfile(jobId) {
 
           <div>
             <span>Customer</span>
+
             <strong>
               ${
                 customer
@@ -1539,13 +1581,15 @@ function showJobProfile(jobId) {
           </div>
 
           <div>
-            <span>Title / What it's for</span>
+            <span>Title</span>
             <strong>${escapeHtml(job.title)}</strong>
           </div>
 
           <div>
             <span>Description</span>
-            <strong>${escapeHtml(job.description || "—")}</strong>
+            <strong>
+              ${escapeHtml(job.description || "—")}
+            </strong>
           </div>
 
           <div>
@@ -1560,12 +1604,16 @@ function showJobProfile(jobId) {
 
           <div>
             <span>Status</span>
-            <strong>${escapeHtml(job.status || "pending")}</strong>
+            <strong>
+              ${formatJobStatus(job.status)}
+            </strong>
           </div>
 
           <div>
             <span>Notes</span>
-            <strong>${escapeHtml(job.notes || "—")}</strong>
+            <strong>
+              ${escapeHtml(job.notes || "—")}
+            </strong>
           </div>
 
         </div>
@@ -1623,6 +1671,39 @@ function showJobProfile(jobId) {
       () => convertJobToInvoice(job.id)
     );
   }
+
+  const openInvoiceButton =
+    document.getElementById("openJobInvoice");
+
+  if (openInvoiceButton) {
+
+    openInvoiceButton.addEventListener(
+      "click",
+      () => {
+
+        if (linkedInvoice) {
+          showInvoiceProfile(linkedInvoice.id);
+          return;
+        }
+
+        const invoice =
+          invoices.find(
+            item =>
+              item.customer_id === job.customer_id &&
+              item.notes &&
+              item.notes.includes(
+                `Created from Job: ${job.title}`
+              )
+          );
+
+        if (invoice) {
+          showInvoiceProfile(invoice.id);
+        } else {
+          showPage("invoices");
+        }
+      }
+    );
+  }
 }
 
 
@@ -1631,6 +1712,7 @@ function showJobProfile(jobId) {
 // =====================================================
 
 function showAddJobForm() {
+
   const modal =
     document.createElement("div");
 
@@ -1669,7 +1751,7 @@ function showAddJobForm() {
 
         </select>
 
-        <label>Job Title / What is it for? *</label>
+        <label>Job Title *</label>
 
         <input
           id="jobTitle"
@@ -1698,7 +1780,6 @@ function showAddJobForm() {
 
           <option value="pending">Pending</option>
           <option value="scheduled">Scheduled</option>
-          <option value="in_progress">In Progress</option>
           <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
 
@@ -1715,10 +1796,7 @@ function showAddJobForm() {
 
         <label>Notes</label>
 
-        <textarea
-          id="jobNotes"
-          placeholder="Additional notes..."
-        ></textarea>
+        <textarea id="jobNotes"></textarea>
 
         <div class="modal-actions">
 
@@ -1833,11 +1911,11 @@ function showAddJobForm() {
 // =====================================================
 
 function showEditJobForm(jobId) {
+
   const job =
     jobs.find(
       item =>
-        String(item.id) ===
-        String(jobId)
+        String(item.id) === String(jobId)
     );
 
   if (!job) return;
@@ -1884,7 +1962,7 @@ function showEditJobForm(jobId) {
 
         </select>
 
-        <label>Job Title / What is it for? *</label>
+        <label>Job Title *</label>
 
         <input
           id="editJobTitle"
@@ -1926,11 +2004,6 @@ function showEditJobForm(jobId) {
           <option value="scheduled"
             ${job.status === "scheduled" ? "selected" : ""}>
             Scheduled
-          </option>
-
-          <option value="in_progress"
-            ${job.status === "in_progress" ? "selected" : ""}>
-            In Progress
           </option>
 
           <option value="completed"
@@ -2077,21 +2150,20 @@ function showEditJobForm(jobId) {
 // =====================================================
 
 async function deleteJob(jobId) {
+
   const job =
     jobs.find(
       item =>
-        String(item.id) ===
-        String(jobId)
+        String(item.id) === String(jobId)
     );
 
   if (!job) return;
 
-  const confirmed =
-    confirm(
+  if (
+    !confirm(
       `Delete "${job.title}"? This cannot be undone.`
-    );
-
-  if (!confirmed) return;
+    )
+  ) return;
 
   const { error } =
     await supabase
@@ -2115,6 +2187,7 @@ async function deleteJob(jobId) {
 // =====================================================
 
 function renderQuotesPage(content) {
+
   content.innerHTML = `
 
     <div class="page-actions">
@@ -2145,7 +2218,11 @@ function renderQuotesPage(content) {
 
               return `
 
-                <div class="job-row">
+                <div
+                  class="job-row"
+                  style="cursor:pointer;"
+                  data-quote-id="${quote.id}"
+                >
 
                   <div>
 
@@ -2158,21 +2235,15 @@ function renderQuotesPage(content) {
                     <div class="muted">
 
                       ${
-                        quote.title
-                          ? escapeHtml(quote.title) + " • "
-                          : ""
-                      }
-
-                      ${
                         customer
                           ? escapeHtml(customer.name)
                           : "Unknown customer"
                       }
 
                       ${
-                        quote.valid_until
-                          ? " • Valid until " +
-                            quote.valid_until
+                        quote.title
+                          ? " • " +
+                            escapeHtml(quote.title)
                           : ""
                       }
 
@@ -2189,17 +2260,8 @@ function renderQuotesPage(content) {
                     </strong>
 
                     <span class="muted">
-                      ${escapeHtml(
-                        quote.status || "draft"
-                      )}
+                      ${formatQuoteStatus(quote.status)}
                     </span>
-
-                    <button
-                      class="button secondary quote-view"
-                      data-quote-id="${quote.id}"
-                    >
-                      View
-                    </button>
 
                   </div>
 
@@ -2233,16 +2295,14 @@ function renderQuotesPage(content) {
     );
 
   content
-    .querySelectorAll(".quote-view")
-    .forEach(button => {
-      button.addEventListener(
+    .querySelectorAll("[data-quote-id]")
+    .forEach(row =>
+      row.addEventListener(
         "click",
         () =>
-          showQuoteProfile(
-            button.dataset.quoteId
-          )
-      );
-    });
+          showQuoteProfile(row.dataset.quoteId)
+      )
+    );
 }
 
 
@@ -2251,6 +2311,7 @@ function renderQuotesPage(content) {
 // =====================================================
 
 function showAddQuoteForm() {
+
   const modal =
     document.createElement("div");
 
@@ -2292,7 +2353,7 @@ function showAddQuoteForm() {
 
         </select>
 
-        <label>What is the quote for? *</label>
+        <label>Job Title *</label>
 
         <input
           id="quoteTitle"
@@ -2304,10 +2365,8 @@ function showAddQuoteForm() {
 
         <textarea
           id="quoteDescription"
-          placeholder="Describe the work included in the quote..."
+          placeholder="Describe the work..."
         ></textarea>
-
-        <h3>Quote Details</h3>
 
         <label>Quote Number *</label>
 
@@ -2362,12 +2421,27 @@ function showAddQuoteForm() {
           type="date"
         >
 
+        <label>Status</label>
+
+        <select id="quoteStatus">
+
+          <option value="draft">
+            Draft
+          </option>
+
+          <option value="sent">
+            Sent
+          </option>
+
+          <option value="accepted">
+            Accepted
+          </option>
+
+        </select>
+
         <label>Notes</label>
 
-        <textarea
-          id="quoteNotes"
-          placeholder="Additional notes..."
-        ></textarea>
+        <textarea id="quoteNotes"></textarea>
 
         <div class="modal-actions">
 
@@ -2425,14 +2499,11 @@ function showAddQuoteForm() {
     const vat =
       subtotal * vatPercent / 100;
 
-    const total =
-      subtotal + vat;
-
     vatInput.value =
       vat.toFixed(2);
 
     totalInput.value =
-      total.toFixed(2);
+      (subtotal + vat).toFixed(2);
   }
 
   subtotalInput.addEventListener(
@@ -2481,7 +2552,9 @@ function showAddQuoteForm() {
               .value.trim(),
 
           status:
-            "draft",
+            document
+              .getElementById("quoteStatus")
+              .value,
 
           subtotal:
             Number(
@@ -2540,6 +2613,7 @@ function showAddQuoteForm() {
 // =====================================================
 
 function showQuoteProfile(quoteId) {
+
   const quote =
     quotes.find(
       q =>
@@ -2578,18 +2652,27 @@ function showQuoteProfile(quoteId) {
         ${
           quote.status !== "converted"
             ? `
-              <button id="convertQuote" class="button primary">
+              <button
+                id="convertQuote"
+                class="button primary"
+              >
                 📋 Convert to Job
               </button>
             `
             : `
-              <button class="button secondary" disabled>
+              <button
+                class="button secondary"
+                disabled
+              >
                 ✓ Converted to Job
               </button>
             `
         }
 
-        <button id="deleteQuote" class="button danger">
+        <button
+          id="deleteQuote"
+          class="button danger"
+        >
           Delete
         </button>
 
@@ -2607,13 +2690,17 @@ function showQuoteProfile(quoteId) {
 
           <div>
             <span>Quote Number</span>
+
             <strong>
-              ${escapeHtml(quote.quote_number || "—")}
+              ${escapeHtml(
+                quote.quote_number || "—"
+              )}
             </strong>
           </div>
 
           <div>
             <span>Customer</span>
+
             <strong>
               ${
                 customer
@@ -2624,7 +2711,8 @@ function showQuoteProfile(quoteId) {
           </div>
 
           <div>
-            <span>What it's for</span>
+            <span>Job Title</span>
+
             <strong>
               ${escapeHtml(quote.title || "—")}
             </strong>
@@ -2632,20 +2720,25 @@ function showQuoteProfile(quoteId) {
 
           <div>
             <span>Description</span>
+
             <strong>
-              ${escapeHtml(quote.description || "—")}
+              ${escapeHtml(
+                quote.description || "—"
+              )}
             </strong>
           </div>
 
           <div>
             <span>Status</span>
+
             <strong>
-              ${escapeHtml(quote.status || "draft")}
+              ${formatQuoteStatus(quote.status)}
             </strong>
           </div>
 
           <div>
             <span>Valid Until</span>
+
             <strong>
               ${quote.valid_until || "—"}
             </strong>
@@ -2653,8 +2746,11 @@ function showQuoteProfile(quoteId) {
 
           <div>
             <span>Notes</span>
+
             <strong>
-              ${escapeHtml(quote.notes || "—")}
+              ${escapeHtml(
+                quote.notes || "—"
+              )}
             </strong>
           </div>
 
@@ -2670,22 +2766,31 @@ function showQuoteProfile(quoteId) {
 
           <div>
             <span>Subtotal</span>
+
             <strong>
-              £${Number(quote.subtotal || 0).toFixed(2)}
+              £${Number(
+                quote.subtotal || 0
+              ).toFixed(2)}
             </strong>
           </div>
 
           <div>
             <span>VAT</span>
+
             <strong>
-              £${Number(quote.vat || 0).toFixed(2)}
+              £${Number(
+                quote.vat || 0
+              ).toFixed(2)}
             </strong>
           </div>
 
           <div>
             <span>Total</span>
+
             <strong>
-              £${Number(quote.total || 0).toFixed(2)}
+              £${Number(
+                quote.total || 0
+              ).toFixed(2)}
             </strong>
           </div>
 
@@ -2707,6 +2812,7 @@ function showQuoteProfile(quoteId) {
     document.getElementById("convertQuote");
 
   if (convertButton) {
+
     convertButton.addEventListener(
       "click",
       () => convertQuoteToJob(quote.id)
@@ -2753,16 +2859,17 @@ async function convertQuoteToJob(quoteId) {
     );
 
   if (!customer) {
-    alert("The customer attached to this quote could not be found.");
+    alert(
+      "The customer attached to this quote could not be found."
+    );
     return;
   }
 
-  const confirmed =
-    confirm(
+  if (
+    !confirm(
       `Convert Quote #${quote.quote_number || ""} into a job for ${customer.name}?`
-    );
-
-  if (!confirmed) return;
+    )
+  ) return;
 
   const job = {
 
@@ -2777,8 +2884,7 @@ async function convertQuoteToJob(quoteId) {
       `Quote #${quote.quote_number || "Job"}`,
 
     description:
-      quote.description ||
-      "",
+      quote.description || "",
 
     scheduled_date:
       null,
@@ -2807,6 +2913,7 @@ async function convertQuoteToJob(quoteId) {
       .single();
 
   if (jobError) {
+
     console.error(jobError);
 
     alert(
@@ -2867,12 +2974,11 @@ async function deleteQuote(quoteId) {
 
   if (!quote) return;
 
-  const confirmed =
-    confirm(
+  if (
+    !confirm(
       `Delete Quote #${quote.quote_number || ""}? This cannot be undone.`
-    );
-
-  if (!confirmed) return;
+    )
+  ) return;
 
   const { error } =
     await supabase
@@ -2906,7 +3012,10 @@ function renderInvoicesPage(content) {
         <p>Create and track invoices.</p>
       </div>
 
-      <button id="addInvoiceButton" class="button primary">
+      <button
+        id="addInvoiceButton"
+        class="button primary"
+      >
         + New Invoice
       </button>
 
@@ -2949,6 +3058,13 @@ function renderInvoicesPage(content) {
                           : "Unknown customer"
                       }
 
+                      ${
+                        invoice.title
+                          ? " • " +
+                            escapeHtml(invoice.title)
+                          : ""
+                      }
+
                     </div>
 
                   </div>
@@ -2962,13 +3078,7 @@ function renderInvoicesPage(content) {
                     </strong>
 
                     <span class="muted">
-                      ${escapeHtml(
-                        invoice.status || "draft"
-                      )}
-                    </span>
-
-                    <span>
-                      View →
+                      ${formatInvoiceStatus(invoice.status)}
                     </span>
 
                   </div>
@@ -2985,9 +3095,7 @@ function renderInvoicesPage(content) {
 
               <h3>No invoices yet</h3>
 
-              <p>
-                Convert a completed job into an invoice.
-              </p>
+              <p>Create your first invoice.</p>
 
             </div>
 
@@ -3006,20 +3114,20 @@ function renderInvoicesPage(content) {
 
   content
     .querySelectorAll("[data-invoice-id]")
-    .forEach(row => {
+    .forEach(row =>
       row.addEventListener(
         "click",
         () =>
           showInvoiceProfile(
             row.dataset.invoiceId
           )
-      );
-    });
+      )
+    );
 }
 
 
 // =====================================================
-// ADD INVOICE MANUALLY
+// ADD INVOICE
 // =====================================================
 
 function showAddInvoiceForm() {
@@ -3064,6 +3172,21 @@ function showAddInvoiceForm() {
           `).join("")}
 
         </select>
+
+        <label>Job Title *</label>
+
+        <input
+          id="invoiceTitle"
+          required
+          placeholder="e.g. Driveway cleaning"
+        >
+
+        <label>Description</label>
+
+        <textarea
+          id="invoiceDescription"
+          placeholder="Describe the work..."
+        ></textarea>
 
         <label>Invoice Number *</label>
 
@@ -3125,6 +3248,20 @@ function showAddInvoiceForm() {
           id="invoiceDueDate"
           type="date"
         >
+
+        <label>Status</label>
+
+        <select id="invoiceStatus">
+
+          <option value="sent">
+            Sent
+          </option>
+
+          <option value="paid">
+            Paid
+          </option>
+
+        </select>
 
         <label>Notes</label>
 
@@ -3223,13 +3360,25 @@ function showAddInvoiceForm() {
               .getElementById("invoiceCustomer")
               .value,
 
+          title:
+            document
+              .getElementById("invoiceTitle")
+              .value.trim(),
+
+          description:
+            document
+              .getElementById("invoiceDescription")
+              .value.trim(),
+
           invoice_number:
             document
               .getElementById("invoiceNumber")
               .value.trim(),
 
           status:
-            "draft",
+            document
+              .getElementById("invoiceStatus")
+              .value,
 
           subtotal:
             Number(
@@ -3270,6 +3419,10 @@ function showAddInvoiceForm() {
               .getElementById("invoiceNotes")
               .value.trim()
         };
+
+        if (invoice.status === "paid") {
+          invoice.paid_date = todayDate();
+        }
 
         const { error } =
           await supabase
@@ -3325,39 +3478,30 @@ function showInvoiceProfile(invoiceId) {
   document.getElementById("pageSubtitle").textContent =
     "Invoice details";
 
-  const isPaid =
-    String(invoice.status).toLowerCase() === "paid" ||
-    Boolean(invoice.paid_date);
-
   content.innerHTML = `
 
     <div class="page-actions">
 
-      <button id="backInvoices" class="button secondary">
+      <button
+        id="backInvoices"
+        class="button secondary"
+      >
         ← Invoices
       </button>
 
       <div>
 
-        <button id="editInvoice" class="button primary">
+        <button
+          id="editInvoice"
+          class="button primary"
+        >
           Edit Invoice
         </button>
 
-        ${
-          isPaid
-            ? `
-              <button class="button secondary" disabled>
-                ✓ Paid
-              </button>
-            `
-            : `
-              <button id="markInvoicePaid" class="button primary">
-                ✓ Mark as Paid
-              </button>
-            `
-        }
-
-        <button id="deleteInvoice" class="button danger">
+        <button
+          id="deleteInvoice"
+          class="button danger"
+        >
           Delete
         </button>
 
@@ -3396,12 +3540,30 @@ function showInvoiceProfile(invoiceId) {
           </div>
 
           <div>
-            <span>Status</span>
+            <span>Job Title</span>
 
             <strong>
               ${escapeHtml(
-                invoice.status || "draft"
+                invoice.title || "—"
               )}
+            </strong>
+          </div>
+
+          <div>
+            <span>Description</span>
+
+            <strong>
+              ${escapeHtml(
+                invoice.description || "—"
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>Status</span>
+
+            <strong>
+              ${formatInvoiceStatus(invoice.status)}
             </strong>
           </div>
 
@@ -3500,16 +3662,6 @@ function showInvoiceProfile(invoiceId) {
       () => showEditInvoiceForm(invoice.id)
     );
 
-  const paidButton =
-    document.getElementById("markInvoicePaid");
-
-  if (paidButton) {
-    paidButton.addEventListener(
-      "click",
-      () => markInvoicePaid(invoice.id)
-    );
-  }
-
   document
     .getElementById("deleteInvoice")
     .addEventListener(
@@ -3576,6 +3728,22 @@ function showEditInvoiceForm(invoiceId) {
 
         </select>
 
+        <label>Job Title *</label>
+
+        <input
+          id="editInvoiceTitle"
+          value="${escapeHtml(
+            invoice.title || ""
+          )}"
+          required
+        >
+
+        <label>Description</label>
+
+        <textarea id="editInvoiceDescription">${escapeHtml(
+          invoice.description || ""
+        )}</textarea>
+
         <label>Invoice Number *</label>
 
         <input
@@ -3610,7 +3778,7 @@ function showEditInvoiceForm(invoiceId) {
                   Number(invoice.subtotal || 1) *
                   100
                 ).toFixed(2)
-              : "0"
+              : "20"
           }"
         >
 
@@ -3659,17 +3827,6 @@ function showEditInvoiceForm(invoiceId) {
         <select id="editInvoiceStatus">
 
           <option
-            value="draft"
-            ${
-              invoice.status === "draft"
-                ? "selected"
-                : ""
-            }
-          >
-            Draft
-          </option>
-
-          <option
             value="sent"
             ${
               invoice.status === "sent"
@@ -3689,28 +3846,6 @@ function showEditInvoiceForm(invoiceId) {
             }
           >
             Paid
-          </option>
-
-          <option
-            value="overdue"
-            ${
-              invoice.status === "overdue"
-                ? "selected"
-                : ""
-            }
-          >
-            Overdue
-          </option>
-
-          <option
-            value="cancelled"
-            ${
-              invoice.status === "cancelled"
-                ? "selected"
-                : ""
-            }
-          >
-            Cancelled
           </option>
 
         </select>
@@ -3807,20 +3942,22 @@ function showEditInvoiceForm(invoiceId) {
             .getElementById("editInvoiceStatus")
             .value;
 
-        const paidDate =
-          status === "paid"
-            ? (
-                invoice.paid_date ||
-                todayDate()
-              )
-            : null;
-
         const updates = {
 
           customer_id:
             document
               .getElementById("editInvoiceCustomer")
               .value,
+
+          title:
+            document
+              .getElementById("editInvoiceTitle")
+              .value.trim(),
+
+          description:
+            document
+              .getElementById("editInvoiceDescription")
+              .value.trim(),
 
           invoice_number:
             document
@@ -3861,7 +3998,12 @@ function showEditInvoiceForm(invoiceId) {
               .value || null,
 
           paid_date:
-            paidDate,
+            status === "paid"
+              ? (
+                  invoice.paid_date ||
+                  todayDate()
+                )
+              : null,
 
           notes:
             document
@@ -3887,87 +4029,8 @@ function showEditInvoiceForm(invoiceId) {
         showInvoiceProfile(invoice.id);
       }
     );
-}
 
-
-// =====================================================
-// MARK INVOICE PAID
-// =====================================================
-
-async function markInvoicePaid(invoiceId) {
-
-  const invoice =
-    invoices.find(
-      item =>
-        String(item.id) ===
-        String(invoiceId)
-    );
-
-  if (!invoice) return;
-
-  const confirmed =
-    confirm(
-      `Mark Invoice #${invoice.invoice_number || ""} as paid?`
-    );
-
-  if (!confirmed) return;
-
-  const { error } =
-    await supabase
-      .from("invoices")
-      .update({
-        status: "paid",
-        paid_date: todayDate()
-      })
-      .eq("id", invoice.id);
-
-  if (error) {
-    alert(error.message);
-    return;
-  }
-
-  await loadInvoices();
-
-  showInvoiceProfile(invoice.id);
-}
-
-
-// =====================================================
-// DELETE INVOICE
-// =====================================================
-
-async function deleteInvoice(invoiceId) {
-
-  const invoice =
-    invoices.find(
-      item =>
-        String(item.id) ===
-        String(invoiceId)
-    );
-
-  if (!invoice) return;
-
-  const confirmed =
-    confirm(
-      `Delete Invoice #${invoice.invoice_number || ""}? This cannot be undone.`
-    );
-
-  if (!confirmed) return;
-
-  const { error } =
-    await supabase
-      .from("invoices")
-      .delete()
-      .eq("id", invoice.id);
-
-  if (error) {
-    alert(error.message);
-    return;
-  }
-
-  await loadInvoices();
-
-  showPage("invoices");
+  calculateInvoice();
 }
 
 
@@ -4011,14 +4074,13 @@ async function convertJobToInvoice(jobId) {
     return;
   }
 
-  const confirmed =
-    confirm(
+  if (
+    !confirm(
       `Create an invoice for ${customer.name} for £${Number(
         job.price || 0
       ).toFixed(2)}?`
-    );
-
-  if (!confirmed) return;
+    )
+  ) return;
 
   const subtotal =
     Number(job.price || 0);
@@ -4031,14 +4093,19 @@ async function convertJobToInvoice(jobId) {
     customer_id:
       job.customer_id,
 
+    title:
+      job.title || "Job",
+
+    description:
+      job.description || "",
+
     invoice_number:
       generateInvoiceNumber(),
 
     status:
-      "draft",
+      "sent",
 
-    subtotal:
-      subtotal,
+    subtotal,
 
     vat:
       0,
@@ -4056,17 +4123,7 @@ async function convertJobToInvoice(jobId) {
       null,
 
     notes:
-      [
-        `Job: ${job.title || ""}`,
-        job.description
-          ? `Description: ${job.description}`
-          : "",
-        job.notes
-          ? `Notes: ${job.notes}`
-          : ""
-      ]
-        .filter(Boolean)
-        .join("\n\n")
+      job.notes || ""
   };
 
   const {
@@ -4119,7 +4176,7 @@ async function convertJobToInvoice(jobId) {
       jobError.message
     );
 
-    showPage("invoices");
+    showInvoiceProfile(createdInvoice.id);
 
     return;
   }
@@ -4128,10 +4185,44 @@ async function convertJobToInvoice(jobId) {
   await loadJobs();
 
   showInvoiceProfile(createdInvoice.id);
+}
 
-  alert(
-    `Invoice #${createdInvoice.invoice_number} has been created.`
-  );
+
+// =====================================================
+// DELETE INVOICE
+// =====================================================
+
+async function deleteInvoice(invoiceId) {
+
+  const invoice =
+    invoices.find(
+      item =>
+        String(item.id) ===
+        String(invoiceId)
+    );
+
+  if (!invoice) return;
+
+  if (
+    !confirm(
+      `Delete Invoice #${invoice.invoice_number || ""}? This cannot be undone.`
+    )
+  ) return;
+
+  const { error } =
+    await supabase
+      .from("invoices")
+      .delete()
+      .eq("id", invoice.id);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  await loadInvoices();
+
+  showPage("invoices");
 }
 
 
@@ -4164,6 +4255,64 @@ function generateQuoteNumber() {
     quotes.length + 1;
 
   return `${year}-${String(next).padStart(4, "0")}`;
+}
+
+
+// =====================================================
+// STATUS HELPERS
+// =====================================================
+
+function formatQuoteStatus(status) {
+
+  const value =
+    String(status || "draft")
+      .toLowerCase();
+
+  if (value === "sent")
+    return "Sent";
+
+  if (value === "accepted")
+    return "Accepted";
+
+  if (value === "converted")
+    return "Converted to Job";
+
+  return "Draft";
+}
+
+
+function formatJobStatus(status) {
+
+  const value =
+    String(status || "pending")
+      .toLowerCase();
+
+  if (value === "scheduled")
+    return "Scheduled";
+
+  if (value === "completed")
+    return "Completed";
+
+  if (value === "cancelled")
+    return "Cancelled";
+
+  if (value === "invoiced")
+    return "Invoiced";
+
+  return "Pending";
+}
+
+
+function formatInvoiceStatus(status) {
+
+  const value =
+    String(status || "sent")
+      .toLowerCase();
+
+  if (value === "paid")
+    return "Paid";
+
+  return "Sent";
 }
 
 

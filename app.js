@@ -3088,6 +3088,7 @@ async function stopRecurringJob(jobId) {
     "Recurring appointments have been stopped."
   );
 }
+
 // =====================================================
 // DELETE JOB
 // =====================================================

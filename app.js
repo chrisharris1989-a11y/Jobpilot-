@@ -1912,6 +1912,7 @@ function showAddJobForm() {
 // =====================================================
 
 function showEditJobForm(jobId) {
+
   const job =
     jobs.find(
       item =>
@@ -1924,6 +1925,13 @@ function showEditJobForm(jobId) {
     document.createElement("div");
 
   modal.className = "modal show";
+
+  const isRecurring =
+    job.recurring === true ||
+    job.recurring === "true";
+
+  const recurringInterval =
+    Number(job.recurring_interval_weeks) || 4;
 
   modal.innerHTML = `
 
@@ -1962,6 +1970,7 @@ function showEditJobForm(jobId) {
 
         </select>
 
+
         <label>Job Title *</label>
 
         <input
@@ -1970,11 +1979,13 @@ function showEditJobForm(jobId) {
           required
         >
 
+
         <label>Description</label>
 
-        <textarea id="editJobDescription">${escapeHtml(
-          job.description || ""
-        )}</textarea>
+        <textarea
+          id="editJobDescription"
+        >${escapeHtml(job.description || "")}</textarea>
+
 
         <label>Date</label>
 
@@ -1984,6 +1995,7 @@ function showEditJobForm(jobId) {
           value="${job.scheduled_date || ""}"
         >
 
+
         <label>Time</label>
 
         <input
@@ -1992,36 +2004,108 @@ function showEditJobForm(jobId) {
           value="${job.scheduled_time || ""}"
         >
 
+
         <label>Status</label>
 
         <select id="editJobStatus">
 
-          <option value="pending"
-            ${job.status === "pending" ? "selected" : ""}>
+          <option
+            value="pending"
+            ${job.status === "pending" ? "selected" : ""}
+          >
             Pending
           </option>
 
-          <option value="scheduled"
-            ${job.status === "scheduled" ? "selected" : ""}>
+          <option
+            value="scheduled"
+            ${job.status === "scheduled" ? "selected" : ""}
+          >
             Scheduled
           </option>
 
-          <option value="completed"
-            ${job.status === "completed" ? "selected" : ""}>
+          <option
+            value="completed"
+            ${job.status === "completed" ? "selected" : ""}
+          >
             Completed
           </option>
 
-          <option value="cancelled"
-            ${job.status === "cancelled" ? "selected" : ""}>
+          <option
+            value="cancelled"
+            ${job.status === "cancelled" ? "selected" : ""}
+          >
             Cancelled
           </option>
 
-          <option value="invoiced"
-            ${job.status === "invoiced" ? "selected" : ""}>
+          <option
+            value="invoiced"
+            ${job.status === "invoiced" ? "selected" : ""}
+          >
             Invoiced
           </option>
 
         </select>
+
+
+        <!-- RECURRING JOB -->
+
+        <label>Recurring Job</label>
+
+        <label
+          style="
+            display:flex;
+            align-items:center;
+            gap:8px;
+          "
+        >
+
+          <input
+            type="checkbox"
+            id="editJobRecurring"
+            ${isRecurring ? "checked" : ""}
+          >
+
+          Repeat this job
+
+        </label>
+
+
+        <div
+          id="editJobRecurringOptions"
+          style="
+            display:${isRecurring ? "block" : "none"};
+          "
+        >
+
+          <label>Repeat Every</label>
+
+          <select id="editJobRecurringInterval">
+
+            <option
+              value="4"
+              ${recurringInterval === 4 ? "selected" : ""}
+            >
+              Every 4 weeks
+            </option>
+
+            <option
+              value="6"
+              ${recurringInterval === 6 ? "selected" : ""}
+            >
+              Every 6 weeks
+            </option>
+
+            <option
+              value="8"
+              ${recurringInterval === 8 ? "selected" : ""}
+            >
+              Every 8 weeks
+            </option>
+
+          </select>
+
+        </div>
+
 
         <label>Price</label>
 
@@ -2029,14 +2113,17 @@ function showEditJobForm(jobId) {
           id="editJobPrice"
           type="number"
           step="0.01"
+          min="0"
           value="${Number(job.price || 0).toFixed(2)}"
         >
 
+
         <label>Notes</label>
 
-        <textarea id="editJobNotes">${escapeHtml(
-          job.notes || ""
-        )}</textarea>
+        <textarea
+          id="editJobNotes"
+        >${escapeHtml(job.notes || "")}</textarea>
+
 
         <div class="modal-actions">
 
@@ -2063,13 +2150,44 @@ function showEditJobForm(jobId) {
 
   document.body.appendChild(modal);
 
-  modal.querySelectorAll(".close")
-    .forEach(button =>
+
+  // CLOSE MODAL
+
+  modal
+    .querySelectorAll(".close")
+    .forEach(button => {
+
       button.addEventListener(
         "click",
         () => modal.remove()
-      )
-    );
+      );
+
+    });
+
+
+  // RECURRING TOGGLE
+
+  const recurringCheckbox =
+    modal.querySelector("#editJobRecurring");
+
+  const recurringOptions =
+    modal.querySelector("#editJobRecurringOptions");
+
+
+  recurringCheckbox.addEventListener(
+    "change",
+    () => {
+
+      recurringOptions.style.display =
+        recurringCheckbox.checked
+          ? "block"
+          : "none";
+
+    }
+  );
+
+
+  // SAVE CHANGES
 
   modal
     .querySelector("#editJobForm")
@@ -2079,34 +2197,73 @@ function showEditJobForm(jobId) {
 
         event.preventDefault();
 
+
+        const recurring =
+          recurringCheckbox.checked;
+
+
+        const recurringInterval =
+          recurring
+            ? Number(
+                modal.querySelector(
+                  "#editJobRecurringInterval"
+                ).value
+              )
+            : null;
+
+
         const updates = {
 
           customer_id:
-            document.getElementById("editJobCustomer").value,
+            modal.querySelector(
+              "#editJobCustomer"
+            ).value,
 
           title:
-            document.getElementById("editJobTitle").value.trim(),
+            modal.querySelector(
+              "#editJobTitle"
+            ).value.trim(),
 
           description:
-            document.getElementById("editJobDescription").value.trim(),
+            modal.querySelector(
+              "#editJobDescription"
+            ).value.trim(),
 
           scheduled_date:
-            document.getElementById("editJobDate").value || null,
+            modal.querySelector(
+              "#editJobDate"
+            ).value || null,
 
           scheduled_time:
-            document.getElementById("editJobTime").value || null,
+            modal.querySelector(
+              "#editJobTime"
+            ).value || null,
 
           status:
-            document.getElementById("editJobStatus").value,
+            modal.querySelector(
+              "#editJobStatus"
+            ).value,
 
           price:
             Number(
-              document.getElementById("editJobPrice").value
+              modal.querySelector(
+                "#editJobPrice"
+              ).value
             ) || 0,
 
           notes:
-            document.getElementById("editJobNotes").value.trim()
+            modal.querySelector(
+              "#editJobNotes"
+            ).value.trim(),
+
+          recurring:
+            recurring,
+
+          recurring_interval_weeks:
+            recurringInterval
+
         };
+
 
         const { error } =
           await supabase
@@ -2114,18 +2271,28 @@ function showEditJobForm(jobId) {
             .update(updates)
             .eq("id", job.id);
 
+
         if (error) {
-          alert(error.message);
+
+          alert(
+            "The job could not be updated:\n\n" +
+            error.message
+          );
+
           return;
+
         }
+
 
         modal.remove();
 
         await loadJobs();
 
         showJobProfile(job.id);
+
       }
     );
+
 }
 
 

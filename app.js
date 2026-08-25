@@ -3924,24 +3924,564 @@ function renderSettings(content) {
 
   content.innerHTML = `
 
+    <div class="page-actions">
+      <div>
+        <h2>Settings</h2>
+        <p>Manage your account and business preferences.</p>
+      </div>
+    </div>
+
     <div class="panel settings-panel">
 
+      <!-- ACCOUNT -->
       <h2>Account</h2>
 
-      <p class="muted">
-        ${escapeHtml(currentUser.email)}
-      </p>
+      <label>Email</label>
+      <input
+        type="email"
+        value="${escapeHtml(currentUser.email || "")}"
+        disabled
+      >
+
+      <label>New Password</label>
+      <input
+        type="password"
+        id="settingsPassword"
+        placeholder="Leave blank to keep your current password"
+      >
+
+      <button
+        class="button primary"
+        onclick="changeSettingsPassword()"
+        style="margin-top:12px;"
+      >
+        Change Password
+      </button>
+
 
       <hr>
 
-      <h3>JobPilot</h3>
 
-      <p class="muted">
-        CRM for UK tradespeople.
-      </p>
+      <!-- BUSINESS DETAILS -->
+      <h2>Business Details</h2>
+
+      <label>Business Name</label>
+      <input
+        id="settingsBusinessName"
+        type="text"
+        placeholder="Your business name"
+      >
+
+      <label>Contact Name</label>
+      <input
+        id="settingsContactName"
+        type="text"
+        placeholder="Your name"
+      >
+
+      <label>Phone</label>
+      <input
+        id="settingsPhone"
+        type="text"
+        placeholder="Phone number"
+      >
+
+      <label>Business Email</label>
+      <input
+        id="settingsBusinessEmail"
+        type="email"
+        placeholder="Business email"
+      >
+
+      <label>Address</label>
+      <textarea
+        id="settingsAddress"
+        placeholder="Business address"
+      ></textarea>
+
+      <label>Postcode</label>
+      <input
+        id="settingsPostcode"
+        type="text"
+        placeholder="Postcode"
+      >
+
+      <label>Website</label>
+      <input
+        id="settingsWebsite"
+        type="text"
+        placeholder="https://"
+      >
+
+
+      <hr>
+
+
+      <!-- INVOICE SETTINGS -->
+      <h2>Invoice Settings</h2>
+
+      <label>Invoice Prefix</label>
+      <input
+        id="settingsInvoicePrefix"
+        type="text"
+        placeholder="INV-"
+      >
+
+      <label>Next Invoice Number</label>
+      <input
+        id="settingsNextInvoiceNumber"
+        type="number"
+        min="1"
+        placeholder="1"
+      >
+
+      <label>Default Payment Terms</label>
+      <select id="settingsPaymentTerms">
+        <option value="7">7 days</option>
+        <option value="14">14 days</option>
+        <option value="30" selected>30 days</option>
+        <option value="60">60 days</option>
+      </select>
+
+      <label>Default VAT Rate (%)</label>
+      <input
+        id="settingsVatRate"
+        type="number"
+        step="0.01"
+        min="0"
+        value="20"
+      >
+
+      <label>Invoice Footer / Notes</label>
+      <textarea
+        id="settingsInvoiceFooter"
+        placeholder="Payment details, bank information, thank you message, etc."
+      ></textarea>
+
+
+      <hr>
+
+
+      <!-- QUOTE SETTINGS -->
+      <h2>Quote Settings</h2>
+
+      <label>Quote Prefix</label>
+      <input
+        id="settingsQuotePrefix"
+        type="text"
+        placeholder="QUO-"
+      >
+
+      <label>Next Quote Number</label>
+      <input
+        id="settingsNextQuoteNumber"
+        type="number"
+        min="1"
+        placeholder="1"
+      >
+
+      <label>Quote Validity</label>
+      <select id="settingsQuoteValidity">
+        <option value="7">7 days</option>
+        <option value="14">14 days</option>
+        <option value="30" selected>30 days</option>
+        <option value="60">60 days</option>
+      </select>
+
+      <label>Quote Footer / Notes</label>
+      <textarea
+        id="settingsQuoteFooter"
+        placeholder="Terms, notes or other information shown on quotes."
+      ></textarea>
+
+
+      <hr>
+
+
+      <!-- APPEARANCE -->
+      <h2>Appearance</h2>
+
+      <label>Primary Colour</label>
+      <input
+        id="settingsPrimaryColour"
+        type="color"
+        value="#2563eb"
+        style="height:45px;padding:4px;"
+      >
+
+      <label>Currency</label>
+      <select id="settingsCurrency">
+        <option value="GBP" selected>GBP (£)</option>
+        <option value="EUR">EUR (€)</option>
+        <option value="USD">USD ($)</option>
+      </select>
+
+      <label>Date Format</label>
+      <select id="settingsDateFormat">
+        <option value="DD/MM/YYYY" selected>DD/MM/YYYY</option>
+        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+      </select>
+
+
+      <hr>
+
+
+      <!-- NOTIFICATIONS -->
+      <h2>Notifications</h2>
+
+      <label>
+        <input
+          type="checkbox"
+          id="settingsEmailNotifications"
+          checked
+        >
+        Email notifications
+      </label>
+
+      <label>
+        <input
+          type="checkbox"
+          id="settingsPaymentReminders"
+        >
+        Payment reminders
+      </label>
+
+
+      <div
+        id="settingsMessage"
+        class="muted"
+        style="margin-top:15px;"
+      ></div>
+
+      <div
+        style="
+          display:flex;
+          justify-content:flex-end;
+          margin-top:25px;
+        "
+      >
+        <button
+          class="button primary"
+          onclick="saveSettings()"
+        >
+          Save Settings
+        </button>
+      </div>
 
     </div>
   `;
+
+  loadSettings();
+
+}
+
+
+// =====================================================
+// SETTINGS HELPERS
+// =====================================================
+
+function loadSettings() {
+
+  const settings = JSON.parse(
+    localStorage.getItem("jobpilot_settings") || "{}"
+  );
+
+  const setValue = (id, value) => {
+    const element = document.getElementById(id);
+
+    if (element && value !== undefined && value !== null) {
+      element.value = value;
+    }
+  };
+
+  setValue(
+    "settingsBusinessName",
+    settings.businessName || ""
+  );
+
+  setValue(
+    "settingsContactName",
+    settings.contactName || ""
+  );
+
+  setValue(
+    "settingsPhone",
+    settings.phone || ""
+  );
+
+  setValue(
+    "settingsBusinessEmail",
+    settings.businessEmail || ""
+  );
+
+  setValue(
+    "settingsAddress",
+    settings.address || ""
+  );
+
+  setValue(
+    "settingsPostcode",
+    settings.postcode || ""
+  );
+
+  setValue(
+    "settingsWebsite",
+    settings.website || ""
+  );
+
+  setValue(
+    "settingsInvoicePrefix",
+    settings.invoicePrefix || "INV-"
+  );
+
+  setValue(
+    "settingsNextInvoiceNumber",
+    settings.nextInvoiceNumber || 1
+  );
+
+  setValue(
+    "settingsPaymentTerms",
+    settings.paymentTerms || 30
+  );
+
+  setValue(
+    "settingsVatRate",
+    settings.vatRate ?? 20
+  );
+
+  setValue(
+    "settingsInvoiceFooter",
+    settings.invoiceFooter || ""
+  );
+
+  setValue(
+    "settingsQuotePrefix",
+    settings.quotePrefix || "QUO-"
+  );
+
+  setValue(
+    "settingsNextQuoteNumber",
+    settings.nextQuoteNumber || 1
+  );
+
+  setValue(
+    "settingsQuoteValidity",
+    settings.quoteValidity || 30
+  );
+
+  setValue(
+    "settingsQuoteFooter",
+    settings.quoteFooter || ""
+  );
+
+  setValue(
+    "settingsPrimaryColour",
+    settings.primaryColour || "#2563eb"
+  );
+
+  setValue(
+    "settingsCurrency",
+    settings.currency || "GBP"
+  );
+
+  setValue(
+    "settingsDateFormat",
+    settings.dateFormat || "DD/MM/YYYY"
+  );
+
+  const emailNotifications =
+    document.getElementById("settingsEmailNotifications");
+
+  if (emailNotifications) {
+    emailNotifications.checked =
+      settings.emailNotifications !== false;
+  }
+
+  const paymentReminders =
+    document.getElementById("settingsPaymentReminders");
+
+  if (paymentReminders) {
+    paymentReminders.checked =
+      settings.paymentReminders === true;
+  }
+
+  applySettingsAppearance();
+}
+
+
+// =====================================================
+// SAVE SETTINGS
+// =====================================================
+
+function saveSettings() {
+
+  const getValue = (id) => {
+    const element = document.getElementById(id);
+    return element ? element.value : "";
+  };
+
+  const settings = {
+
+    businessName:
+      getValue("settingsBusinessName"),
+
+    contactName:
+      getValue("settingsContactName"),
+
+    phone:
+      getValue("settingsPhone"),
+
+    businessEmail:
+      getValue("settingsBusinessEmail"),
+
+    address:
+      getValue("settingsAddress"),
+
+    postcode:
+      getValue("settingsPostcode"),
+
+    website:
+      getValue("settingsWebsite"),
+
+    invoicePrefix:
+      getValue("settingsInvoicePrefix"),
+
+    nextInvoiceNumber:
+      Number(getValue("settingsNextInvoiceNumber")) || 1,
+
+    paymentTerms:
+      Number(getValue("settingsPaymentTerms")) || 30,
+
+    vatRate:
+      Number(getValue("settingsVatRate")) || 0,
+
+    invoiceFooter:
+      getValue("settingsInvoiceFooter"),
+
+    quotePrefix:
+      getValue("settingsQuotePrefix"),
+
+    nextQuoteNumber:
+      Number(getValue("settingsNextQuoteNumber")) || 1,
+
+    quoteValidity:
+      Number(getValue("settingsQuoteValidity")) || 30,
+
+    quoteFooter:
+      getValue("settingsQuoteFooter"),
+
+    primaryColour:
+      getValue("settingsPrimaryColour"),
+
+    currency:
+      getValue("settingsCurrency"),
+
+    dateFormat:
+      getValue("settingsDateFormat"),
+
+    emailNotifications:
+      document.getElementById(
+        "settingsEmailNotifications"
+      )?.checked ?? true,
+
+    paymentReminders:
+      document.getElementById(
+        "settingsPaymentReminders"
+      )?.checked ?? false
+  };
+
+  localStorage.setItem(
+    "jobpilot_settings",
+    JSON.stringify(settings)
+  );
+
+  applySettingsAppearance();
+
+  const message =
+    document.getElementById("settingsMessage");
+
+  if (message) {
+    message.textContent =
+      "Settings saved successfully.";
+
+    message.style.color = "var(--success)";
+
+    setTimeout(() => {
+      message.textContent = "";
+    }, 3000);
+  }
+}
+
+
+// =====================================================
+// APPLY SETTINGS APPEARANCE
+// =====================================================
+
+function applySettingsAppearance() {
+
+  const settings = JSON.parse(
+    localStorage.getItem("jobpilot_settings") || "{}"
+  );
+
+  const colour =
+    settings.primaryColour || "#2563eb";
+
+  document.documentElement.style.setProperty(
+    "--primary",
+    colour
+  );
+}
+
+
+// =====================================================
+// CHANGE PASSWORD
+// =====================================================
+
+async function changeSettingsPassword() {
+
+  const passwordInput =
+    document.getElementById("settingsPassword");
+
+  if (!passwordInput) return;
+
+  const password =
+    passwordInput.value.trim();
+
+  if (!password) {
+    alert("Please enter a new password.");
+    return;
+  }
+
+  if (password.length < 6) {
+    alert(
+      "Password must be at least 6 characters."
+    );
+    return;
+  }
+
+  try {
+
+    const { error } =
+      await supabase.auth.updateUser({
+        password
+      });
+
+    if (error) throw error;
+
+    passwordInput.value = "";
+
+    alert(
+      "Password changed successfully."
+    );
+
+  } catch (error) {
+
+    alert(
+      "Could not change password: " +
+      error.message
+    );
+  }
 }
 
 

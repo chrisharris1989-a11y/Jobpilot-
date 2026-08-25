@@ -2755,7 +2755,6 @@ function showEditJobForm(jobId) {
             .update(updates)
             .eq("id", job.id);
 
-
         if (error) {
 
           alert(
@@ -2768,8 +2767,31 @@ function showEditJobForm(jobId) {
         }
 
 
-        modal.remove();
+        // =====================================================
+        // CREATE NEXT RECURRING APPOINTMENT
+        // WHEN THIS ONE IS COMPLETED
+        // =====================================================
 
+        if (
+          updates.status === "completed" &&
+          job.recurring &&
+          job.recurring_active
+        ) {
+
+          const completedJob = {
+            ...job,
+            ...updates
+          };
+
+          await createNextRecurringAppointment(
+            completedJob
+          );
+
+        }
+
+
+        modal.remove();
+       
         await loadJobs();
 
         showJobProfile(job.id);

@@ -2791,11 +2791,13 @@ function showEditJobForm(jobId) {
 
 
         modal.remove();
+        
+       await createNextRecurringAppointment(nextJob);
+
+  await loadJobs();
+
+  showJobProfile(job.id);
        
-        await loadJobs();
-
-        showJobProfile(job.id);
-
       }
     );
 

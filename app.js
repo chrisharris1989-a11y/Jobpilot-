@@ -2248,6 +2248,9 @@ function showAddJobForm() {
           recurring_interval_weeks:
             recurringInterval
 
+          recurring_active:
+            recurring
+
         };
 
         // Save the first appointment

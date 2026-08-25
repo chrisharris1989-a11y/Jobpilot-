@@ -4726,17 +4726,54 @@ function showInvoiceProfile(invoiceId) {
     );
 
   document
-    .getElementById("editInvoice")
-    .addEventListener(
-      "click",
-      () => showEditInvoiceForm(invoice.id)
-    );
+  .getElementById("editInvoice")
+  .addEventListener(
+    "click",
+    () => showEditInvoiceForm(invoice.id)
+  );
+
+document
+  .getElementById("deleteInvoice")
+  .addEventListener(
+    "click",
+    () => deleteInvoice(invoice.id)
+  );
+
+if (
+  invoice.status !== "paid" &&
+  typeof window.createInvoiceCheckout === "function"
+) {
+
+  const payButton =
+    document.createElement("button");
+
+  payButton.id =
+    "payOnlineButton";
+
+  payButton.className =
+    "button primary";
+
+  payButton.textContent =
+    "💳 Pay Online";
+
+  payButton.style.marginRight =
+    "10px";
+
+  payButton.addEventListener(
+    "click",
+    () =>
+      window.createInvoiceCheckout(
+        supabase,
+        invoice.id
+      )
+  );
 
   document
-    .getElementById("deleteInvoice")
-    .addEventListener(
-      "click",
-      () => deleteInvoice(invoice.id)
+    .getElementById("editInvoice")
+    .parentElement
+    .insertBefore(
+      payButton,
+      document.getElementById("editInvoice")
     );
 }
 

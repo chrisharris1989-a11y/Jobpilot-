@@ -2806,9 +2806,10 @@ function showEditJobForm(jobId) {
 
 async function createNextRecurringAppointment(sourceJob) {
 
-    if (
+  if (
     !sourceJob ||
-    !sourceJob.recurring
+    !sourceJob.recurring ||
+    !sourceJob.recurring_active
   ) {
     return null;
   }
@@ -2817,53 +2818,69 @@ async function createNextRecurringAppointment(sourceJob) {
     return null;
   }
 
+
   const interval =
     Number(
       sourceJob.recurring_interval_weeks
     ) || 4;
 
-  const currentDate =
-    new Date(
-      `${sourceJob.scheduled_date}T12:00:00`
-    );
-
-  currentDate.setDate(
-    currentDate.getDate() +
-    (interval * 7)
-  );
-
-  const nextDate =
-    currentDate
-      .toISOString()
-      .split("T")[0];
 
   const seriesId =
     sourceJob.recurring_parent_id ||
     sourceJob.id;
 
-  const existingNextJob =
-    jobs.find(item => {
 
-      const itemSeriesId =
-        item.recurring_parent_id ||
-        item.id;
+  let candidateDate =
+    new Date(
+      `${sourceJob.scheduled_date}T12:00:00`
+    );
 
-      return (
-        String(itemSeriesId) ===
-        String(seriesId) &&
 
-        String(item.scheduled_date) ===
-        String(nextDate) &&
+  // Keep moving forward until we find
+  // a date that does not already exist.
 
-        String(item.status).toLowerCase() !==
-        "cancelled"
-      );
+  let existingJob = true;
 
-    });
 
-  if (existingNextJob) {
-    return existingNextJob;
+  while (existingJob) {
+
+    candidateDate.setDate(
+      candidateDate.getDate() +
+      (interval * 7)
+    );
+
+
+    const candidateDateString =
+      candidateDate
+        .toISOString()
+        .split("T")[0];
+
+
+    existingJob =
+      jobs.find(item => {
+
+        const itemSeriesId =
+          item.recurring_parent_id ||
+          item.id;
+
+        return (
+          String(itemSeriesId) ===
+          String(seriesId) &&
+
+          String(item.scheduled_date) ===
+          String(candidateDateString)
+        );
+
+      });
+
   }
+
+
+  const nextScheduledDate =
+    candidateDate
+      .toISOString()
+      .split("T")[0];
+
 
   const nextJob = {
 
@@ -2880,7 +2897,7 @@ async function createNextRecurringAppointment(sourceJob) {
       sourceJob.description,
 
     scheduled_date:
-      nextDate,
+      nextScheduledDate,
 
     scheduled_time:
       sourceJob.scheduled_time,
@@ -2908,6 +2925,7 @@ async function createNextRecurringAppointment(sourceJob) {
 
   };
 
+
   const {
     data,
     error
@@ -2918,6 +2936,7 @@ async function createNextRecurringAppointment(sourceJob) {
       .select()
       .single();
 
+
   if (error) {
 
     console.error(
@@ -2925,8 +2944,14 @@ async function createNextRecurringAppointment(sourceJob) {
       error
     );
 
+    alert(
+      "Could not create the next recurring appointment:\n\n" +
+      error.message
+    );
+
     return null;
   }
+
 
   return data;
 }
@@ -2945,47 +2970,71 @@ async function skipNextRecurringJob(jobId) {
 
   if (!job) return;
 
+
   if (
     !job.recurring ||
     !job.recurring_active
   ) {
-    alert("This job is not currently recurring.");
+
+    alert(
+      "This job is not currently recurring."
+    );
+
     return;
   }
+
 
   const confirmed =
     confirm(
       "Skip the next recurring appointment?"
     );
 
+
   if (!confirmed) return;
 
+
+  const currentSeriesId =
+    job.recurring_parent_id ||
+    job.id;
+
+
   const nextJob =
-    jobs.find(item => {
+    jobs
+      .filter(item => {
 
-      const parentId =
-        item.recurring_parent_id ||
-        item.id;
+        const itemSeriesId =
+          item.recurring_parent_id ||
+          item.id;
 
-      const currentSeriesId =
-        job.recurring_parent_id ||
-        job.id;
+        return (
+          String(itemSeriesId) ===
+          String(currentSeriesId) &&
 
-      return (
-        String(parentId) ===
-        String(currentSeriesId) &&
+          String(item.id) !==
+          String(job.id) &&
 
-        String(item.id) !==
-        String(job.id) &&
+          String(item.status).toLowerCase() !==
+          "completed" &&
 
-        String(item.status).toLowerCase() !==
-        "completed" &&
+          String(item.status).toLowerCase() !==
+          "cancelled"
+        );
 
-        String(item.status).toLowerCase() !==
-        "cancelled"
-      );
+      })
+      .sort((a, b) => {
 
-    });
+        const dateA =
+          a.scheduled_date ||
+          "9999-12-31";
+
+        const dateB =
+          b.scheduled_date ||
+          "9999-12-31";
+
+        return dateA.localeCompare(dateB);
+
+      })[0];
+
 
   if (!nextJob) {
 
@@ -2996,6 +3045,7 @@ async function skipNextRecurringJob(jobId) {
     return;
   }
 
+
   const { error } =
     await supabase
       .from("jobs")
@@ -3003,6 +3053,7 @@ async function skipNextRecurringJob(jobId) {
         status: "cancelled"
       })
       .eq("id", nextJob.id);
+
 
   if (error) {
 
@@ -3014,15 +3065,24 @@ async function skipNextRecurringJob(jobId) {
     return;
   }
 
+
+  // Create the appointment after
+  // the skipped appointment.
+
+  await createNextRecurringAppointment(
+    nextJob
+  );
+
+
   await loadJobs();
 
   showJobProfile(job.id);
+
 
   alert(
     "The next recurring appointment has been skipped."
   );
 }
-
 
 // =====================================================
 // STOP RECURRING JOB

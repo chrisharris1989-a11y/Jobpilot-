@@ -2789,15 +2789,12 @@ function showEditJobForm(jobId) {
 
         }
 
-
-        modal.remove();
         
-       await createNextRecurringAppointment(nextJob);
+        modal.remove();
 
-  await loadJobs();
+        await loadJobs();
 
-  showJobProfile(job.id);
-       
+        showJobProfile(job.id);
       }
     );
 

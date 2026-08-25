@@ -1635,9 +1635,44 @@ function showJobProfile(jobId) {
 
     `;
 
+    
+  }
+
+    `;
+
+
+  // =====================================================
+  // RECURRING JOB BUTTONS
+  // =====================================================
+
+  const skipRecurringButton =
+    document.getElementById("skipRecurringJob");
+
+  if (skipRecurringButton) {
+
+    skipRecurringButton.addEventListener(
+      "click",
+      () => skipNextRecurringJob(job.id)
+    );
+
   }
 
 
+  const stopRecurringButton =
+    document.getElementById("stopRecurringJob");
+
+  if (stopRecurringButton) {
+
+    stopRecurringButton.addEventListener(
+      "click",
+      () => stopRecurringJob(job.id)
+    );
+
+  }
+
+
+  }
+  
   // =====================================================
   // PAGE
   // =====================================================

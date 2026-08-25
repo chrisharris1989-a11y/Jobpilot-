@@ -375,7 +375,7 @@ function renderApp() {
     </div>
   `;
 
-  document
+   document
     .querySelectorAll(".nav-item[data-page]")
     .forEach(button => {
       button.addEventListener(
@@ -384,11 +384,34 @@ function renderApp() {
       );
     });
 
+
+  // FEEDBACK BUTTON
+
+  const feedbackButton =
+    document.getElementById("feedbackButton");
+
+  if (feedbackButton) {
+
+    feedbackButton.addEventListener(
+      "click",
+      () => showFeedbackForm()
+    );
+
+  }
+
+
+  // LOGOUT BUTTON
+
   document
     .getElementById("logoutButton")
-    .addEventListener("click", logout);
+    .addEventListener(
+      "click",
+      logout
+    );
+
 
   showPage("dashboard");
+  
 }
 
 

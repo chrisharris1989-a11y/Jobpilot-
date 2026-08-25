@@ -327,12 +327,16 @@ function renderApp() {
 
         <div class="sidebar-bottom">
 
-           <button class="nav-item" id="feedbackButton" >
-            🐛 Feedback
+          <button class="nav-item" id="feedbackButton" >
+           🐛 Feedback
           </button>
-          
+
+          <button class="nav-item" id="adminFeedbackButton" >
+           📋 Beta Feedback
+          </button>
+
           <button class="nav-item" data-page="settings">
-            ⚙️ Settings
+           ⚙️ Settings
           </button>
 
           <button class="nav-item" id="logoutButton">

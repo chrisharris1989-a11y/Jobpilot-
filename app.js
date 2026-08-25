@@ -2141,13 +2141,34 @@ function renderQuotesPage(content) {
 // =====================================================
 
 function showAddQuoteForm() {
-  const modal =
-    document.createElement("div");
+  const modal = document.createElement("div");
 
   modal.className = "modal show";
 
+  // Find the highest existing quote number
+  let nextNumber = 1;
+
+  if (quotes && quotes.length) {
+    const numbers = quotes
+      .map(quote => {
+        const match = String(
+          quote.quote_number || ""
+        ).match(/(\d+)$/);
+
+        return match
+          ? parseInt(match[1], 10)
+          : 0;
+      })
+      .filter(number => !isNaN(number));
+
+    if (numbers.length) {
+      nextNumber =
+        Math.max(...numbers) + 1;
+    }
+  }
+
   const quoteNumber =
-    generateQuoteNumber();
+    `QUO-${String(nextNumber).padStart(4, "0")}`;
 
   modal.innerHTML = `
 
@@ -2266,13 +2287,14 @@ function showAddQuoteForm() {
 
   document.body.appendChild(modal);
 
-  modal.querySelectorAll(".close")
-    .forEach(button =>
+  modal
+    .querySelectorAll(".close")
+    .forEach(button => {
       button.addEventListener(
         "click",
         () => modal.remove()
-      )
-    );
+      );
+    });
 
   const subtotalInput =
     modal.querySelector("#quoteSubtotal");
@@ -2330,34 +2352,48 @@ function showAddQuoteForm() {
             currentUser.id,
 
           customer_id:
-            document.getElementById("quoteCustomer").value,
+            modal.querySelector(
+              "#quoteCustomer"
+            ).value,
 
           quote_number:
-            document.getElementById("quoteNumber").value.trim(),
+            modal.querySelector(
+              "#quoteNumber"
+            ).value.trim(),
 
           status:
             "draft",
 
           subtotal:
             Number(
-              document.getElementById("quoteSubtotal").value
+              modal.querySelector(
+                "#quoteSubtotal"
+              ).value
             ) || 0,
 
           vat:
             Number(
-              document.getElementById("quoteVat").value
+              modal.querySelector(
+                "#quoteVat"
+              ).value
             ) || 0,
 
           total:
             Number(
-              document.getElementById("quoteTotal").value
+              modal.querySelector(
+                "#quoteTotal"
+              ).value
             ) || 0,
 
           notes:
-            document.getElementById("quoteNotes").value.trim(),
+            modal.querySelector(
+              "#quoteNotes"
+            ).value.trim(),
 
           valid_until:
-            document.getElementById("quoteValidUntil").value || null
+            modal.querySelector(
+              "#quoteValidUntil"
+            ).value || null
         };
 
         const { error } =

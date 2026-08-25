@@ -1642,6 +1642,44 @@ function showAddJobForm() {
 
         </select>
 
+       <label>Recurring Job</label>
+
+<label style="display:flex;align-items:center;gap:8px;">
+
+  <input
+    type="checkbox"
+    id="jobRecurring"
+  >
+
+  Repeat this job
+
+</label>
+
+<div
+  id="jobRecurringOptions"
+  style="display:none;"
+>
+
+  <label>Repeat Every</label>
+
+  <select id="jobRecurringInterval">
+
+    <option value="4">
+      Every 4 weeks
+    </option>
+
+    <option value="6">
+      Every 6 weeks
+    </option>
+
+    <option value="8">
+      Every 8 weeks
+    </option>
+
+  </select>
+
+</div> 
+
         <label>Price</label>
 
         <input

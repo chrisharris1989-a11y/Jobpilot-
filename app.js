@@ -2250,11 +2250,13 @@ function showAddJobForm() {
 
         };
 
-
-        const { error } =
+        // Save the first appointment
+        const { data: savedJob, error } =
           await supabase
             .from("jobs")
-            .insert(job);
+            .insert(job)
+            .select()
+            .single();
 
 
         if (error) {
@@ -2269,11 +2271,117 @@ function showAddJobForm() {
         }
 
 
+        // =====================================================
+        // CREATE NEXT RECURRING APPOINTMENT
+        // =====================================================
+
+        if (
+          recurring &&
+          recurringInterval &&
+          savedJob
+        ) {
+
+          if (savedJob.scheduled_date) {
+
+            const nextDate =
+              new Date(
+                `${savedJob.scheduled_date}T12:00:00`
+              );
+
+            nextDate.setDate(
+              nextDate.getDate() +
+              (recurringInterval * 7)
+            );
+
+
+            const nextScheduledDate =
+              nextDate
+                .toISOString()
+                .split("T")[0];
+
+
+            const nextJob = {
+
+              user_id:
+                currentUser.id,
+
+              customer_id:
+                savedJob.customer_id,
+
+              title:
+                savedJob.title,
+
+              description:
+                savedJob.description,
+
+              scheduled_date:
+                nextScheduledDate,
+
+              scheduled_time:
+                savedJob.scheduled_time,
+
+              status:
+                "scheduled",
+
+              price:
+                savedJob.price,
+
+              notes:
+                savedJob.notes,
+
+              recurring:
+                true,
+
+              recurring_interval_weeks:
+                recurringInterval,
+
+              recurring_parent_id:
+                savedJob.id,
+
+              recurring_active:
+                true
+
+            };
+
+
+            const {
+              error: nextJobError
+            } =
+              await supabase
+                .from("jobs")
+                .insert(nextJob);
+
+
+            if (nextJobError) {
+
+              alert(
+                "The first appointment was saved, " +
+                "but the next recurring appointment " +
+                "could not be created:\n\n" +
+                nextJobError.message
+              );
+
+              modal.remove();
+
+              await loadJobs();
+
+              showPage("jobs");
+
+              return;
+
+            }
+
+          }
+
+        }
+
+
         modal.remove();
 
         await loadJobs();
 
         showPage("jobs");
+        
 
       }
     );

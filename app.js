@@ -1573,6 +1573,7 @@ function showJobProfile(jobId) {
 // =====================================================
 
 function showAddJobForm() {
+
   const modal =
     document.createElement("div");
 
@@ -1611,6 +1612,7 @@ function showAddJobForm() {
 
         </select>
 
+
         <label>Job Title *</label>
 
         <input
@@ -1619,66 +1621,100 @@ function showAddJobForm() {
           placeholder="e.g. Window cleaning"
         >
 
+
         <label>Description</label>
 
-        <textarea id="jobDescription"></textarea>
+        <textarea
+          id="jobDescription"
+        ></textarea>
+
 
         <label>Date</label>
 
-        <input id="jobDate" type="date">
+        <input
+          id="jobDate"
+          type="date"
+        >
+
 
         <label>Time</label>
 
-        <input id="jobTime" type="time">
+        <input
+          id="jobTime"
+          type="time"
+        >
+
 
         <label>Status</label>
 
         <select id="jobStatus">
 
-          <option value="pending">Pending</option>
-          <option value="scheduled">Scheduled</option>
-          <option value="completed">Completed</option>
-          <option value="cancelled">Cancelled</option>
+          <option value="pending">
+            Pending
+          </option>
+
+          <option value="scheduled">
+            Scheduled
+          </option>
+
+          <option value="completed">
+            Completed
+          </option>
+
+          <option value="cancelled">
+            Cancelled
+          </option>
 
         </select>
 
-       <label>Recurring Job</label>
 
-<label style="display:flex;align-items:center;gap:8px;">
+        <!-- RECURRING JOB -->
 
-  <input
-    type="checkbox"
-    id="jobRecurring"
-  >
+        <label>Recurring Job</label>
 
-  Repeat this job
+        <label
+          style="
+            display:flex;
+            align-items:center;
+            gap:8px;
+          "
+        >
 
-</label>
+          <input
+            type="checkbox"
+            id="jobRecurring"
+          >
 
-<div
-  id="jobRecurringOptions"
-  style="display:none;"
->
+          Repeat this job
 
-  <label>Repeat Every</label>
+        </label>
 
-  <select id="jobRecurringInterval">
 
-    <option value="4">
-      Every 4 weeks
-    </option>
+        <div
+          id="jobRecurringOptions"
+          style="display:none;"
+        >
 
-    <option value="6">
-      Every 6 weeks
-    </option>
+          <label>Repeat Every</label>
 
-    <option value="8">
-      Every 8 weeks
-    </option>
+          <select id="jobRecurringInterval">
 
-  </select>
+            <option value="4">
+              Every 4 weeks
+            </option>
 
-</div> 
+            <option value="6">
+              Every 6 weeks
+            </option>
+
+            <option value="8">
+              Every 8 weeks
+            </option>
+
+          </select>
+
+        </div>
+
 
         <label>Price</label>
 
@@ -1686,12 +1722,17 @@ function showAddJobForm() {
           id="jobPrice"
           type="number"
           step="0.01"
+          min="0"
           placeholder="0.00"
         >
 
+
         <label>Notes</label>
 
-        <textarea id="jobNotes"></textarea>
+        <textarea
+          id="jobNotes"
+        ></textarea>
+
 
         <div class="modal-actions">
 
@@ -1716,15 +1757,47 @@ function showAddJobForm() {
     </div>
   `;
 
+
   document.body.appendChild(modal);
 
-  modal.querySelectorAll(".close")
-    .forEach(button =>
+
+  // CLOSE MODAL
+
+  modal
+    .querySelectorAll(".close")
+    .forEach(button => {
+
       button.addEventListener(
         "click",
         () => modal.remove()
-      )
-    );
+      );
+
+    });
+
+
+  // RECURRING JOB TOGGLE
+
+  const recurringCheckbox =
+    modal.querySelector("#jobRecurring");
+
+  const recurringOptions =
+    modal.querySelector("#jobRecurringOptions");
+
+
+  recurringCheckbox.addEventListener(
+    "change",
+    () => {
+
+      recurringOptions.style.display =
+        recurringCheckbox.checked
+          ? "block"
+          : "none";
+
+    }
+  );
+
+
+  // SAVE JOB
 
   modal
     .querySelector("#jobForm")
@@ -1734,56 +1807,105 @@ function showAddJobForm() {
 
         event.preventDefault();
 
+
+        const recurring =
+          recurringCheckbox.checked;
+
+
+        const recurringInterval =
+          recurring
+            ? Number(
+                modal.querySelector(
+                  "#jobRecurringInterval"
+                ).value
+              )
+            : null;
+
+
         const job = {
 
-          user_id: currentUser.id,
+          user_id:
+            currentUser.id,
 
           customer_id:
-            document.getElementById("jobCustomer").value,
+            modal.querySelector(
+              "#jobCustomer"
+            ).value,
 
           title:
-            document.getElementById("jobTitle").value.trim(),
+            modal.querySelector(
+              "#jobTitle"
+            ).value.trim(),
 
           description:
-            document.getElementById("jobDescription").value.trim(),
+            modal.querySelector(
+              "#jobDescription"
+            ).value.trim(),
 
           scheduled_date:
-            document.getElementById("jobDate").value || null,
+            modal.querySelector(
+              "#jobDate"
+            ).value || null,
 
           scheduled_time:
-            document.getElementById("jobTime").value || null,
+            modal.querySelector(
+              "#jobTime"
+            ).value || null,
 
           status:
-            document.getElementById("jobStatus").value,
+            modal.querySelector(
+              "#jobStatus"
+            ).value,
 
           price:
             Number(
-              document.getElementById("jobPrice").value
+              modal.querySelector(
+                "#jobPrice"
+              ).value
             ) || 0,
 
           notes:
-            document.getElementById("jobNotes").value.trim()
+            modal.querySelector(
+              "#jobNotes"
+            ).value.trim(),
+
+          recurring:
+            recurring,
+
+          recurring_interval_weeks:
+            recurringInterval
+
         };
+
 
         const { error } =
           await supabase
             .from("jobs")
             .insert(job);
 
+
         if (error) {
-          alert(error.message);
+
+          alert(
+            "The job could not be saved:\n\n" +
+            error.message
+          );
+
           return;
+
         }
+
 
         modal.remove();
 
         await loadJobs();
 
         showPage("jobs");
+
       }
     );
-}
 
+}
 
 // =====================================================
 // EDIT JOB

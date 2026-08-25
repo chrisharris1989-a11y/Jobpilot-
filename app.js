@@ -1635,11 +1635,6 @@ function showJobProfile(jobId) {
 
     `;
 
-    
-  }
-
-    `;
-
 
   // =====================================================
   // RECURRING JOB BUTTONS

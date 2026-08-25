@@ -2780,6 +2780,138 @@ function showEditJobForm(jobId) {
 }
 
 // =====================================================
+// CREATE NEXT RECURRING APPOINTMENT
+// =====================================================
+
+async function createNextRecurringAppointment(sourceJob) {
+
+  if (
+    !sourceJob ||
+    !sourceJob.recurring ||
+    !sourceJob.recurring_active
+  ) {
+    return null;
+  }
+
+  if (!sourceJob.scheduled_date) {
+    return null;
+  }
+
+  const interval =
+    Number(
+      sourceJob.recurring_interval_weeks
+    ) || 4;
+
+  const currentDate =
+    new Date(
+      `${sourceJob.scheduled_date}T12:00:00`
+    );
+
+  currentDate.setDate(
+    currentDate.getDate() +
+    (interval * 7)
+  );
+
+  const nextDate =
+    currentDate
+      .toISOString()
+      .split("T")[0];
+
+  const seriesId =
+    sourceJob.recurring_parent_id ||
+    sourceJob.id;
+
+  const existingNextJob =
+    jobs.find(item => {
+
+      const itemSeriesId =
+        item.recurring_parent_id ||
+        item.id;
+
+      return (
+        String(itemSeriesId) ===
+        String(seriesId) &&
+
+        String(item.scheduled_date) ===
+        String(nextDate) &&
+
+        String(item.status).toLowerCase() !==
+        "cancelled"
+      );
+
+    });
+
+  if (existingNextJob) {
+    return existingNextJob;
+  }
+
+  const nextJob = {
+
+    user_id:
+      sourceJob.user_id,
+
+    customer_id:
+      sourceJob.customer_id,
+
+    title:
+      sourceJob.title,
+
+    description:
+      sourceJob.description,
+
+    scheduled_date:
+      nextDate,
+
+    scheduled_time:
+      sourceJob.scheduled_time,
+
+    status:
+      "scheduled",
+
+    price:
+      sourceJob.price,
+
+    notes:
+      sourceJob.notes,
+
+    recurring:
+      true,
+
+    recurring_interval_weeks:
+      interval,
+
+    recurring_parent_id:
+      seriesId,
+
+    recurring_active:
+      true
+
+  };
+
+  const {
+    data,
+    error
+  } =
+    await supabase
+      .from("jobs")
+      .insert(nextJob)
+      .select()
+      .single();
+
+  if (error) {
+
+    console.error(
+      "Could not create next recurring appointment:",
+      error
+    );
+
+    return null;
+  }
+
+  return data;
+}
+
+// =====================================================
 // SKIP NEXT RECURRING JOB
 // =====================================================
 

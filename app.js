@@ -3675,17 +3675,7 @@ function showAddQuoteForm() {
               "#quoteValidUntil"
             ).value || null,
 
-          recurring:
-            recurring,
-
-          recurring_interval_weeks:
-            recurring
-              ? Number(
-                  modal.querySelector(
-                    "#quoteRecurringInterval"
-                  ).value
-                )
-              : null
+        
 
         };
 

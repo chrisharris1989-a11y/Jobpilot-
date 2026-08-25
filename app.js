@@ -2246,7 +2246,7 @@ function showAddJobForm() {
             recurring,
 
           recurring_interval_weeks:
-            recurringInterval
+            recurringInterval,
 
           recurring_active:
             recurring

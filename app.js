@@ -394,6 +394,37 @@ function renderApp() {
 
   const feedbackButton =
     document.getElementById("feedbackButton");
+    const adminFeedbackButton =
+    document.getElementById(
+      "adminFeedbackButton"
+    );
+
+
+  if (adminFeedbackButton) {
+
+    if (
+      currentUser &&
+      String(currentUser.id) ===
+        "9a89bdf0-1f17-48ec-a622-db59545e8ada"
+    ) {
+
+      adminFeedbackButton.style.display =
+        "block";
+
+
+      adminFeedbackButton.addEventListener(
+        "click",
+        () => showFeedbackAdmin()
+      );
+
+    } else {
+
+      adminFeedbackButton.style.display =
+        "none";
+
+    }
+
+  }
 
   if (feedbackButton) {
 

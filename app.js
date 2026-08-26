@@ -5865,105 +5865,277 @@ function loadSettings() {
 // SAVE SETTINGS
 // =====================================================
 
-function saveSettings() {
+// =====================================================
+// SAVE SETTINGS
+// =====================================================
+
+async function saveSettings() {
 
   const getValue = (id) => {
     const element = document.getElementById(id);
     return element ? element.value : "";
   };
 
-  const settings = {
+  try {
 
-    businessName:
-      getValue("settingsBusinessName"),
+    // -------------------------------------------------
+    // GET CURRENT USER
+    // -------------------------------------------------
 
-    contactName:
-      getValue("settingsContactName"),
+    const {
+      data: {
+        user
+      },
+      error: userError
+    } = await supabase.auth.getUser();
 
-    phone:
-      getValue("settingsPhone"),
+    if (userError) {
+      throw userError;
+    }
 
-    businessEmail:
-      getValue("settingsBusinessEmail"),
+    if (!user) {
+      throw new Error(
+        "You are not logged in."
+      );
+    }
 
-    address:
-      getValue("settingsAddress"),
 
-    postcode:
-      getValue("settingsPostcode"),
+    // -------------------------------------------------
+    // COLLECT SETTINGS
+    // -------------------------------------------------
 
-    website:
-      getValue("settingsWebsite"),
+    const settings = {
 
-    invoicePrefix:
-      getValue("settingsInvoicePrefix"),
+      businessName:
+        getValue("settingsBusinessName"),
 
-    nextInvoiceNumber:
-      Number(getValue("settingsNextInvoiceNumber")) || 1,
+      contactName:
+        getValue("settingsContactName"),
 
-    paymentTerms:
-      Number(getValue("settingsPaymentTerms")) || 30,
+      phone:
+        getValue("settingsPhone"),
 
-    vatRate:
-      Number(getValue("settingsVatRate")) || 0,
+      businessEmail:
+        getValue("settingsBusinessEmail"),
 
-    invoiceFooter:
-      getValue("settingsInvoiceFooter"),
+      address:
+        getValue("settingsAddress"),
 
-    quotePrefix:
-      getValue("settingsQuotePrefix"),
+      postcode:
+        getValue("settingsPostcode"),
 
-    nextQuoteNumber:
-      Number(getValue("settingsNextQuoteNumber")) || 1,
+      website:
+        getValue("settingsWebsite"),
 
-    quoteValidity:
-      Number(getValue("settingsQuoteValidity")) || 30,
+      invoicePrefix:
+        getValue("settingsInvoicePrefix"),
 
-    quoteFooter:
-      getValue("settingsQuoteFooter"),
+      nextInvoiceNumber:
+        Number(
+          getValue("settingsNextInvoiceNumber")
+        ) || 1,
 
-    primaryColour:
-      getValue("settingsPrimaryColour"),
+      paymentTerms:
+        Number(
+          getValue("settingsPaymentTerms")
+        ) || 30,
 
-    currency:
-      getValue("settingsCurrency"),
+      vatRate:
+        Number(
+          getValue("settingsVatRate")
+        ) || 0,
 
-    dateFormat:
-      getValue("settingsDateFormat"),
+      invoiceFooter:
+        getValue("settingsInvoiceFooter"),
 
-    emailNotifications:
-      document.getElementById(
-        "settingsEmailNotifications"
-      )?.checked ?? true,
+      quotePrefix:
+        getValue("settingsQuotePrefix"),
 
-    paymentReminders:
-      document.getElementById(
-        "settingsPaymentReminders"
-      )?.checked ?? false
-  };
+      nextQuoteNumber:
+        Number(
+          getValue("settingsNextQuoteNumber")
+        ) || 1,
 
-  localStorage.setItem(
-    "jobpilot_settings",
-    JSON.stringify(settings)
-  );
+      quoteValidity:
+        Number(
+          getValue("settingsQuoteValidity")
+        ) || 30,
 
-  applySettingsAppearance();
+      quoteFooter:
+        getValue("settingsQuoteFooter"),
 
-  const message =
-    document.getElementById("settingsMessage");
+      primaryColour:
+        getValue("settingsPrimaryColour"),
 
-  if (message) {
-    message.textContent =
-      "Settings saved successfully.";
+      currency:
+        getValue("settingsCurrency"),
 
-    message.style.color = "var(--success)";
+      dateFormat:
+        getValue("settingsDateFormat"),
 
-    setTimeout(() => {
-      message.textContent = "";
-    }, 3000);
+      emailNotifications:
+        document.getElementById(
+          "settingsEmailNotifications"
+        )?.checked ?? true,
+
+      paymentReminders:
+        document.getElementById(
+          "settingsPaymentReminders"
+        )?.checked ?? false
+    };
+
+
+    // -------------------------------------------------
+    // SAVE TO SUPABASE
+    // -------------------------------------------------
+
+    const { error: saveError } =
+      await supabase
+        .from("user_settings")
+        .upsert(
+          {
+            user_id: user.id,
+
+            business_name:
+              settings.businessName,
+
+            contact_name:
+              settings.contactName,
+
+            phone:
+              settings.phone,
+
+            email:
+              settings.businessEmail,
+
+            website:
+              settings.website,
+
+            address_line1:
+              settings.address,
+
+            postcode:
+              settings.postcode,
+
+            invoice_prefix:
+              settings.invoicePrefix,
+
+            next_invoice_number:
+              settings.nextInvoiceNumber,
+
+            invoice_payment_terms:
+              settings.paymentTerms,
+
+            default_vat_rate:
+              settings.vatRate,
+
+            invoice_footer:
+              settings.invoiceFooter,
+
+            quote_prefix:
+              settings.quotePrefix,
+
+            next_quote_number:
+              settings.nextQuoteNumber,
+
+            quote_validity_days:
+              settings.quoteValidity,
+
+            quote_footer:
+              settings.quoteFooter,
+
+            currency:
+              settings.currency,
+
+            updated_at:
+              new Date().toISOString()
+          },
+          {
+            onConflict: "user_id"
+          }
+        );
+
+    if (saveError) {
+      throw saveError;
+    }
+
+
+    // -------------------------------------------------
+    // KEEP LOCAL COPY
+    // -------------------------------------------------
+
+    localStorage.setItem(
+      "jobpilot_settings",
+      JSON.stringify(settings)
+    );
+
+
+    // -------------------------------------------------
+    // APPLY APPEARANCE
+    // -------------------------------------------------
+
+    applySettingsAppearance();
+
+
+    // -------------------------------------------------
+    // SUCCESS MESSAGE
+    // -------------------------------------------------
+
+    const message =
+      document.getElementById("settingsMessage");
+
+    if (message) {
+
+      message.textContent =
+        "Settings saved successfully.";
+
+      message.style.color =
+        "var(--success)";
+
+      setTimeout(() => {
+
+        message.textContent = "";
+
+      }, 3000);
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "Save settings error:",
+      error
+    );
+
+    const message =
+      document.getElementById("settingsMessage");
+
+    if (message) {
+
+      message.textContent =
+        "Could not save settings: " +
+        error.message;
+
+      message.style.color =
+        "var(--danger, #dc2626)";
+
+    } else {
+
+      alert(
+        "Could not save settings:\n\n" +
+        error.message
+      );
+
+    }
+
   }
+
 }
-window.saveSettings = saveSettings;
+
+
+// Make the function available to the HTML button
+window.saveSettings =
+  saveSettings;
 
 
 // =====================================================

@@ -4726,18 +4726,115 @@ function showInvoiceProfile(invoiceId) {
     );
 
   document
-    .getElementById("editInvoice")
-    .addEventListener(
-      "click",
-      () => showEditInvoiceForm(invoice.id)
-    );
+  .getElementById("editInvoice")
+  .addEventListener(
+    "click",
+    () => showEditInvoiceForm(invoice.id)
+  );
+
+document
+  .getElementById("deleteInvoice")
+  .addEventListener(
+    "click",
+    () => deleteInvoice(invoice.id)
+  );
+
+if (invoice.status !== "paid") {
+
+  const sendButton =
+    document.createElement("button");
+
+  sendButton.id =
+    "sendInvoiceButton";
+
+  sendButton.className =
+    "button primary";
+
+  sendButton.textContent =
+    "📤 Send Invoice";
+
+  sendButton.style.marginRight =
+    "10px";
+
+  sendButton.addEventListener(
+    "click",
+    async () => {
+
+      const phone =
+  customer?.phone || "";
+
+if (!phone) {
+
+  alert(
+    "This customer does not have a phone number saved."
+  );
+
+  return;
+
+}
+
+if (!invoice.public_token) {
+
+  alert(
+    "This invoice does not have a payment link yet."
+  );
+
+  return;
+
+}
+
+let whatsappNumber =
+  phone.replace(/\D/g, "");
+
+if (
+  whatsappNumber.startsWith("0")
+) {
+
+  whatsappNumber =
+    "44" +
+    whatsappNumber.substring(1);
+
+}
+
+const paymentLink =
+  `${window.location.origin}/public-invoice.html?token=${encodeURIComponent(invoice.public_token)}`;
+
+const settings =
+  JSON.parse(
+    localStorage.getItem("jobpilot_settings") || "{}"
+  );
+
+const businessName =
+  settings.businessName ||
+  "our business";
+
+const message =
+  `Hi ${customer.name},\n\n` +
+  `Please find your invoice from ${businessName}.\n\n` +
+  `Invoice #${invoice.invoice_number || "—"}\n` +
+  `Amount: £${Number(invoice.total || 0).toFixed(2)}\n\n` +
+  `You can view and pay your invoice securely here:\n` +
+  `${paymentLink}\n\n` +
+  `Thank you.`;
+
+const whatsappUrl =
+  `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+
+window.location.href =
+  whatsappUrl;
+
+    }
+  );
 
   document
-    .getElementById("deleteInvoice")
-    .addEventListener(
-      "click",
-      () => deleteInvoice(invoice.id)
+    .getElementById("editInvoice")
+    .parentElement
+    .insertBefore(
+      sendButton,
+      document.getElementById("editInvoice")
     );
+}
+  
 }
 
 
@@ -5366,6 +5463,34 @@ function renderSettings(content) {
       <hr>
 
 
+      <!-- PAYMENTS -->
+      <h2>Payments</h2>
+
+      <p>
+        Connect your Stripe account to allow your customers
+        to pay your invoices online.
+      </p>
+
+      <div
+        id="stripeConnectionStatus"
+        class="muted"
+        style="margin:12px 0;"
+      >
+        Checking Stripe connection...
+      </div>
+
+      <button
+        class="button primary"
+        id="connectStripeButton"
+        type="button"
+      >
+        💳 Connect Stripe
+      </button>
+
+
+      <hr>
+
+
       <!-- BUSINESS DETAILS -->
       <h2>Business Details</h2>
 
@@ -5410,15 +5535,78 @@ function renderSettings(content) {
         placeholder="Postcode"
       >
 
-      <label>Website</label>
-      <input
-        id="settingsWebsite"
-        type="text"
-        placeholder="https://"
-      >
+   <label>Website</label>
+<input
+  id="settingsWebsite"
+  type="text"
+  placeholder="https://"
+>
 
 
-      <hr>
+<hr>
+
+
+<!-- PUBLIC INVOICE PRIVACY -->
+<h2>Customer Invoice Information</h2>
+
+<p class="muted">
+  Choose which business details your customers can see
+  on your public invoices.
+</p>
+
+<label>
+  <input
+    type="checkbox"
+    id="settingsShowContactName"
+    checked
+  >
+  Show contact name
+</label>
+
+<label>
+  <input
+    type="checkbox"
+    id="settingsShowPhone"
+    checked
+  >
+  Show phone number
+</label>
+
+<label>
+  <input
+    type="checkbox"
+    id="settingsShowEmail"
+    checked
+  >
+  Show business email
+</label>
+
+<label>
+  <input
+    type="checkbox"
+    id="settingsShowWebsite"
+    checked
+  >
+  Show website
+</label>
+
+<label>
+  <input
+    type="checkbox"
+    id="settingsShowAddress"
+  >
+  <strong>Show business address</strong>
+</label>
+
+<p
+  class="muted"
+  style="font-size:13px;margin-top:5px;"
+>
+  Your business address is hidden from customers by default.
+</p>
+
+
+<hr>
 
 
       <!-- INVOICE SETTINGS -->
@@ -5576,7 +5764,29 @@ function renderSettings(content) {
     </div>
   `;
 
+
   loadSettings();
+
+
+  // =====================================================
+  // STRIPE CONNECT BUTTON
+  // =====================================================
+
+  const connectStripeButton =
+    document.getElementById(
+      "connectStripeButton"
+    );
+
+  if (connectStripeButton) {
+
+    connectStripeButton.addEventListener(
+      "click",
+      connectStripe
+    );
+
+  }
+
+  loadStripeStatus();
 
 }
 
@@ -5592,12 +5802,22 @@ function loadSettings() {
   );
 
   const setValue = (id, value) => {
-    const element = document.getElementById(id);
+    const element =
+      document.getElementById(id);
 
-    if (element && value !== undefined && value !== null) {
+    if (
+      element &&
+      value !== undefined &&
+      value !== null
+    ) {
       element.value = value;
     }
   };
+
+
+  // -------------------------------------------------
+  // BUSINESS DETAILS
+  // -------------------------------------------------
 
   setValue(
     "settingsBusinessName",
@@ -5634,6 +5854,11 @@ function loadSettings() {
     settings.website || ""
   );
 
+
+  // -------------------------------------------------
+  // INVOICE SETTINGS
+  // -------------------------------------------------
+
   setValue(
     "settingsInvoicePrefix",
     settings.invoicePrefix || "INV-"
@@ -5659,6 +5884,11 @@ function loadSettings() {
     settings.invoiceFooter || ""
   );
 
+
+  // -------------------------------------------------
+  // QUOTE SETTINGS
+  // -------------------------------------------------
+
   setValue(
     "settingsQuotePrefix",
     settings.quotePrefix || "QUO-"
@@ -5679,6 +5909,11 @@ function loadSettings() {
     settings.quoteFooter || ""
   );
 
+
+  // -------------------------------------------------
+  // APPEARANCE
+  // -------------------------------------------------
+
   setValue(
     "settingsPrimaryColour",
     settings.primaryColour || "#2563eb"
@@ -5694,128 +5929,496 @@ function loadSettings() {
     settings.dateFormat || "DD/MM/YYYY"
   );
 
+
+  // -------------------------------------------------
+  // NOTIFICATIONS
+  // -------------------------------------------------
+
   const emailNotifications =
-    document.getElementById("settingsEmailNotifications");
+    document.getElementById(
+      "settingsEmailNotifications"
+    );
 
   if (emailNotifications) {
+
     emailNotifications.checked =
       settings.emailNotifications !== false;
+
   }
+
 
   const paymentReminders =
-    document.getElementById("settingsPaymentReminders");
+    document.getElementById(
+      "settingsPaymentReminders"
+    );
 
   if (paymentReminders) {
+
     paymentReminders.checked =
       settings.paymentReminders === true;
+
   }
 
+
+  // -------------------------------------------------
+  // PUBLIC INVOICE PRIVACY
+  // -------------------------------------------------
+
+  const showContactName =
+    document.getElementById(
+      "settingsShowContactName"
+    );
+
+  if (showContactName) {
+
+    showContactName.checked =
+      settings.showContactName !== false;
+
+  }
+
+
+  const showPhone =
+    document.getElementById(
+      "settingsShowPhone"
+    );
+
+  if (showPhone) {
+
+    showPhone.checked =
+      settings.showPhone !== false;
+
+  }
+
+
+  const showEmail =
+    document.getElementById(
+      "settingsShowEmail"
+    );
+
+  if (showEmail) {
+
+    showEmail.checked =
+      settings.showEmail !== false;
+
+  }
+
+
+  const showWebsite =
+    document.getElementById(
+      "settingsShowWebsite"
+    );
+
+  if (showWebsite) {
+
+    showWebsite.checked =
+      settings.showWebsite !== false;
+
+  }
+
+
+  const showAddress =
+    document.getElementById(
+      "settingsShowAddress"
+    );
+
+  if (showAddress) {
+
+    // IMPORTANT:
+    // Address is OFF by default.
+
+    showAddress.checked =
+      settings.showAddress === true;
+
+  }
+
+
+  // -------------------------------------------------
+  // APPLY APPEARANCE
+  // -------------------------------------------------
+
   applySettingsAppearance();
+
 }
+
 
 
 // =====================================================
 // SAVE SETTINGS
 // =====================================================
 
-function saveSettings() {
+async function saveSettings() {
 
   const getValue = (id) => {
     const element = document.getElementById(id);
     return element ? element.value : "";
   };
 
-  const settings = {
+  try {
 
-    businessName:
-      getValue("settingsBusinessName"),
+    // -------------------------------------------------
+    // GET CURRENT USER
+    // -------------------------------------------------
 
-    contactName:
-      getValue("settingsContactName"),
+    const {
+      data: {
+        user
+      },
+      error: userError
+    } = await supabase.auth.getUser();
 
-    phone:
-      getValue("settingsPhone"),
+    if (userError) {
+      throw userError;
+    }
 
-    businessEmail:
-      getValue("settingsBusinessEmail"),
+    if (!user) {
+      throw new Error(
+        "You are not logged in."
+      );
+    }
 
-    address:
-      getValue("settingsAddress"),
 
-    postcode:
-      getValue("settingsPostcode"),
+    // -------------------------------------------------
+    // COLLECT SETTINGS
+    // -------------------------------------------------
 
-    website:
-      getValue("settingsWebsite"),
+    const settings = {
 
-    invoicePrefix:
-      getValue("settingsInvoicePrefix"),
+      businessName:
+        getValue("settingsBusinessName"),
 
-    nextInvoiceNumber:
-      Number(getValue("settingsNextInvoiceNumber")) || 1,
+      contactName:
+        getValue("settingsContactName"),
 
-    paymentTerms:
-      Number(getValue("settingsPaymentTerms")) || 30,
+      phone:
+        getValue("settingsPhone"),
 
-    vatRate:
-      Number(getValue("settingsVatRate")) || 0,
+      businessEmail:
+        getValue("settingsBusinessEmail"),
 
-    invoiceFooter:
-      getValue("settingsInvoiceFooter"),
+      address:
+        getValue("settingsAddress"),
 
-    quotePrefix:
-      getValue("settingsQuotePrefix"),
+      postcode:
+        getValue("settingsPostcode"),
 
-    nextQuoteNumber:
-      Number(getValue("settingsNextQuoteNumber")) || 1,
+      website:
+        getValue("settingsWebsite"),
 
-    quoteValidity:
-      Number(getValue("settingsQuoteValidity")) || 30,
+      invoicePrefix:
+        getValue("settingsInvoicePrefix"),
 
-    quoteFooter:
-      getValue("settingsQuoteFooter"),
+      nextInvoiceNumber:
+        Number(
+          getValue("settingsNextInvoiceNumber")
+        ) || 1,
 
-    primaryColour:
-      getValue("settingsPrimaryColour"),
+      paymentTerms:
+        Number(
+          getValue("settingsPaymentTerms")
+        ) || 30,
 
-    currency:
-      getValue("settingsCurrency"),
+      vatRate:
+        Number(
+          getValue("settingsVatRate")
+        ) || 0,
 
-    dateFormat:
-      getValue("settingsDateFormat"),
+      invoiceFooter:
+        getValue("settingsInvoiceFooter"),
 
-    emailNotifications:
-      document.getElementById(
-        "settingsEmailNotifications"
-      )?.checked ?? true,
+      quotePrefix:
+        getValue("settingsQuotePrefix"),
 
-    paymentReminders:
-      document.getElementById(
-        "settingsPaymentReminders"
-      )?.checked ?? false
-  };
+      nextQuoteNumber:
+        Number(
+          getValue("settingsNextQuoteNumber")
+        ) || 1,
 
-  localStorage.setItem(
-    "jobpilot_settings",
-    JSON.stringify(settings)
-  );
+      quoteValidity:
+        Number(
+          getValue("settingsQuoteValidity")
+        ) || 30,
 
-  applySettingsAppearance();
+      quoteFooter:
+        getValue("settingsQuoteFooter"),
 
-  const message =
-    document.getElementById("settingsMessage");
+      primaryColour:
+        getValue("settingsPrimaryColour"),
 
-  if (message) {
-    message.textContent =
-      "Settings saved successfully.";
+      currency:
+        getValue("settingsCurrency"),
 
-    message.style.color = "var(--success)";
+      dateFormat:
+        getValue("settingsDateFormat"),
 
-    setTimeout(() => {
-      message.textContent = "";
-    }, 3000);
+      emailNotifications:
+        document.getElementById(
+          "settingsEmailNotifications"
+        )?.checked ?? true,
+
+      paymentReminders:
+  document.getElementById(
+    "settingsPaymentReminders"
+  )?.checked ?? false,
+
+showContactName:
+  document.getElementById(
+    "settingsShowContactName"
+  )?.checked ?? true,
+
+showPhone:
+  document.getElementById(
+    "settingsShowPhone"
+  )?.checked ?? true,
+
+showEmail:
+  document.getElementById(
+    "settingsShowEmail"
+  )?.checked ?? true,
+
+showWebsite:
+  document.getElementById(
+    "settingsShowWebsite"
+  )?.checked ?? true,
+
+showAddress:
+  document.getElementById(
+    "settingsShowAddress"
+  )?.checked ?? false
+      
+    };
+
+
+    // -------------------------------------------------
+    // SAVE TO SUPABASE
+    // -------------------------------------------------
+
+    const { error: saveError } =
+
+      await supabase
+
+        .from("user_settings")
+
+        .upsert(
+
+          {
+
+            user_id: user.id,
+
+            business_name:
+
+              settings.businessName,
+
+            contact_name:
+
+              settings.contactName,
+
+            phone:
+
+              settings.phone,
+
+            email:
+
+              settings.businessEmail,
+
+            website:
+
+              settings.website,
+
+            // -----------------------------------------
+
+            // PUBLIC INVOICE PRIVACY
+
+            // -----------------------------------------
+
+            show_contact_name_on_invoice:
+
+              settings.showContactName,
+
+            show_phone_on_invoice:
+
+              settings.showPhone,
+
+            show_email_on_invoice:
+
+              settings.showEmail,
+
+            show_website_on_invoice:
+
+              settings.showWebsite,
+
+            show_address_on_invoice:
+
+              settings.showAddress,
+
+            // -----------------------------------------
+
+            // BUSINESS ADDRESS
+
+            // -----------------------------------------
+
+            address_line1:
+
+              settings.address,
+
+            postcode:
+
+              settings.postcode,
+
+            // -----------------------------------------
+
+            // INVOICE SETTINGS
+
+            // -----------------------------------------
+
+            invoice_prefix:
+
+              settings.invoicePrefix,
+
+            next_invoice_number:
+
+              settings.nextInvoiceNumber,
+
+            invoice_payment_terms:
+
+              settings.paymentTerms,
+
+            default_vat_rate:
+
+              settings.vatRate,
+
+            invoice_footer:
+
+              settings.invoiceFooter,
+
+            // -----------------------------------------
+
+            // QUOTE SETTINGS
+
+            // -----------------------------------------
+
+            quote_prefix:
+
+              settings.quotePrefix,
+
+            next_quote_number:
+
+              settings.nextQuoteNumber,
+
+            quote_validity_days:
+
+              settings.quoteValidity,
+
+            quote_footer:
+
+              settings.quoteFooter,
+
+            // -----------------------------------------
+
+            // OTHER SETTINGS
+
+            // -----------------------------------------
+
+            currency:
+
+              settings.currency,
+
+            updated_at:
+
+              new Date().toISOString()
+
+          },
+
+          {
+
+            onConflict: "user_id"
+
+          }
+
+        );
+
+    if (saveError) {
+
+      throw saveError;
+
+    }
+
+
+    // -------------------------------------------------
+    // KEEP LOCAL COPY
+    // -------------------------------------------------
+
+    localStorage.setItem(
+      "jobpilot_settings",
+      JSON.stringify(settings)
+    );
+
+
+    // -------------------------------------------------
+    // APPLY APPEARANCE
+    // -------------------------------------------------
+
+    applySettingsAppearance();
+
+
+    // -------------------------------------------------
+    // SUCCESS MESSAGE
+    // -------------------------------------------------
+
+    const message =
+      document.getElementById("settingsMessage");
+
+    if (message) {
+
+      message.textContent =
+        "Settings saved successfully.";
+
+      message.style.color =
+        "var(--success)";
+
+      setTimeout(() => {
+
+        message.textContent = "";
+
+      }, 3000);
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "Save settings error:",
+      error
+    );
+
+    const message =
+      document.getElementById("settingsMessage");
+
+    if (message) {
+
+      message.textContent =
+        "Could not save settings: " +
+        error.message;
+
+      message.style.color =
+        "var(--danger, #dc2626)";
+
+    } else {
+
+      alert(
+        "Could not save settings:\n\n" +
+        error.message
+      );
+
+    }
+
   }
+
 }
+
+
+// Make the function available to the HTML button
+window.saveSettings =
+  saveSettings;
 
 
 // =====================================================
@@ -5953,3 +6556,272 @@ function escapeHtml(value) {
 // =====================================================
 
 init();
+
+// =====================================================
+// STRIPE CONNECT
+// =====================================================
+
+async function loadStripeStatus() {
+
+  const statusElement =
+    document.getElementById(
+      "stripeConnectionStatus"
+    );
+
+  const connectButton =
+    document.getElementById(
+      "connectStripeButton"
+    );
+
+  if (!statusElement || !connectButton) {
+    return;
+  }
+
+
+  try {
+
+    const {
+      data: {
+        session
+      }
+    } =
+      await supabase.auth.getSession();
+
+
+    if (!session) {
+
+      statusElement.textContent =
+        "Not logged in.";
+
+      connectButton.disabled =
+        true;
+
+      return;
+
+    }
+
+
+    const response =
+      await fetch(
+        "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-connect-v3",
+        {
+          method: "POST",
+
+          headers: {
+            "Authorization":
+              `Bearer ${session.access_token}`,
+
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+            action: "status"
+          })
+        }
+      );
+
+
+    const result =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        result.error ||
+        "Could not check Stripe status."
+      );
+
+    }
+
+
+    if (
+      result.connected &&
+      result.charges_enabled
+    ) {
+
+      statusElement.innerHTML = `
+        <strong style="color:green;">
+          ✅ Stripe connected
+        </strong>
+
+        <br>
+
+        <small>
+          Your customers can pay your invoices online.
+        </small>
+      `;
+
+      connectButton.textContent =
+        "💳 Stripe Connected";
+
+      connectButton.disabled =
+        true;
+
+    } else if (result.connected) {
+
+      statusElement.innerHTML = `
+        <strong>
+          ⚠️ Stripe setup incomplete
+        </strong>
+
+        <br>
+
+        <small>
+          Complete your Stripe setup to enable payments.
+        </small>
+      `;
+
+      connectButton.textContent =
+        "💳 Complete Stripe Setup";
+
+    } else {
+
+      statusElement.innerHTML = `
+        <strong>
+          Not connected
+        </strong>
+
+        <br>
+
+        <small>
+          Connect Stripe to accept online payments.
+        </small>
+      `;
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "Stripe status error:",
+      error
+    );
+
+    statusElement.textContent =
+      "Could not check Stripe connection.";
+
+  }
+
+}
+
+
+async function connectStripe() {
+
+  const button =
+    document.getElementById(
+      "connectStripeButton"
+    );
+
+  if (!button) {
+    return;
+  }
+
+
+  button.disabled =
+    true;
+
+  button.textContent =
+    "Connecting to Stripe...";
+
+
+  try {
+
+    const {
+      data: {
+        session
+      }
+    } =
+      await supabase.auth.getSession();
+
+
+    if (!session) {
+
+      throw new Error(
+        "You are not logged in."
+      );
+
+    }
+
+
+    const response =
+      await fetch(
+       "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-connect-v3",
+        {
+          method: "POST",
+
+          headers: {
+
+            "Authorization":
+              `Bearer ${session.access_token}`,
+
+            "Content-Type":
+              "application/json"
+
+          },
+
+          body: JSON.stringify({
+
+            action:
+              "connect",
+
+            origin:
+              window.location.origin
+
+          })
+
+        }
+      );
+
+
+    const result =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        result.error ||
+        "Could not connect Stripe."
+      );
+
+    }
+
+
+    if (!result.url) {
+
+      throw new Error(
+        "Stripe did not return an onboarding URL."
+      );
+
+    }
+
+
+    window.location.href =
+      result.url;
+
+
+  } catch (error) {
+
+    console.error(
+      "Stripe connection error:",
+      error
+    );
+
+
+    alert(
+      "Could not connect Stripe:\n\n" +
+      error.message
+    );
+
+
+    button.disabled =
+      false;
+
+    button.textContent =
+      "💳 Connect Stripe";
+
+  }
+
+}

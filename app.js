@@ -4760,10 +4760,59 @@ if (invoice.status !== "paid") {
     "click",
     async () => {
 
-      alert(
-        "Invoice sending will be available here.\n\n" +
-        "The customer will receive their invoice with a secure Pay Online button."
-      );
+      const phone =
+  customer?.phone || "";
+
+if (!phone) {
+
+  alert(
+    "This customer does not have a phone number saved."
+  );
+
+  return;
+
+}
+
+if (!invoice.public_token) {
+
+  alert(
+    "This invoice does not have a payment link yet."
+  );
+
+  return;
+
+}
+
+let whatsappNumber =
+  phone.replace(/\D/g, "");
+
+if (
+  whatsappNumber.startsWith("0")
+) {
+
+  whatsappNumber =
+    "44" +
+    whatsappNumber.substring(1);
+
+}
+
+const paymentLink =
+  `${window.location.origin}/public-invoice.html?token=${encodeURIComponent(invoice.public_token)}`;
+
+const message =
+  `Hi ${customer.name},\n\n` +
+  `Please find your invoice from JobPilot.\n\n` +
+  `Invoice #${invoice.invoice_number || "—"}\n` +
+  `Amount: £${Number(invoice.total || 0).toFixed(2)}\n\n` +
+  `You can view and pay your invoice securely here:\n` +
+  `${paymentLink}\n\n` +
+  `Thank you.`;
+
+const whatsappUrl =
+  `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+
+window.location.href =
+  whatsappUrl;
 
     }
   );

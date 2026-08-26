@@ -6309,4 +6309,3 @@ async function connectStripe() {
   }
 
 }
-}

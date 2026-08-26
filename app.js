@@ -5963,6 +5963,7 @@ function saveSettings() {
     }, 3000);
   }
 }
+window.saveSettings = saveSettings;
 
 
 // =====================================================

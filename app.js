@@ -4739,8 +4739,7 @@ document
     () => deleteInvoice(invoice.id)
   );
 
-if (
-  invoice.status !== "paid") {
+if (invoice.status !== "paid") {
 
   const payButton =
     document.createElement("button");
@@ -4759,11 +4758,93 @@ if (
 
   payButton.addEventListener(
     "click",
-    () =>
-      window.createInvoiceCheckout(
-        supabase,
-        invoice.id
-      )
+    async () => {
+
+      try {
+
+        payButton.disabled = true;
+        payButton.textContent =
+          "Creating payment...";
+
+        const {
+          data: {
+            session
+          },
+          error: sessionError
+        } =
+          await supabase.auth.getSession();
+
+        if (sessionError) {
+          throw sessionError;
+        }
+
+        if (!session) {
+          throw new Error(
+            "You are not logged in."
+          );
+        }
+
+        const response =
+          await fetch(
+            "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-checkout-v1",
+            {
+              method: "POST",
+
+              headers: {
+                "Authorization":
+                  `Bearer ${session.access_token}`,
+
+                "Content-Type":
+                  "application/json"
+              },
+
+              body: JSON.stringify({
+                invoice_id:
+                  String(invoice.id),
+
+                origin:
+                  window.location.origin
+              })
+            }
+          );
+
+        const result =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            result.error ||
+            "Could not create payment."
+          );
+        }
+
+        if (!result.url) {
+          throw new Error(
+            "Stripe did not return a checkout URL."
+          );
+        }
+
+        window.location.href =
+          result.url;
+
+      } catch (error) {
+
+        console.error(
+          "Stripe checkout error:",
+          error
+        );
+
+        alert(
+          "Could not create payment:\n\n" +
+          error.message
+        );
+
+        payButton.disabled = false;
+
+        payButton.textContent =
+          "💳 Pay Online";
+      }
+    }
   );
 
   document

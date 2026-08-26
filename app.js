@@ -4740,9 +4740,7 @@ document
   );
 
 if (
-  invoice.status !== "paid" &&
-  typeof window.createInvoiceCheckout === "function"
-) {
+  invoice.status !== "paid") {
 
   const payButton =
     document.createElement("button");

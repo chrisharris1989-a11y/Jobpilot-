@@ -4,10 +4,10 @@
 
 window.createInvoiceCheckout = async function (supabase, invoiceId) {
 
-  try {
+  const button =
+    document.getElementById("payOnlineButton");
 
-    const button =
-      document.getElementById("payOnlineButton");
+  try {
 
     if (button) {
       button.disabled = true;
@@ -15,42 +15,52 @@ window.createInvoiceCheckout = async function (supabase, invoiceId) {
     }
 
     const {
-      data: {
-        session
-      },
+      data: { session },
       error: sessionError
     } = await supabase.auth.getSession();
 
-    if (sessionError || !session) {
+    if (sessionError) {
+      throw new Error(sessionError.message);
+    }
+
+    if (!session) {
       throw new Error("You are not logged in.");
     }
 
-    const response =
-      await fetch(
-        "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-checkout-v1",
-        {
-          method: "POST",
+    const response = await fetch(
+      "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-checkout-v1",
+      {
+        method: "POST",
 
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization":
-              `Bearer ${session.access_token}`
-          },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization":
+            `Bearer ${session.access_token}`
+        },
 
-          body: JSON.stringify({
-            invoice_id: invoiceId,
-            origin: window.location.origin
-          })
-        }
+        body: JSON.stringify({
+          invoice_id: String(invoiceId),
+          origin: window.location.origin
+        })
+      }
+    );
+
+    const text = await response.text();
+
+    let result;
+
+    try {
+      result = JSON.parse(text);
+    } catch {
+      throw new Error(
+        `Stripe server returned an invalid response (${response.status}).`
       );
-
-    const result =
-      await response.json();
+    }
 
     if (!response.ok) {
       throw new Error(
         result.error ||
-        "Could not create Stripe payment."
+        `Could not create Stripe payment (${response.status}).`
       );
     }
 
@@ -60,22 +70,19 @@ window.createInvoiceCheckout = async function (supabase, invoiceId) {
       );
     }
 
-    window.location.href = result.url;
+    window.location.assign(result.url);
 
   } catch (error) {
 
     console.error(
-      "Stripe checkout error:",
+      "JobPilot Stripe checkout error:",
       error
     );
 
     alert(
-      error.message ||
-      "Could not connect to Stripe."
+      "Could not create payment:\n\n" +
+      (error.message || String(error))
     );
-
-    const button =
-      document.getElementById("payOnlineButton");
 
     if (button) {
       button.disabled = false;

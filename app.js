@@ -5535,15 +5535,78 @@ function renderSettings(content) {
         placeholder="Postcode"
       >
 
-      <label>Website</label>
-      <input
-        id="settingsWebsite"
-        type="text"
-        placeholder="https://"
-      >
+   <label>Website</label>
+<input
+  id="settingsWebsite"
+  type="text"
+  placeholder="https://"
+>
 
 
-      <hr>
+<hr>
+
+
+<!-- PUBLIC INVOICE PRIVACY -->
+<h2>Customer Invoice Information</h2>
+
+<p class="muted">
+  Choose which business details your customers can see
+  on your public invoices.
+</p>
+
+<label>
+  <input
+    type="checkbox"
+    id="settingsShowContactName"
+    checked
+  >
+  Show contact name
+</label>
+
+<label>
+  <input
+    type="checkbox"
+    id="settingsShowPhone"
+    checked
+  >
+  Show phone number
+</label>
+
+<label>
+  <input
+    type="checkbox"
+    id="settingsShowEmail"
+    checked
+  >
+  Show business email
+</label>
+
+<label>
+  <input
+    type="checkbox"
+    id="settingsShowWebsite"
+    checked
+  >
+  Show website
+</label>
+
+<label>
+  <input
+    type="checkbox"
+    id="settingsShowAddress"
+  >
+  <strong>Show business address</strong>
+</label>
+
+<p
+  class="muted"
+  style="font-size:13px;margin-top:5px;"
+>
+  Your business address is hidden from customers by default.
+</p>
+
+
+<hr>
 
 
       <!-- INVOICE SETTINGS -->
@@ -5739,12 +5802,22 @@ function loadSettings() {
   );
 
   const setValue = (id, value) => {
-    const element = document.getElementById(id);
+    const element =
+      document.getElementById(id);
 
-    if (element && value !== undefined && value !== null) {
+    if (
+      element &&
+      value !== undefined &&
+      value !== null
+    ) {
       element.value = value;
     }
   };
+
+
+  // -------------------------------------------------
+  // BUSINESS DETAILS
+  // -------------------------------------------------
 
   setValue(
     "settingsBusinessName",
@@ -5781,6 +5854,11 @@ function loadSettings() {
     settings.website || ""
   );
 
+
+  // -------------------------------------------------
+  // INVOICE SETTINGS
+  // -------------------------------------------------
+
   setValue(
     "settingsInvoicePrefix",
     settings.invoicePrefix || "INV-"
@@ -5806,6 +5884,11 @@ function loadSettings() {
     settings.invoiceFooter || ""
   );
 
+
+  // -------------------------------------------------
+  // QUOTE SETTINGS
+  // -------------------------------------------------
+
   setValue(
     "settingsQuotePrefix",
     settings.quotePrefix || "QUO-"
@@ -5826,6 +5909,11 @@ function loadSettings() {
     settings.quoteFooter || ""
   );
 
+
+  // -------------------------------------------------
+  // APPEARANCE
+  // -------------------------------------------------
+
   setValue(
     "settingsPrimaryColour",
     settings.primaryColour || "#2563eb"
@@ -5841,29 +5929,118 @@ function loadSettings() {
     settings.dateFormat || "DD/MM/YYYY"
   );
 
+
+  // -------------------------------------------------
+  // NOTIFICATIONS
+  // -------------------------------------------------
+
   const emailNotifications =
-    document.getElementById("settingsEmailNotifications");
+    document.getElementById(
+      "settingsEmailNotifications"
+    );
 
   if (emailNotifications) {
+
     emailNotifications.checked =
       settings.emailNotifications !== false;
+
   }
+
 
   const paymentReminders =
-    document.getElementById("settingsPaymentReminders");
+    document.getElementById(
+      "settingsPaymentReminders"
+    );
 
   if (paymentReminders) {
+
     paymentReminders.checked =
       settings.paymentReminders === true;
+
   }
 
+
+  // -------------------------------------------------
+  // PUBLIC INVOICE PRIVACY
+  // -------------------------------------------------
+
+  const showContactName =
+    document.getElementById(
+      "settingsShowContactName"
+    );
+
+  if (showContactName) {
+
+    showContactName.checked =
+      settings.showContactName !== false;
+
+  }
+
+
+  const showPhone =
+    document.getElementById(
+      "settingsShowPhone"
+    );
+
+  if (showPhone) {
+
+    showPhone.checked =
+      settings.showPhone !== false;
+
+  }
+
+
+  const showEmail =
+    document.getElementById(
+      "settingsShowEmail"
+    );
+
+  if (showEmail) {
+
+    showEmail.checked =
+      settings.showEmail !== false;
+
+  }
+
+
+  const showWebsite =
+    document.getElementById(
+      "settingsShowWebsite"
+    );
+
+  if (showWebsite) {
+
+    showWebsite.checked =
+      settings.showWebsite !== false;
+
+  }
+
+
+  const showAddress =
+    document.getElementById(
+      "settingsShowAddress"
+    );
+
+  if (showAddress) {
+
+    // IMPORTANT:
+    // Address is OFF by default.
+
+    showAddress.checked =
+      settings.showAddress === true;
+
+  }
+
+
+  // -------------------------------------------------
+  // APPLY APPEARANCE
+  // -------------------------------------------------
+
   applySettingsAppearance();
+
 }
 
 
-// =====================================================
-// SAVE SETTINGS
-// =====================================================
 
 // =====================================================
 // SAVE SETTINGS
@@ -5979,9 +6156,35 @@ async function saveSettings() {
         )?.checked ?? true,
 
       paymentReminders:
-        document.getElementById(
-          "settingsPaymentReminders"
-        )?.checked ?? false
+  document.getElementById(
+    "settingsPaymentReminders"
+  )?.checked ?? false,
+
+showContactName:
+  document.getElementById(
+    "settingsShowContactName"
+  )?.checked ?? true,
+
+showPhone:
+  document.getElementById(
+    "settingsShowPhone"
+  )?.checked ?? true,
+
+showEmail:
+  document.getElementById(
+    "settingsShowEmail"
+  )?.checked ?? true,
+
+showWebsite:
+  document.getElementById(
+    "settingsShowWebsite"
+  )?.checked ?? true,
+
+showAddress:
+  document.getElementById(
+    "settingsShowAddress"
+  )?.checked ?? false
+      
     };
 
 
@@ -5990,73 +6193,153 @@ async function saveSettings() {
     // -------------------------------------------------
 
     const { error: saveError } =
+
       await supabase
+
         .from("user_settings")
+
         .upsert(
+
           {
+
             user_id: user.id,
 
             business_name:
+
               settings.businessName,
 
             contact_name:
+
               settings.contactName,
 
             phone:
+
               settings.phone,
 
             email:
+
               settings.businessEmail,
 
             website:
+
               settings.website,
 
+            // -----------------------------------------
+
+            // PUBLIC INVOICE PRIVACY
+
+            // -----------------------------------------
+
+            show_contact_name_on_invoice:
+
+              settings.showContactName,
+
+            show_phone_on_invoice:
+
+              settings.showPhone,
+
+            show_email_on_invoice:
+
+              settings.showEmail,
+
+            show_website_on_invoice:
+
+              settings.showWebsite,
+
+            show_address_on_invoice:
+
+              settings.showAddress,
+
+            // -----------------------------------------
+
+            // BUSINESS ADDRESS
+
+            // -----------------------------------------
+
             address_line1:
+
               settings.address,
 
             postcode:
+
               settings.postcode,
 
+            // -----------------------------------------
+
+            // INVOICE SETTINGS
+
+            // -----------------------------------------
+
             invoice_prefix:
+
               settings.invoicePrefix,
 
             next_invoice_number:
+
               settings.nextInvoiceNumber,
 
             invoice_payment_terms:
+
               settings.paymentTerms,
 
             default_vat_rate:
+
               settings.vatRate,
 
             invoice_footer:
+
               settings.invoiceFooter,
 
+            // -----------------------------------------
+
+            // QUOTE SETTINGS
+
+            // -----------------------------------------
+
             quote_prefix:
+
               settings.quotePrefix,
 
             next_quote_number:
+
               settings.nextQuoteNumber,
 
             quote_validity_days:
+
               settings.quoteValidity,
 
             quote_footer:
+
               settings.quoteFooter,
 
+            // -----------------------------------------
+
+            // OTHER SETTINGS
+
+            // -----------------------------------------
+
             currency:
+
               settings.currency,
 
             updated_at:
+
               new Date().toISOString()
+
           },
+
           {
+
             onConflict: "user_id"
+
           }
+
         );
 
     if (saveError) {
+
       throw saveError;
+
     }
 
 

@@ -4799,9 +4799,18 @@ if (
 const paymentLink =
   `${window.location.origin}/public-invoice.html?token=${encodeURIComponent(invoice.public_token)}`;
 
+const settings =
+  JSON.parse(
+    localStorage.getItem("jobpilot_settings") || "{}"
+  );
+
+const businessName =
+  settings.businessName ||
+  "our business";
+
 const message =
   `Hi ${customer.name},\n\n` +
-  `Please find your invoice from JobPilot.\n\n` +
+  `Please find your invoice from ${businessName}.\n\n` +
   `Invoice #${invoice.invoice_number || "—"}\n` +
   `Amount: £${Number(invoice.total || 0).toFixed(2)}\n\n` +
   `You can view and pay your invoice securely here:\n` +

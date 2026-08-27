@@ -18,8 +18,6 @@ function handleOAuthReturn() {
       localStorage.removeItem(GO_CARDLESS_STORAGE_KEY);
     }
 
-    // Consume the one-time OAuth parameter immediately, before the SPA
-    // renders any page. This prevents callback state from affecting Settings.
     const cleanUrl =
       window.location.origin +
       window.location.pathname +
@@ -31,47 +29,23 @@ function handleOAuthReturn() {
   }
 }
 
-function addGoCardlessUI() {
+function showGoCardlessResult() {
+  const status = document.getElementById("gocardlessConnectionStatus");
+  const button = document.getElementById("connectGoCardlessButton");
+  if (!status) return;
+
   try {
-    if (document.getElementById("gocardlessConnectionPanel")) {
-      showGoCardlessResult();
-      return true;
+    if (localStorage.getItem(GO_CARDLESS_STORAGE_KEY) === "true") {
+      status.innerHTML =
+        `<strong style="color:green;">✅ GoCardless connected</strong><br><small>Your GoCardless account is connected to JobPilot.</small>`;
+
+      if (button) {
+        button.textContent = "🏦 GoCardless Connected";
+        button.disabled = true;
+      }
     }
-
-    const stripeButton = document.getElementById("connectStripeButton");
-    if (!stripeButton) return false;
-
-    const panel = document.createElement("div");
-    panel.id = "gocardlessConnectionPanel";
-    panel.style.marginTop = "18px";
-    panel.innerHTML = `
-      <div style="border:1px solid #e5e7eb;border-radius:10px;padding:16px;background:#fafafa;">
-        <h3 style="margin:0 0 6px;">GoCardless</h3>
-        <p class="muted" style="margin:0 0 12px;">
-          Connect GoCardless to let your customers pay invoices by bank.
-        </p>
-        <div id="gocardlessConnectionStatus" class="muted" style="margin-bottom:12px;">
-          Not connected
-        </div>
-        <button class="button primary" id="connectGoCardlessButton" type="button">
-          🏦 Connect GoCardless
-        </button>
-      </div>
-    `;
-
-    stripeButton.insertAdjacentElement("afterend", panel);
-
-    const button = document.getElementById("connectGoCardlessButton");
-    if (button) {
-      button.addEventListener("click", connectGoCardless);
-    }
-
-    showGoCardlessResult();
-    return true;
   } catch (error) {
-    // GoCardless must never be allowed to break the main JobPilot UI.
-    console.error("GoCardless UI initialization failed:", error);
-    return false;
+    console.error("GoCardless status rendering failed:", error);
   }
 }
 
@@ -111,35 +85,60 @@ async function connectGoCardless() {
   }
 }
 
-function showGoCardlessResult() {
-  const status = document.getElementById("gocardlessConnectionStatus");
-  const button = document.getElementById("connectGoCardlessButton");
-  if (!status) return;
-
+function addGoCardlessUI() {
   try {
-    if (localStorage.getItem(GO_CARDLESS_STORAGE_KEY) === "true") {
-      status.innerHTML = `<strong style="color:green;">✅ GoCardless connected</strong><br><small>Your GoCardless account is connected to JobPilot.</small>`;
-      if (button) {
-        button.textContent = "🏦 GoCardless Connected";
-        button.disabled = true;
-      }
+    if (document.getElementById("gocardlessConnectionPanel")) {
+      showGoCardlessResult();
+      return true;
     }
+
+    const stripeButton = document.getElementById("connectStripeButton");
+    if (!stripeButton) return false;
+
+    const panel = document.createElement("div");
+    panel.id = "gocardlessConnectionPanel";
+    panel.style.marginTop = "18px";
+    panel.innerHTML = `
+      <div style="border:1px solid #e5e7eb;border-radius:10px;padding:16px;background:#fafafa;">
+        <h3 style="margin:0 0 6px;">GoCardless</h3>
+        <p class="muted" style="margin:0 0 12px;">
+          Connect GoCardless to let your customers pay invoices by bank.
+        </p>
+        <div id="gocardlessConnectionStatus" class="muted" style="margin-bottom:12px;">
+          Not connected
+        </div>
+        <button class="button primary" id="connectGoCardlessButton" type="button">
+          🏦 Connect GoCardless
+        </button>
+      </div>
+    `;
+
+    stripeButton.insertAdjacentElement("afterend", panel);
+
+    const button = document.getElementById("connectGoCardlessButton");
+    if (button) button.addEventListener("click", connectGoCardless);
+
+    showGoCardlessResult();
+    return true;
   } catch (error) {
-    console.error("GoCardless status rendering failed:", error);
+    console.error("GoCardless UI initialization failed:", error);
+    return false;
   }
 }
 
-// Settings is rendered dynamically by app.js. Rather than observing every DOM
-// mutation or polling continuously, initialize immediately after a user click.
-document.addEventListener(
-  "click",
-  () => {
-    setTimeout(() => {
-      addGoCardlessUI();
-    }, 0);
-  },
-  true
-);
+function waitForPaymentsUI(attempts = 20) {
+  if (addGoCardlessUI()) return;
+  if (attempts <= 0) return;
+  setTimeout(() => waitForPaymentsUI(attempts - 1), 100);
+}
 
 handleOAuthReturn();
-addGoCardlessUI();
+
+// JobPilot renders Settings dynamically. Only react to the Settings navigation
+// button, and only after JobPilot has finished rendering the new page.
+document.addEventListener("click", event => {
+  const settingsButton = event.target.closest?.('[data-page="settings"]');
+  if (!settingsButton) return;
+
+  setTimeout(() => waitForPaymentsUI(), 0);
+});

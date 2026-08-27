@@ -534,7 +534,6 @@ function showPage(page) {
 
   if (page === "settings") {
     renderSettings(content);
-    window.dispatchEvent(new Event("jobpilot:settings-rendered"));
   }
 }
 
@@ -820,201 +819,23 @@ function renderCustomerTable(search = "") {
 
 
 // =====================================================
-// CUSTOMER PROFILE
-// =====================================================
-
-function showCustomerProfile(customerId) {
-
-  const customer =
-    customers.find(
-      item =>
-        String(item.id) === String(customerId)
-    );
-
-  if (!customer) return;
-
-  const content =
-    document.getElementById("pageContent");
-
-  document.getElementById("pageTitle").textContent =
-    customer.name;
-
-  document.getElementById("pageSubtitle").textContent =
-    "Customer profile";
-
-  const customerJobs =
-    jobs.filter(
-      job =>
-        String(job.customer_id) ===
-        String(customer.id)
-    );
-
-  const customerQuotes =
-    quotes.filter(
-      quote =>
-        String(quote.customer_id) ===
-        String(customer.id)
-    );
-
-  const customerInvoices =
-    invoices.filter(
-      invoice =>
-        String(invoice.customer_id) ===
-        String(customer.id)
-    );
-
-  content.innerHTML = `
-
-    <div class="page-actions">
-
-      <button id="backCustomers" class="button secondary">
-        ← Customers
-      </button>
-
-      <div>
-        <button id="editCustomer" class="button primary">
-          Edit Customer
-        </button>
-
-        <button id="deleteCustomer" class="button danger">
-          Delete
-        </button>
-      </div>
-
-    </div>
-
-    <div class="content-grid">
-
-      <div class="panel">
-
-        <h2>Customer Details</h2>
-
-        <div class="detail-list">
-
-          <div>
-            <span>Name</span>
-            <strong>
-              ${escapeHtml(customer.name)}
-            </strong>
-          </div>
-
-          <div>
-            <span>Phone</span>
-            <strong>
-              ${escapeHtml(customer.phone || "—")}
-            </strong>
-          </div>
-
-          <div>
-            <span>Email</span>
-            <strong>
-              ${escapeHtml(customer.email || "—")}
-            </strong>
-          </div>
-
-          <div>
-            <span>Address</span>
-            <strong>
-              ${escapeHtml(customer.address_line1 || "—")}
-            </strong>
-          </div>
-
-          <div>
-            <span>Town / City</span>
-            <strong>
-              ${escapeHtml(customer.city || "—")}
-            </strong>
-          </div>
-
-          <div>
-            <span>Postcode</span>
-            <strong>
-              ${escapeHtml(customer.postcode || "—")}
-            </strong>
-          </div>
-
-          <div>
-            <span>Notes</span>
-            <strong>
-              ${escapeHtml(customer.notes || "—")}
-            </strong>
-          </div>
-
-        </div>
-
-      </div>
-
-      <div class="panel">
-
-        <h2>Activity</h2>
-
-        <div class="detail-list">
-
-          <div>
-            <span>Jobs</span>
-            <strong>${customerJobs.length}</strong>
-          </div>
-
-          <div>
-            <span>Quotes</span>
-            <strong>${customerQuotes.length}</strong>
-          </div>
-
-          <div>
-            <span>Invoices</span>
-            <strong>${customerInvoices.length}</strong>
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-  `;
-
-  document
-    .getElementById("backCustomers")
-    .addEventListener(
-      "click",
-      () => showPage("customers")
-    );
-
-  document
-    .getElementById("editCustomer")
-    .addEventListener(
-      "click",
-      () => showEditCustomerForm(customer.id)
-    );
-
-  document
-    .getElementById("deleteCustomer")
-    .addEventListener(
-      "click",
-      () => deleteCustomer(customer.id)
-    );
-}
-
-
-// =====================================================
 // ADD CUSTOMER
 // =====================================================
 
 function showAddCustomerForm() {
-
   const modal =
     document.createElement("div");
 
   modal.className = "modal show";
 
   modal.innerHTML = `
-
     <div class="modal-content">
 
       <div class="modal-header">
 
         <div>
           <h2>Add Customer</h2>
-          <p>Create a new customer.</p>
+          <p>Create a customer record.</p>
         </div>
 
         <button class="close">×</button>
@@ -1024,69 +845,33 @@ function showAddCustomerForm() {
       <form id="customerForm">
 
         <label>Name *</label>
-
-        <input
-          id="customerName"
-          required
-          placeholder="Customer name"
-        >
+        <input id="customerName" required>
 
         <label>Phone</label>
-
-        <input
-          id="customerPhone"
-          placeholder="Phone number"
-        >
+        <input id="customerPhone">
 
         <label>Email</label>
-
-        <input
-          id="customerEmail"
-          type="email"
-          placeholder="Email address"
-        >
+        <input id="customerEmail" type="email">
 
         <label>Address</label>
-
-        <input
-          id="customerAddress"
-          placeholder="Street address"
-        >
+        <input id="customerAddress">
 
         <label>Town / City</label>
-
-        <input
-          id="customerCity"
-          placeholder="Town / City"
-        >
+        <input id="customerCity">
 
         <label>Postcode</label>
-
-        <input
-          id="customerPostcode"
-          placeholder="Postcode"
-        >
+        <input id="customerPostcode">
 
         <label>Notes</label>
-
-        <textarea
-          id="customerNotes"
-          placeholder="Notes about this customer"
-        ></textarea>
+        <textarea id="customerNotes"></textarea>
 
         <div class="modal-actions">
 
-          <button
-            type="button"
-            class="button secondary close"
-          >
+          <button type="button" class="button secondary close">
             Cancel
           </button>
 
-          <button
-            type="submit"
-            class="button primary"
-          >
+          <button type="submit" class="button primary">
             Save Customer
           </button>
 
@@ -1116,30 +901,34 @@ function showAddCustomerForm() {
         event.preventDefault();
 
         const customer = {
-          user_id:
-            currentUser.id,
+          user_id: currentUser.id,
+
           name:
             document.getElementById("customerName").value.trim(),
+
           phone:
             document.getElementById("customerPhone").value.trim(),
+
           email:
             document.getElementById("customerEmail").value.trim(),
+
           address_line1:
             document.getElementById("customerAddress").value.trim(),
+
           city:
             document.getElementById("customerCity").value.trim(),
+
           postcode:
             document.getElementById("customerPostcode").value.trim(),
+
           notes:
             document.getElementById("customerNotes").value.trim()
         };
 
-        const { data, error } =
+        const { error } =
           await supabase
             .from("customers")
-            .insert(customer)
-            .select()
-            .single();
+            .insert(customer);
 
         if (error) {
           alert(error.message);
@@ -1148,11 +937,227 @@ function showAddCustomerForm() {
 
         modal.remove();
 
-        customers.unshift(data);
+        await loadCustomers();
 
-        showCustomerProfile(data.id);
+        renderCustomersPage(
+          document.getElementById("pageContent")
+        );
       }
     );
+}
+
+
+// =====================================================
+// CUSTOMER PROFILE
+// =====================================================
+
+function showCustomerProfile(customerId) {
+  const customer =
+    customers.find(
+      item =>
+        String(item.id) === String(customerId)
+    );
+
+  if (!customer) return;
+
+  const customerJobs =
+    jobs.filter(
+      job =>
+        String(job.customer_id) ===
+        String(customer.id)
+    );
+
+  const totalValue =
+    customerJobs.reduce(
+      (total, job) =>
+        total + Number(job.price || 0),
+      0
+    );
+
+  const content =
+    document.getElementById("pageContent");
+
+  document.getElementById("pageTitle").textContent =
+    customer.name;
+
+  document.getElementById("pageSubtitle").textContent =
+    "Customer profile";
+
+  content.innerHTML = `
+
+    <div class="page-actions">
+
+      <button id="backCustomers" class="button secondary">
+        ← Customers
+      </button>
+
+      <div>
+
+        <button id="editCustomer" class="button primary">
+          Edit Customer
+        </button>
+
+        <button id="deleteCustomer" class="button danger">
+          Delete
+        </button>
+
+      </div>
+
+    </div>
+
+    <div class="content-grid">
+
+      <div class="panel">
+
+        <h2>Customer Details</h2>
+
+        <div class="detail-list">
+
+          <div>
+            <span>Name</span>
+            <strong>${escapeHtml(customer.name)}</strong>
+          </div>
+
+          <div>
+            <span>Phone</span>
+            <strong>${escapeHtml(customer.phone || "—")}</strong>
+          </div>
+
+          <div>
+            <span>Email</span>
+            <strong>${escapeHtml(customer.email || "—")}</strong>
+          </div>
+
+          <div>
+            <span>Address</span>
+            <strong>${escapeHtml(customer.address_line1 || "—")}</strong>
+          </div>
+
+          <div>
+            <span>Town / City</span>
+            <strong>${escapeHtml(customer.city || "—")}</strong>
+          </div>
+
+          <div>
+            <span>Postcode</span>
+            <strong>${escapeHtml(customer.postcode || "—")}</strong>
+          </div>
+
+          <div>
+            <span>Notes</span>
+            <strong>${escapeHtml(customer.notes || "—")}</strong>
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="panel">
+
+        <h2>Customer Summary</h2>
+
+        <div class="stats">
+
+          <div class="stat-card">
+            <div>
+              <span>Jobs</span>
+              <strong>${customerJobs.length}</strong>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div>
+              <span>Job Value</span>
+              <strong>£${totalValue.toFixed(2)}</strong>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="panel">
+
+      <div class="panel-header">
+
+        <div>
+          <h2>Job History</h2>
+          <p>Previous and upcoming work.</p>
+        </div>
+
+      </div>
+
+      ${
+        customerJobs.length
+          ? customerJobs.map(job => `
+              <div
+                class="job-row"
+                style="cursor:pointer;"
+                data-history-job="${job.id}"
+              >
+
+                <div>
+
+                  <strong>
+                    ${escapeHtml(job.title)}
+                  </strong>
+
+                  <div class="muted">
+                    ${job.scheduled_date || "No date"}
+                  </div>
+
+                </div>
+
+                <strong>
+                  £${Number(job.price || 0).toFixed(2)}
+                </strong>
+
+              </div>
+            `).join("")
+          : `
+            <div class="empty-state">
+              <div class="empty-icon">📋</div>
+              <h3>No jobs yet</h3>
+              <p>This customer doesn't have any jobs.</p>
+            </div>
+          `
+      }
+
+    </div>
+  `;
+
+  document
+    .getElementById("backCustomers")
+    .addEventListener(
+      "click",
+      () => showPage("customers")
+    );
+
+  document
+    .getElementById("editCustomer")
+    .addEventListener(
+      "click",
+      () => showEditCustomerForm(customer.id)
+    );
+
+  document
+    .getElementById("deleteCustomer")
+    .addEventListener(
+      "click",
+      () => deleteCustomer(customer.id)
+    );
+
+  content
+    .querySelectorAll("[data-history-job]")
+    .forEach(row => {
+      row.addEventListener(
+        "click",
+        () =>
+          showJobProfile(row.dataset.historyJob)
+      );
+    });
 }
 
 
@@ -1161,7 +1166,6 @@ function showAddCustomerForm() {
 // =====================================================
 
 function showEditCustomerForm(customerId) {
-
   const customer =
     customers.find(
       item =>
@@ -1176,7 +1180,6 @@ function showEditCustomerForm(customerId) {
   modal.className = "modal show";
 
   modal.innerHTML = `
-
     <div class="modal-content">
 
       <div class="modal-header">
@@ -1598,8 +1601,11 @@ function showJobProfile(jobId) {
             <strong>
               ${
                 nextRecurringJob
-                  ? nextRecurringJob.scheduled_date || "No date"
-                  : "No upcoming appointment"
+                  ? (
+                      nextRecurringJob.scheduled_date ||
+                      "Not scheduled"
+                    )
+                  : "No future appointment"
               }
             </strong>
 
@@ -1607,11 +1613,98 @@ function showJobProfile(jobId) {
 
         </div>
 
+
+        <h3 style="margin-top:25px;">
+          Recurring Series
+        </h3>
+
+
+        <div>
+
+          ${
+            recurringJobs.length
+
+              ? recurringJobs.map(seriesJob => `
+
+                  <div
+                    class="job-row"
+                    style="
+                      cursor:pointer;
+                      margin-bottom:8px;
+                    "
+                    data-recurring-job-id="${seriesJob.id}"
+                  >
+
+                    <div>
+
+                      <strong>
+                        ${
+                          seriesJob.scheduled_date ||
+                          "No date"
+                        }
+                      </strong>
+
+                      <div class="muted">
+
+                        ${escapeHtml(
+                          seriesJob.title || "Job"
+                        )}
+
+                      </div>
+
+                    </div>
+
+
+                    <div>
+
+                      <span class="muted">
+
+                        ${escapeHtml(
+                          seriesJob.status ||
+                          "pending"
+                        )}
+
+                      </span>
+
+                      <strong>
+
+                        £${Number(
+                          seriesJob.price || 0
+                        ).toFixed(2)}
+
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+                `).join("")
+
+              : `
+
+                  <div class="empty-state">
+
+                    <p>
+                      No recurring appointments found.
+                    </p>
+
+                  </div>
+
+                `
+          }
+
+        </div>
+
       </div>
 
     `;
+
   }
 
+ 
+  // =====================================================
+  // PAGE
+  // =====================================================
 
   document.getElementById("pageTitle").textContent =
     job.title;
@@ -1619,25 +1712,68 @@ function showJobProfile(jobId) {
   document.getElementById("pageSubtitle").textContent =
     "Job details";
 
+
   content.innerHTML = `
 
     <div class="page-actions">
 
-      <button id="backJobs" class="button secondary">
+      <button
+        id="backJobs"
+        class="button secondary"
+      >
         ← Jobs
       </button>
 
+
       <div>
-        <button id="editJob" class="button primary">
+
+        <button
+          id="editJob"
+          class="button primary"
+        >
           Edit Job
         </button>
 
-        <button id="deleteJob" class="button danger">
+
+        ${
+          String(job.status).toLowerCase() ===
+          "invoiced"
+
+            ? `
+
+              <button
+                class="button secondary"
+                disabled
+              >
+                ✓ Invoiced
+              </button>
+
+            `
+
+            : `
+
+              <button
+                id="convertJobInvoice"
+                class="button primary"
+              >
+                🧾 Convert to Invoice
+              </button>
+
+            `
+        }
+
+
+        <button
+          id="deleteJob"
+          class="button danger"
+        >
           Delete
         </button>
+
       </div>
 
     </div>
+
 
     <div class="content-grid">
 
@@ -1648,66 +1784,131 @@ function showJobProfile(jobId) {
         <div class="detail-list">
 
           <div>
+
             <span>Customer</span>
+
             <strong>
+
               ${
                 customer
                   ? escapeHtml(customer.name)
                   : "Unknown customer"
               }
+
             </strong>
+
           </div>
 
+
           <div>
-            <span>Status</span>
+
+            <span>Title</span>
+
             <strong>
-              ${escapeHtml(job.status || "pending")}
+              ${escapeHtml(job.title)}
             </strong>
+
           </div>
 
+
           <div>
-            <span>Price</span>
+
+            <span>Description</span>
+
             <strong>
-              £${Number(job.price || 0).toFixed(2)}
+              ${escapeHtml(
+                job.description || "—"
+              )}
             </strong>
+
           </div>
 
+
           <div>
-            <span>Scheduled Date</span>
+
+            <span>Date</span>
+
             <strong>
               ${job.scheduled_date || "—"}
             </strong>
+
           </div>
 
+
           <div>
-            <span>Scheduled Time</span>
+
+            <span>Time</span>
+
             <strong>
               ${job.scheduled_time || "—"}
             </strong>
+
           </div>
 
+
           <div>
-            <span>Description</span>
+
+            <span>Status</span>
+
             <strong>
-              ${escapeHtml(job.description || "—")}
+              ${escapeHtml(
+                job.status || "pending"
+              )}
             </strong>
+
           </div>
 
+
           <div>
+
             <span>Notes</span>
+
             <strong>
-              ${escapeHtml(job.notes || "—")}
+              ${escapeHtml(
+                job.notes || "—"
+              )}
             </strong>
+
           </div>
 
         </div>
 
       </div>
 
-      ${recurringSection}
+
+      <div class="panel">
+
+        <h2>Job Value</h2>
+
+        <div class="detail-list">
+
+          <div>
+
+            <span>Price</span>
+
+            <strong>
+              £${Number(
+                job.price || 0
+              ).toFixed(2)}
+            </strong>
+
+          </div>
+
+        </div>
+
+      </div>
 
     </div>
+
+
+    ${recurringSection}
+
   `;
+
+
+  // =====================================================
+  // BUTTON EVENTS
+  // =====================================================
 
   document
     .getElementById("backJobs")
@@ -1716,12 +1917,14 @@ function showJobProfile(jobId) {
       () => showPage("jobs")
     );
 
+
   document
     .getElementById("editJob")
     .addEventListener(
       "click",
       () => showEditJobForm(job.id)
     );
+
 
   document
     .getElementById("deleteJob")
@@ -1730,24 +1933,77 @@ function showJobProfile(jobId) {
       () => deleteJob(job.id)
     );
 
-  if (isRecurring) {
 
-    document
-      .getElementById("skipRecurringJob")
-      .addEventListener(
-        "click",
-        () => skipNextRecurringJob(job.id)
-      );
+  const invoiceButton =
+    document.getElementById(
+      "convertJobInvoice"
+    );
 
-    document
-      .getElementById("stopRecurringJob")
-      .addEventListener(
-        "click",
-        () => stopRecurringJob(job.id)
-      );
+
+  if (invoiceButton) {
+
+    invoiceButton.addEventListener(
+      "click",
+      () =>
+        convertJobToInvoice(job.id)
+    );
+
   }
-}
 
+  // =====================================================
+  // RECURRING JOB BUTTONS
+  // =====================================================
+
+  const skipRecurringButton =
+    document.getElementById("skipRecurringJob");
+
+  if (skipRecurringButton) {
+
+    skipRecurringButton.addEventListener(
+      "click",
+      () => skipNextRecurringJob(job.id)
+    );
+
+  }
+
+
+  const stopRecurringButton =
+    document.getElementById("stopRecurringJob");
+
+  if (stopRecurringButton) {
+
+    stopRecurringButton.addEventListener(
+      "click",
+      () => stopRecurringJob(job.id)
+    );
+
+  }
+
+  
+  // =====================================================
+  // RECURRING SERIES CLICKS
+  // =====================================================
+
+  content
+    .querySelectorAll(
+      "[data-recurring-job-id]"
+    )
+    .forEach(row => {
+
+      row.addEventListener(
+        "click",
+        () => {
+
+          showJobProfile(
+            row.dataset.recurringJobId
+          );
+
+        }
+      );
+
+    });
+
+}
 
 // =====================================================
 // ADD JOB
@@ -1768,7 +2024,7 @@ function showAddJobForm() {
 
         <div>
           <h2>Add Job</h2>
-          <p>Create a new job.</p>
+          <p>Schedule work for a customer.</p>
         </div>
 
         <button class="close">×</button>
@@ -1793,87 +2049,127 @@ function showAddJobForm() {
 
         </select>
 
+
         <label>Job Title *</label>
 
         <input
           id="jobTitle"
           required
-          placeholder="e.g. Driveway cleaning"
+          placeholder="e.g. Window cleaning"
         >
+
 
         <label>Description</label>
 
         <textarea
           id="jobDescription"
-          placeholder="Describe the work..."
         ></textarea>
 
-        <label>Price (£)</label>
 
-        <input
-          id="jobPrice"
-          type="number"
-          step="0.01"
-          placeholder="0.00"
-        >
-
-        <label>Scheduled Date</label>
+        <label>Date</label>
 
         <input
           id="jobDate"
           type="date"
         >
 
-        <label>Scheduled Time</label>
+
+        <label>Time</label>
 
         <input
           id="jobTime"
           type="time"
         >
 
+
         <label>Status</label>
 
         <select id="jobStatus">
-          <option value="pending">Pending</option>
-          <option value="scheduled">Scheduled</option>
-          <option value="in_progress">In Progress</option>
-          <option value="completed">Completed</option>
-          <option value="invoiced">Invoiced</option>
-          <option value="cancelled">Cancelled</option>
+
+          <option value="pending">
+            Pending
+          </option>
+
+          <option value="scheduled">
+            Scheduled
+          </option>
+
+          <option value="completed">
+            Completed
+          </option>
+
+          <option value="cancelled">
+            Cancelled
+          </option>
+
         </select>
 
-        <label>
+
+        <!-- RECURRING JOB -->
+
+        <label>Recurring Job</label>
+
+        <label
+          style="
+            display:flex;
+            align-items:center;
+            gap:8px;
+          "
+        >
+
           <input
             type="checkbox"
             id="jobRecurring"
           >
-          Recurring job
+
+          Repeat this job
+
         </label>
 
+
         <div
-          id="recurringOptions"
-          style="display:none; margin-top:15px;"
+          id="jobRecurringOptions"
+          style="display:none;"
         >
 
-          <label>
-            Repeat every (weeks)
-          </label>
+          <label>Repeat Every</label>
 
-          <input
-            id="recurringInterval"
-            type="number"
-            min="1"
-            value="4"
-          >
+          <select id="jobRecurringInterval">
+
+            <option value="4">
+              Every 4 weeks
+            </option>
+
+            <option value="6">
+              Every 6 weeks
+            </option>
+
+            <option value="8">
+              Every 8 weeks
+            </option>
+
+          </select>
 
         </div>
+
+
+        <label>Price</label>
+
+        <input
+          id="jobPrice"
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder="0.00"
+        >
+
 
         <label>Notes</label>
 
         <textarea
           id="jobNotes"
-          placeholder="Internal notes"
         ></textarea>
+
 
         <div class="modal-actions">
 
@@ -1898,31 +2194,47 @@ function showAddJobForm() {
     </div>
   `;
 
+
   document.body.appendChild(modal);
 
-  modal.querySelectorAll(".close")
-    .forEach(button =>
+
+  // CLOSE MODAL
+
+  modal
+    .querySelectorAll(".close")
+    .forEach(button => {
+
       button.addEventListener(
         "click",
         () => modal.remove()
-      )
-    );
+      );
+
+    });
+
+
+  // RECURRING JOB TOGGLE
 
   const recurringCheckbox =
-    document.getElementById("jobRecurring");
+    modal.querySelector("#jobRecurring");
 
   const recurringOptions =
-    document.getElementById("recurringOptions");
+    modal.querySelector("#jobRecurringOptions");
+
 
   recurringCheckbox.addEventListener(
     "change",
     () => {
+
       recurringOptions.style.display =
         recurringCheckbox.checked
           ? "block"
           : "none";
+
     }
   );
+
+
+  // SAVE JOB
 
   modal
     .querySelector("#jobForm")
@@ -1932,13 +2244,20 @@ function showAddJobForm() {
 
         event.preventDefault();
 
+
         const recurring =
-          document.getElementById("jobRecurring").checked;
+          recurringCheckbox.checked;
+
 
         const recurringInterval =
-          Number(
-            document.getElementById("recurringInterval").value
-          ) || 4;
+          recurring
+            ? Number(
+                modal.querySelector(
+                  "#jobRecurringInterval"
+                ).value
+              )
+            : null;
+
 
         const job = {
 
@@ -1946,222 +2265,730 @@ function showAddJobForm() {
             currentUser.id,
 
           customer_id:
-            document.getElementById("jobCustomer").value,
+            modal.querySelector(
+              "#jobCustomer"
+            ).value,
 
           title:
-            document.getElementById("jobTitle").value.trim(),
+            modal.querySelector(
+              "#jobTitle"
+            ).value.trim(),
 
           description:
-            document.getElementById("jobDescription").value.trim(),
+            modal.querySelector(
+              "#jobDescription"
+            ).value.trim(),
 
           scheduled_date:
-            document.getElementById("jobDate").value || null,
+            modal.querySelector(
+              "#jobDate"
+            ).value || null,
 
           scheduled_time:
-            document.getElementById("jobTime").value || null,
+            modal.querySelector(
+              "#jobTime"
+            ).value || null,
 
           status:
-            document.getElementById("jobStatus").value,
+            modal.querySelector(
+              "#jobStatus"
+            ).value,
 
           price:
             Number(
-              document.getElementById("jobPrice").value
+              modal.querySelector(
+                "#jobPrice"
+              ).value
             ) || 0,
 
           notes:
-            document.getElementById("jobNotes").value.trim(),
+            modal.querySelector(
+              "#jobNotes"
+            ).value.trim(),
 
           recurring:
             recurring,
 
           recurring_interval_weeks:
-            recurring ? recurringInterval : null,
-
-          recurring_parent_id:
-            null,
+            recurringInterval,
 
           recurring_active:
             recurring
+
         };
 
-        const {
-          data: createdJob,
-          error
-        } =
+        // Save the first appointment
+        const { data: savedJob, error } =
           await supabase
             .from("jobs")
             .insert(job)
             .select()
             .single();
 
+
         if (error) {
-          alert(error.message);
+
+          alert(
+            "The job could not be saved:\n\n" +
+            error.message
+          );
+
           return;
+
         }
+
+
+        // =====================================================
+        // CREATE NEXT RECURRING APPOINTMENT
+        // =====================================================
+
+        if (
+          recurring &&
+          recurringInterval &&
+          savedJob
+        ) {
+
+          if (savedJob.scheduled_date) {
+
+            const nextDate =
+              new Date(
+                `${savedJob.scheduled_date}T12:00:00`
+              );
+
+            nextDate.setDate(
+              nextDate.getDate() +
+              (recurringInterval * 7)
+            );
+
+
+            const nextScheduledDate =
+              nextDate
+                .toISOString()
+                .split("T")[0];
+
+
+            const nextJob = {
+
+              user_id:
+                currentUser.id,
+
+              customer_id:
+                savedJob.customer_id,
+
+              title:
+                savedJob.title,
+
+              description:
+                savedJob.description,
+
+              scheduled_date:
+                nextScheduledDate,
+
+              scheduled_time:
+                savedJob.scheduled_time,
+
+              status:
+                "scheduled",
+
+              price:
+                savedJob.price,
+
+              notes:
+                savedJob.notes,
+
+              recurring:
+                true,
+
+              recurring_interval_weeks:
+                recurringInterval,
+
+              recurring_parent_id:
+                savedJob.id,
+
+              recurring_active:
+                true
+
+            };
+
+
+            const {
+              error: nextJobError
+            } =
+              await supabase
+                .from("jobs")
+                .insert(nextJob);
+
+
+            if (nextJobError) {
+
+              alert(
+                "The first appointment was saved, " +
+                "but the next recurring appointment " +
+                "could not be created:\n\n" +
+                nextJobError.message
+              );
+
+              modal.remove();
+
+              await loadJobs();
+
+              showPage("jobs");
+
+              return;
+
+            }
+
+          }
+
+        }
+
 
         modal.remove();
 
-        jobs.unshift(createdJob);
+        await loadJobs();
 
-        if (recurring) {
+        showPage("jobs");
+        
 
-          await createRecurringAppointments(
-            createdJob,
+      }
+    );
+
+}
+
+// =====================================================
+// EDIT JOB
+// =====================================================
+
+function showEditJobForm(jobId) {
+
+  const job =
+    jobs.find(
+      item =>
+        String(item.id) === String(jobId)
+    );
+
+  if (!job) return;
+
+  const modal =
+    document.createElement("div");
+
+  modal.className = "modal show";
+
+  const isRecurring =
+    job.recurring === true ||
+    job.recurring === "true";
+
+  const recurringInterval =
+    Number(job.recurring_interval_weeks) || 4;
+
+  modal.innerHTML = `
+
+    <div class="modal-content">
+
+      <div class="modal-header">
+
+        <div>
+          <h2>Edit Job</h2>
+          <p>Update job details.</p>
+        </div>
+
+        <button class="close">×</button>
+
+      </div>
+
+      <form id="editJobForm">
+
+        <label>Customer *</label>
+
+        <select id="editJobCustomer" required>
+
+          ${customers.map(customer => `
+            <option
+              value="${customer.id}"
+              ${
+                String(customer.id) ===
+                String(job.customer_id)
+                  ? "selected"
+                  : ""
+              }
+            >
+              ${escapeHtml(customer.name)}
+            </option>
+          `).join("")}
+
+        </select>
+
+
+        <label>Job Title *</label>
+
+        <input
+          id="editJobTitle"
+          value="${escapeHtml(job.title || "")}"
+          required
+        >
+
+
+        <label>Description</label>
+
+        <textarea
+          id="editJobDescription"
+        >${escapeHtml(job.description || "")}</textarea>
+
+
+        <label>Date</label>
+
+        <input
+          id="editJobDate"
+          type="date"
+          value="${job.scheduled_date || ""}"
+        >
+
+
+        <label>Time</label>
+
+        <input
+          id="editJobTime"
+          type="time"
+          value="${job.scheduled_time || ""}"
+        >
+
+
+        <label>Status</label>
+
+        <select id="editJobStatus">
+
+          <option
+            value="pending"
+            ${job.status === "pending" ? "selected" : ""}
+          >
+            Pending
+          </option>
+
+          <option
+            value="scheduled"
+            ${job.status === "scheduled" ? "selected" : ""}
+          >
+            Scheduled
+          </option>
+
+          <option
+            value="completed"
+            ${job.status === "completed" ? "selected" : ""}
+          >
+            Completed
+          </option>
+
+          <option
+            value="cancelled"
+            ${job.status === "cancelled" ? "selected" : ""}
+          >
+            Cancelled
+          </option>
+
+          <option
+            value="invoiced"
+            ${job.status === "invoiced" ? "selected" : ""}
+          >
+            Invoiced
+          </option>
+
+        </select>
+
+
+        <!-- RECURRING JOB -->
+
+        <label>Recurring Job</label>
+
+        <label
+          style="
+            display:flex;
+            align-items:center;
+            gap:8px;
+          "
+        >
+
+          <input
+            type="checkbox"
+            id="editJobRecurring"
+            ${isRecurring ? "checked" : ""}
+          >
+
+          Repeat this job
+
+        </label>
+
+
+        <div
+          id="editJobRecurringOptions"
+          style="
+            display:${isRecurring ? "block" : "none"};
+          "
+        >
+
+          <label>Repeat Every</label>
+
+          <select id="editJobRecurringInterval">
+
+            <option
+              value="4"
+              ${recurringInterval === 4 ? "selected" : ""}
+            >
+              Every 4 weeks
+            </option>
+
+            <option
+              value="6"
+              ${recurringInterval === 6 ? "selected" : ""}
+            >
+              Every 6 weeks
+            </option>
+
+            <option
+              value="8"
+              ${recurringInterval === 8 ? "selected" : ""}
+            >
+              Every 8 weeks
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <label>Price</label>
+
+        <input
+          id="editJobPrice"
+          type="number"
+          step="0.01"
+          min="0"
+          value="${Number(job.price || 0).toFixed(2)}"
+        >
+
+
+        <label>Notes</label>
+
+        <textarea
+          id="editJobNotes"
+        >${escapeHtml(job.notes || "")}</textarea>
+
+
+        <div class="modal-actions">
+
+          <button
+            type="button"
+            class="button secondary close"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="button primary"
+          >
+            Save Changes
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+
+  // CLOSE MODAL
+
+  modal
+    .querySelectorAll(".close")
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () => modal.remove()
+      );
+
+    });
+
+
+  // RECURRING TOGGLE
+
+  const recurringCheckbox =
+    modal.querySelector("#editJobRecurring");
+
+  const recurringOptions =
+    modal.querySelector("#editJobRecurringOptions");
+
+
+  recurringCheckbox.addEventListener(
+    "change",
+    () => {
+
+      recurringOptions.style.display =
+        recurringCheckbox.checked
+          ? "block"
+          : "none";
+
+    }
+  );
+
+
+  // SAVE CHANGES
+
+  modal
+    .querySelector("#editJobForm")
+    .addEventListener(
+      "submit",
+      async event => {
+
+        event.preventDefault();
+
+
+        const recurring =
+          recurringCheckbox.checked;
+
+
+        const recurringInterval =
+          recurring
+            ? Number(
+                modal.querySelector(
+                  "#editJobRecurringInterval"
+                ).value
+              )
+            : null;
+
+
+        const updates = {
+
+          customer_id:
+            modal.querySelector(
+              "#editJobCustomer"
+            ).value,
+
+          title:
+            modal.querySelector(
+              "#editJobTitle"
+            ).value.trim(),
+
+          description:
+            modal.querySelector(
+              "#editJobDescription"
+            ).value.trim(),
+
+          scheduled_date:
+            modal.querySelector(
+              "#editJobDate"
+            ).value || null,
+
+          scheduled_time:
+            modal.querySelector(
+              "#editJobTime"
+            ).value || null,
+
+          status:
+            modal.querySelector(
+              "#editJobStatus"
+            ).value,
+
+          price:
+            Number(
+              modal.querySelector(
+                "#editJobPrice"
+              ).value
+            ) || 0,
+
+          notes:
+            modal.querySelector(
+              "#editJobNotes"
+            ).value.trim(),
+
+          recurring:
+            recurring,
+
+          recurring_interval_weeks:
             recurringInterval
+
+        };
+
+
+        const { error } =
+          await supabase
+            .from("jobs")
+            .update(updates)
+            .eq("id", job.id);
+
+        if (error) {
+
+          alert(
+            "The job could not be updated:\n\n" +
+            error.message
           );
 
-          await loadJobs();
+          return;
 
         }
 
-        showJobProfile(createdJob.id);
+
+        // =====================================================
+        // CREATE NEXT RECURRING APPOINTMENT
+        // WHEN THIS ONE IS COMPLETED
+        // =====================================================
+
+        if (
+          updates.status === "completed" &&
+          job.recurring &&
+          job.recurring_active
+        ) {
+
+          const completedJob = {
+            ...job,
+            ...updates
+          };
+
+          await createNextRecurringAppointment(
+            completedJob
+          );
+
+        }
+
+        
+        modal.remove();
+
+        await loadJobs();
+
+        showJobProfile(job.id);
       }
     );
+
 }
-
-
-// =====================================================
-// CREATE RECURRING APPOINTMENTS
-// =====================================================
-
-async function createRecurringAppointments(
-  parentJob,
-  intervalWeeks
-) {
-
-  const baseDate =
-    parentJob.scheduled_date;
-
-  if (!baseDate) return;
-
-  const appointments = [];
-
-  let currentDate =
-    new Date(baseDate + "T00:00:00");
-
-  for (let i = 1; i <= 12; i++) {
-
-    currentDate.setDate(
-      currentDate.getDate() +
-      intervalWeeks * 7
-    );
-
-    const nextDate =
-      currentDate
-        .toISOString()
-        .split("T")[0];
-
-    appointments.push({
-      user_id:
-        currentUser.id,
-      customer_id:
-        parentJob.customer_id,
-      title:
-        parentJob.title,
-      description:
-        parentJob.description,
-      scheduled_date:
-        nextDate,
-      scheduled_time:
-        parentJob.scheduled_time,
-      status:
-        "pending",
-      price:
-        parentJob.price,
-      notes:
-        parentJob.notes,
-      recurring:
-        true,
-      recurring_interval_weeks:
-        intervalWeeks,
-      recurring_parent_id:
-        parentJob.id,
-      recurring_active:
-        true
-    });
-  }
-
-  const { error } =
-    await supabase
-      .from("jobs")
-      .insert(appointments);
-
-  if (error) {
-
-    console.error(
-      "Recurring appointment creation failed:",
-      error
-    );
-
-    alert(
-      "The main job was created, but the recurring appointments could not be created.\n\n" +
-      error.message
-    );
-  }
-}
-
 
 // =====================================================
 // CREATE NEXT RECURRING APPOINTMENT
 // =====================================================
 
-async function createNextRecurringAppointment(job) {
+async function createNextRecurringAppointment(sourceJob) {
 
-  if (!job.scheduled_date) return null;
+  if (
+    !sourceJob ||
+    !sourceJob.recurring ||
+    !sourceJob.recurring_active
+  ) {
+    return null;
+  }
 
-  const nextDate =
-    new Date(job.scheduled_date + "T00:00:00");
+  if (!sourceJob.scheduled_date) {
+    return null;
+  }
 
-  nextDate.setDate(
-    nextDate.getDate() +
-    (Number(job.recurring_interval_weeks) || 4) * 7
-  );
 
-  const nextDateString =
-    nextDate
+  const interval =
+    Number(
+      sourceJob.recurring_interval_weeks
+    ) || 4;
+
+
+  const seriesId =
+    sourceJob.recurring_parent_id ||
+    sourceJob.id;
+
+
+  let candidateDate =
+    new Date(
+      `${sourceJob.scheduled_date}T12:00:00`
+    );
+
+
+  // Keep moving forward until we find
+  // a date that does not already exist.
+
+  let existingJob = true;
+
+
+  while (existingJob) {
+
+    candidateDate.setDate(
+      candidateDate.getDate() +
+      (interval * 7)
+    );
+
+
+    const candidateDateString =
+      candidateDate
+        .toISOString()
+        .split("T")[0];
+
+
+    existingJob =
+      jobs.find(item => {
+
+        const itemSeriesId =
+          item.recurring_parent_id ||
+          item.id;
+
+        return (
+          String(itemSeriesId) ===
+          String(seriesId) &&
+
+          String(item.scheduled_date) ===
+          String(candidateDateString)
+        );
+
+      });
+
+  }
+
+
+  const nextScheduledDate =
+    candidateDate
       .toISOString()
       .split("T")[0];
 
+
   const nextJob = {
+
     user_id:
-      currentUser.id,
+      sourceJob.user_id,
 
     customer_id:
-      job.customer_id,
+      sourceJob.customer_id,
 
     title:
-      job.title,
+      sourceJob.title,
 
     description:
-      job.description,
+      sourceJob.description,
 
     scheduled_date:
-      nextDateString,
+      nextScheduledDate,
 
     scheduled_time:
-      job.scheduled_time,
+      sourceJob.scheduled_time,
 
     status:
-      "pending",
+      "scheduled",
 
     price:
-      job.price,
+      sourceJob.price,
 
     notes:
-      job.notes,
+      sourceJob.notes,
 
     recurring:
       true,
 
     recurring_interval_weeks:
-      job.recurring_interval_weeks,
+      interval,
 
     recurring_parent_id:
-      job.recurring_parent_id || job.id,
+      seriesId,
 
     recurring_active:
-      job.recurring_active !== false
+      true
+
   };
+
 
   const {
     data,
@@ -2238,30 +3065,47 @@ async function skipNextRecurringJob(jobId) {
   const nextJob =
     jobs
       .filter(item => {
+
         const itemSeriesId =
           item.recurring_parent_id ||
           item.id;
 
         return (
-          String(itemSeriesId) === String(currentSeriesId) &&
-          String(item.id) !== String(job.id) &&
-          String(item.status).toLowerCase() !== "completed" &&
-          String(item.status).toLowerCase() !== "cancelled"
+          String(itemSeriesId) ===
+          String(currentSeriesId) &&
+
+          String(item.id) !==
+          String(job.id) &&
+
+          String(item.status).toLowerCase() !==
+          "completed" &&
+
+          String(item.status).toLowerCase() !==
+          "cancelled"
         );
+
       })
       .sort((a, b) => {
+
         const dateA =
-          a.scheduled_date || "9999-12-31";
+          a.scheduled_date ||
+          "9999-12-31";
+
         const dateB =
-          b.scheduled_date || "9999-12-31";
+          b.scheduled_date ||
+          "9999-12-31";
+
         return dateA.localeCompare(dateB);
+
       })[0];
 
 
   if (!nextJob) {
+
     alert(
       "There is no upcoming recurring appointment to skip."
     );
+
     return;
   }
 
@@ -2276,17 +3120,28 @@ async function skipNextRecurringJob(jobId) {
 
 
   if (error) {
+
     alert(
       "Could not skip the appointment:\n\n" +
       error.message
     );
+
     return;
   }
 
 
-  await createNextRecurringAppointment(nextJob);
+  // Create the appointment after
+  // the skipped appointment.
+
+  await createNextRecurringAppointment(
+    nextJob
+  );
+
+
   await loadJobs();
+
   showJobProfile(job.id);
+
 
   alert(
     "The next recurring appointment has been skipped."
@@ -2308,9 +3163,11 @@ async function stopRecurringJob(jobId) {
   if (!job) return;
 
   if (!job.recurring) {
+
     alert(
       "This job is not a recurring job."
     );
+
     return;
   }
 
@@ -2338,14 +3195,17 @@ async function stopRecurringJob(jobId) {
 
 
   if (error) {
+
     alert(
       "Could not stop recurring:\n\n" +
       error.message
     );
+
     return;
   }
 
   await loadJobs();
+
   showJobProfile(job.id);
 
   alert(
@@ -2368,7 +3228,7 @@ async function deleteJob(jobId) {
 
   const confirmed =
     confirm(
-      `Delete \"${job.title}\"? This cannot be undone.`
+      `Delete "${job.title}"? This cannot be undone.`
     );
 
   if (!confirmed) return;
@@ -2385,6 +3245,7 @@ async function deleteJob(jobId) {
   }
 
   await loadJobs();
+
   showPage("jobs");
 }
 
@@ -2414,42 +3275,84 @@ function renderQuotesPage(content) {
       ${
         quotes.length
           ? quotes.map(quote => {
+
               const customer =
                 customers.find(
-                  c => String(c.id) === String(quote.customer_id)
+                  c =>
+                    String(c.id) ===
+                    String(quote.customer_id)
                 );
 
               return `
+
                 <div class="job-row">
+
                   <div>
+
                     <strong>
-                      Quote #${escapeHtml(quote.quote_number || "—")}
+                      Quote #${escapeHtml(
+                        quote.quote_number || "—"
+                      )}
                     </strong>
+
                     <div class="muted">
-                      ${customer ? escapeHtml(customer.name) : "Unknown customer"}
-                      ${quote.valid_until ? " • Valid until " + quote.valid_until : ""}
+
+                      ${
+                        customer
+                          ? escapeHtml(customer.name)
+                          : "Unknown customer"
+                      }
+
+                      ${
+                        quote.valid_until
+                          ? " • Valid until " +
+                            quote.valid_until
+                          : ""
+                      }
+
                     </div>
+
                   </div>
+
                   <div>
+
                     <strong>
-                      £${Number(quote.total || 0).toFixed(2)}
+                      £${Number(
+                        quote.total || 0
+                      ).toFixed(2)}
                     </strong>
+
                     <span class="muted">
-                      ${escapeHtml(quote.status || "draft")}
+                      ${escapeHtml(
+                        quote.status || "draft"
+                      )}
                     </span>
-                    <button class="button secondary quote-view" data-quote-id="${quote.id}">
+
+                    <button
+                      class="button secondary quote-view"
+                      data-quote-id="${quote.id}"
+                    >
                       View
                     </button>
+
                   </div>
+
                 </div>
+
               `;
             }).join("")
           : `
+
             <div class="empty-state">
+
               <div class="empty-icon">💷</div>
+
               <h3>No quotes yet</h3>
+
               <p>Create your first quote.</p>
+
             </div>
+
           `
       }
 
@@ -2463,15 +3366,15 @@ function renderQuotesPage(content) {
       showAddQuoteForm
     );
 
-  document
+  content
     .querySelectorAll(".quote-view")
     .forEach(button => {
       button.addEventListener(
         "click",
-        event => {
-          event.stopPropagation();
-          showQuoteProfile(button.dataset.quoteId);
-        }
+        () =>
+          showQuoteProfile(
+            button.dataset.quoteId
+          )
       );
     });
 }
@@ -2482,285 +3385,574 @@ function renderQuotesPage(content) {
 // =====================================================
 
 function showAddQuoteForm() {
+
   const modal = document.createElement("div");
+
   modal.className = "modal show";
 
-  const quoteNumber = generateQuoteNumber();
+  const settings = JSON.parse(
+    localStorage.getItem("jobpilot_settings") || "{}"
+  );
+
+  let nextNumber =
+    Number(settings.nextQuoteNumber) || 1;
+
+  const prefix =
+    settings.quotePrefix || "QUO-";
+
+  const quoteNumber =
+    `${prefix}${String(nextNumber).padStart(4, "0")}`;
+
+  const defaultVatRate =
+    Number(settings.vatRate ?? 20);
 
   modal.innerHTML = `
+
     <div class="modal-content">
+
       <div class="modal-header">
+
         <div>
           <h2>New Quote</h2>
-          <p>Create a quotation.</p>
+          <p>Create a quotation for a customer.</p>
         </div>
+
         <button class="close">×</button>
+
       </div>
+
       <form id="quoteForm">
+
         <label>Customer *</label>
+
         <select id="quoteCustomer" required>
-          <option value="">Select customer</option>
+
+          <option value="">
+            Select customer
+          </option>
+
           ${customers.map(customer => `
             <option value="${customer.id}">
               ${escapeHtml(customer.name)}
             </option>
           `).join("")}
+
         </select>
+
+
         <label>Quote Number *</label>
-        <input id="quoteNumber" value="${escapeHtml(quoteNumber)}" required>
-        <label>Description</label>
-        <textarea id="quoteDescription" placeholder="What is this quote for?"></textarea>
+
+        <input
+          id="quoteNumber"
+          value="${escapeHtml(quoteNumber)}"
+          required
+        >
+
+
+        <label>Job / Quote Details *</label>
+
+        <textarea
+          id="quoteDescription"
+          placeholder="Describe the work being quoted..."
+          required
+        ></textarea>
+
+
+        <h3>Pricing</h3>
+
         <label>Subtotal</label>
-        <input id="quoteSubtotal" type="number" step="0.01" value="0">
+
+        <input
+          id="quoteSubtotal"
+          type="number"
+          step="0.01"
+          min="0"
+          value="0"
+        >
+
+
         <label>VAT %</label>
-        <input id="quoteVatPercent" type="number" step="0.01" value="20">
+
+        <input
+          id="quoteVatPercent"
+          type="number"
+          step="0.01"
+          min="0"
+          value="${defaultVatRate}"
+        >
+
+
         <label>VAT</label>
-        <input id="quoteVat" type="number" step="0.01" value="0" readonly>
+
+        <input
+          id="quoteVat"
+          type="number"
+          step="0.01"
+          value="0"
+          readonly
+        >
+
+
         <label>Total</label>
-        <input id="quoteTotal" type="number" step="0.01" value="0" readonly>
-        <label>Status</label>
-        <select id="quoteStatus">
-          <option value="draft">Draft</option>
-          <option value="sent">Sent</option>
-          <option value="accepted">Accepted</option>
-          <option value="rejected">Rejected</option>
-        </select>
+
+        <input
+          id="quoteTotal"
+          type="number"
+          step="0.01"
+          value="0"
+          readonly
+        >
+
+
         <label>Valid Until</label>
-        <input id="quoteValidUntil" type="date">
+
+        <input
+          id="quoteValidUntil"
+          type="date"
+        >
+
+
         <label>Notes</label>
-        <textarea id="quoteNotes"></textarea>
-        <div class="modal-actions">
-          <button type="button" class="button secondary close">Cancel</button>
-          <button type="submit" class="button primary">Save Quote</button>
+
+        <textarea
+          id="quoteNotes"
+          placeholder="Additional notes or terms..."
+        ></textarea>
+
+
+        <h3>Recurring Job</h3>
+
+        <label>
+
+          <input
+            type="checkbox"
+            id="quoteRecurring"
+          >
+
+          Make this a recurring job
+
+        </label>
+
+
+        <div
+          id="recurringOptions"
+          style="display:none;"
+        >
+
+          <label>Repeat Every</label>
+
+          <select id="quoteRecurringInterval">
+
+            <option value="4">
+              Every 4 weeks
+            </option>
+
+            <option value="6">
+              Every 6 weeks
+            </option>
+
+            <option value="8">
+              Every 8 weeks
+            </option>
+
+          </select>
+
         </div>
+
+
+        <div class="modal-actions">
+
+          <button
+            type="button"
+            class="button secondary close"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="button primary"
+          >
+            Save Quote
+          </button>
+
+        </div>
+
       </form>
+
     </div>
   `;
 
   document.body.appendChild(modal);
 
-  modal.querySelectorAll(".close")
-    .forEach(button =>
-      button.addEventListener("click", () => modal.remove())
-    );
 
-  const subtotalInput = modal.querySelector("#quoteSubtotal");
-  const vatPercentInput = modal.querySelector("#quoteVatPercent");
-  const vatInput = modal.querySelector("#quoteVat");
-  const totalInput = modal.querySelector("#quoteTotal");
+  // CLOSE MODAL
 
-  function calculateQuote() {
-    const subtotal = Number(subtotalInput.value) || 0;
-    const vatPercent = Number(vatPercentInput.value) || 0;
-    const vat = subtotal * vatPercent / 100;
-    vatInput.value = vat.toFixed(2);
-    totalInput.value = (subtotal + vat).toFixed(2);
+  modal
+    .querySelectorAll(".close")
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () => modal.remove()
+      );
+
+    });
+
+
+  // PRICING
+
+  const subtotalInput =
+    modal.querySelector("#quoteSubtotal");
+
+  const vatPercentInput =
+    modal.querySelector("#quoteVatPercent");
+
+  const vatInput =
+    modal.querySelector("#quoteVat");
+
+  const totalInput =
+    modal.querySelector("#quoteTotal");
+
+
+  function updateQuoteTotal() {
+
+    const subtotal =
+      Number(subtotalInput.value) || 0;
+
+    const vatPercent =
+      Number(vatPercentInput.value) || 0;
+
+    const vat =
+      subtotal * vatPercent / 100;
+
+    vatInput.value =
+      vat.toFixed(2);
+
+    totalInput.value =
+      (subtotal + vat).toFixed(2);
+
   }
 
-  subtotalInput.addEventListener("input", calculateQuote);
-  vatPercentInput.addEventListener("input", calculateQuote);
-  calculateQuote();
+
+  subtotalInput.addEventListener(
+    "input",
+    updateQuoteTotal
+  );
+
+  vatPercentInput.addEventListener(
+    "input",
+    updateQuoteTotal
+  );
+
+  updateQuoteTotal();
+
+
+  // RECURRING OPTIONS
+
+  const recurringCheckbox =
+    modal.querySelector("#quoteRecurring");
+
+  const recurringOptions =
+    modal.querySelector("#recurringOptions");
+
+
+  recurringCheckbox.addEventListener(
+    "change",
+    () => {
+
+      recurringOptions.style.display =
+        recurringCheckbox.checked
+          ? "block"
+          : "none";
+
+    }
+  );
+
+
+  // SAVE QUOTE
 
   modal
     .querySelector("#quoteForm")
-    .addEventListener("submit", async event => {
-      event.preventDefault();
+    .addEventListener(
+      "submit",
+      async event => {
 
-      const quote = {
-        user_id: currentUser.id,
-        customer_id: document.getElementById("quoteCustomer").value,
-        quote_number: document.getElementById("quoteNumber").value.trim(),
-        description: document.getElementById("quoteDescription").value.trim(),
-        status: document.getElementById("quoteStatus").value,
-        subtotal: Number(document.getElementById("quoteSubtotal").value) || 0,
-        vat: Number(document.getElementById("quoteVat").value) || 0,
-        total: Number(document.getElementById("quoteTotal").value) || 0,
-        valid_until: document.getElementById("quoteValidUntil").value || null,
-        notes: document.getElementById("quoteNotes").value.trim()
-      };
+        event.preventDefault();
 
-      const { data, error } = await supabase
-        .from("quotes")
-        .insert(quote)
-        .select()
-        .single();
 
-      if (error) {
-        alert(error.message);
-        return;
+        const recurring =
+          recurringCheckbox.checked;
+
+
+        const quote = {
+
+          user_id:
+            currentUser.id,
+
+          customer_id:
+            modal.querySelector(
+              "#quoteCustomer"
+            ).value,
+
+          quote_number:
+            modal.querySelector(
+              "#quoteNumber"
+            ).value.trim(),
+
+          status:
+            "draft",
+
+          description:
+            modal.querySelector(
+              "#quoteDescription"
+            ).value.trim(),
+
+          subtotal:
+            Number(
+              modal.querySelector(
+                "#quoteSubtotal"
+              ).value
+            ) || 0,
+
+          vat:
+            Number(
+              modal.querySelector(
+                "#quoteVat"
+              ).value
+            ) || 0,
+
+          total:
+            Number(
+              modal.querySelector(
+                "#quoteTotal"
+              ).value
+            ) || 0,
+
+          notes:
+            modal.querySelector(
+              "#quoteNotes"
+            ).value.trim(),
+
+          valid_until:
+            modal.querySelector(
+              "#quoteValidUntil"
+            ).value || null,
+
+        
+
+        };
+
+
+        const { error } =
+          await supabase
+            .from("quotes")
+            .insert(quote);
+
+
+        if (error) {
+
+          alert(
+            "The quote could not be saved:\n\n" +
+            error.message
+          );
+
+          return;
+
+        }
+
+
+        // Increase next quote number
+
+        settings.nextQuoteNumber =
+          nextNumber + 1;
+
+        localStorage.setItem(
+          "jobpilot_settings",
+          JSON.stringify(settings)
+        );
+
+
+        modal.remove();
+
+        await loadQuotes();
+
+        showPage("quotes");
+
       }
+    );
 
-      modal.remove();
-      quotes.unshift(data);
-      showQuoteProfile(data.id);
-    });
 }
-
 
 // =====================================================
 // QUOTE PROFILE
 // =====================================================
 
 function showQuoteProfile(quoteId) {
-  const quote = quotes.find(q => String(q.id) === String(quoteId));
+  const quote =
+    quotes.find(
+      q =>
+        String(q.id) === String(quoteId)
+    );
+
   if (!quote) return;
 
-  const customer = customers.find(c => String(c.id) === String(quote.customer_id));
-  const content = document.getElementById("pageContent");
+  const customer =
+    customers.find(
+      c =>
+        String(c.id) ===
+        String(quote.customer_id)
+    );
 
-  document.getElementById("pageTitle").textContent = `Quote #${quote.quote_number || "—"}`;
-  document.getElementById("pageSubtitle").textContent = "Quote details";
+  const content =
+    document.getElementById("pageContent");
+
+  document.getElementById("pageTitle").textContent =
+    `Quote #${quote.quote_number || "—"}`;
+
+  document.getElementById("pageSubtitle").textContent =
+    "Quote details";
 
   content.innerHTML = `
+
     <div class="page-actions">
-      <button id="backQuotes" class="button secondary">← Quotes</button>
+
+      <button id="backQuotes" class="button secondary">
+        ← Quotes
+      </button>
+
       <div>
-        <button id="editQuote" class="button primary">Edit Quote</button>
-        <button id="deleteQuote" class="button danger">Delete</button>
+
+        ${
+          quote.status !== "converted"
+            ? `
+              <button id="convertQuote" class="button primary">
+                📋 Convert to Job
+              </button>
+            `
+            : `
+              <button class="button secondary" disabled>
+                ✓ Converted to Job
+              </button>
+            `
+        }
+
+        <button id="deleteQuote" class="button danger">
+          Delete
+        </button>
+
       </div>
+
     </div>
+
     <div class="content-grid">
+
       <div class="panel">
+
         <h2>Quote Details</h2>
+
         <div class="detail-list">
-          <div><span>Quote Number</span><strong>${escapeHtml(quote.quote_number || "—")}</strong></div>
-          <div><span>Customer</span><strong>${customer ? escapeHtml(customer.name) : "Unknown customer"}</strong></div>
-          <div><span>Status</span><strong>${escapeHtml(quote.status || "draft")}</strong></div>
-          <div><span>Description</span><strong>${escapeHtml(quote.description || "—")}</strong></div>
-          <div><span>Valid Until</span><strong>${quote.valid_until || "—"}</strong></div>
-          <div><span>Notes</span><strong>${escapeHtml(quote.notes || "—")}</strong></div>
+
+          <div>
+            <span>Quote Number</span>
+            <strong>
+              ${escapeHtml(quote.quote_number || "—")}
+            </strong>
+          </div>
+
+          <div>
+            <span>Customer</span>
+            <strong>
+              ${
+                customer
+                  ? escapeHtml(customer.name)
+                  : "Unknown customer"
+              }
+            </strong>
+          </div>
+
+          <div>
+            <span>Status</span>
+            <strong>
+              ${escapeHtml(quote.status || "draft")}
+            </strong>
+          </div>
+
+          <div>
+            <span>Valid Until</span>
+            <strong>
+              ${quote.valid_until || "—"}
+            </strong>
+          </div>
+
+          <div>
+            <span>Notes</span>
+            <strong>
+              ${escapeHtml(quote.notes || "—")}
+            </strong>
+          </div>
+
         </div>
+
       </div>
+
       <div class="panel">
+
         <h2>Financial Summary</h2>
+
         <div class="detail-list">
-          <div><span>Subtotal</span><strong>£${Number(quote.subtotal || 0).toFixed(2)}</strong></div>
-          <div><span>VAT</span><strong>£${Number(quote.vat || 0).toFixed(2)}</strong></div>
-          <div><span>Total</span><strong>£${Number(quote.total || 0).toFixed(2)}</strong></div>
+
+          <div>
+            <span>Subtotal</span>
+            <strong>
+              £${Number(quote.subtotal || 0).toFixed(2)}
+            </strong>
+          </div>
+
+          <div>
+            <span>VAT</span>
+            <strong>
+              £${Number(quote.vat || 0).toFixed(2)}
+            </strong>
+          </div>
+
+          <div>
+            <span>Total</span>
+            <strong>
+              £${Number(quote.total || 0).toFixed(2)}
+            </strong>
+          </div>
+
         </div>
+
       </div>
+
     </div>
   `;
 
-  document.getElementById("backQuotes").addEventListener("click", () => showPage("quotes"));
-  document.getElementById("editQuote").addEventListener("click", () => showEditQuoteForm(quote.id));
-  document.getElementById("deleteQuote").addEventListener("click", () => deleteQuote(quote.id));
-}
+  document
+    .getElementById("backQuotes")
+    .addEventListener(
+      "click",
+      () => showPage("quotes")
+    );
 
+  const convertButton =
+    document.getElementById("convertQuote");
 
-// =====================================================
-// EDIT QUOTE
-// =====================================================
-
-function showEditQuoteForm(quoteId) {
-  const quote = quotes.find(q => String(q.id) === String(quoteId));
-  if (!quote) return;
-
-  const modal = document.createElement("div");
-  modal.className = "modal show";
-
-  modal.innerHTML = `
-    <div class="modal-content">
-      <div class="modal-header">
-        <div>
-          <h2>Edit Quote</h2>
-          <p>Update quotation details.</p>
-        </div>
-        <button class="close">×</button>
-      </div>
-      <form id="editQuoteForm">
-        <label>Customer *</label>
-        <select id="editQuoteCustomer" required>
-          ${customers.map(customer => `
-            <option value="${customer.id}" ${String(customer.id) === String(quote.customer_id) ? "selected" : ""}>
-              ${escapeHtml(customer.name)}
-            </option>
-          `).join("")}
-        </select>
-        <label>Quote Number *</label>
-        <input id="editQuoteNumber" value="${escapeHtml(quote.quote_number || "")}" required>
-        <label>Description</label>
-        <textarea id="editQuoteDescription">${escapeHtml(quote.description || "")}</textarea>
-        <label>Subtotal</label>
-        <input id="editQuoteSubtotal" type="number" step="0.01" value="${Number(quote.subtotal || 0)}">
-        <label>VAT %</label>
-        <input id="editQuoteVatPercent" type="number" step="0.01" value="20">
-        <label>VAT</label>
-        <input id="editQuoteVat" type="number" step="0.01" value="${Number(quote.vat || 0)}" readonly>
-        <label>Total</label>
-        <input id="editQuoteTotal" type="number" step="0.01" value="${Number(quote.total || 0)}" readonly>
-        <label>Status</label>
-        <select id="editQuoteStatus">
-          <option value="draft" ${quote.status === "draft" ? "selected" : ""}>Draft</option>
-          <option value="sent" ${quote.status === "sent" ? "selected" : ""}>Sent</option>
-          <option value="accepted" ${quote.status === "accepted" ? "selected" : ""}>Accepted</option>
-          <option value="rejected" ${quote.status === "rejected" ? "selected" : ""}>Rejected</option>
-        </select>
-        <label>Valid Until</label>
-        <input id="editQuoteValidUntil" type="date" value="${escapeHtml(quote.valid_until || "")}">
-        <label>Notes</label>
-        <textarea id="editQuoteNotes">${escapeHtml(quote.notes || "")}</textarea>
-        <div class="modal-actions">
-          <button type="button" class="button secondary close">Cancel</button>
-          <button type="submit" class="button primary">Save Changes</button>
-        </div>
-      </form>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-
-  modal.querySelectorAll(".close").forEach(button =>
-    button.addEventListener("click", () => modal.remove())
-  );
-
-  const subtotalInput = modal.querySelector("#editQuoteSubtotal");
-  const vatPercentInput = modal.querySelector("#editQuoteVatPercent");
-  const vatInput = modal.querySelector("#editQuoteVat");
-  const totalInput = modal.querySelector("#editQuoteTotal");
-
-  function calculateQuote() {
-    const subtotal = Number(subtotalInput.value) || 0;
-    const vatPercent = Number(vatPercentInput.value) || 0;
-    const vat = subtotal * vatPercent / 100;
-    vatInput.value = vat.toFixed(2);
-    totalInput.value = (subtotal + vat).toFixed(2);
+  if (convertButton) {
+    convertButton.addEventListener(
+      "click",
+      () => convertQuoteToJob(quote.id)
+    );
   }
 
-  subtotalInput.addEventListener("input", calculateQuote);
-  vatPercentInput.addEventListener("input", calculateQuote);
-
-  modal.querySelector("#editQuoteForm").addEventListener("submit", async event => {
-    event.preventDefault();
-
-    const updates = {
-      customer_id: document.getElementById("editQuoteCustomer").value,
-      quote_number: document.getElementById("editQuoteNumber").value.trim(),
-      description: document.getElementById("editQuoteDescription").value.trim(),
-      subtotal: Number(document.getElementById("editQuoteSubtotal").value) || 0,
-      vat: Number(document.getElementById("editQuoteVat").value) || 0,
-      total: Number(document.getElementById("editQuoteTotal").value) || 0,
-      status: document.getElementById("editQuoteStatus").value,
-      valid_until: document.getElementById("editQuoteValidUntil").value || null,
-      notes: document.getElementById("editQuoteNotes").value.trim()
-    };
-
-    const { error } = await supabase
-      .from("quotes")
-      .update(updates)
-      .eq("id", quote.id);
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    modal.remove();
-    await loadQuotes();
-    showQuoteProfile(quote.id);
-  });
-
-  calculateQuote();
+  document
+    .getElementById("deleteQuote")
+    .addEventListener(
+      "click",
+      () => deleteQuote(quote.id)
+    );
 }
 
 
@@ -2769,57 +3961,121 @@ function showEditQuoteForm(quoteId) {
 // =====================================================
 
 async function convertQuoteToJob(quoteId) {
-  const quote = quotes.find(q => String(q.id) === String(quoteId));
-  if (!quote) return;
 
-  const customer = customers.find(c => String(c.id) === String(quote.customer_id));
-  if (!customer) {
-    alert("Customer could not be found.");
+  const quote =
+    quotes.find(
+      q =>
+        String(q.id) === String(quoteId)
+    );
+
+  if (!quote) {
+    alert("Quote could not be found.");
     return;
   }
 
-  const confirmed = confirm(`Create a job for ${customer.name} for £${Number(quote.total || 0).toFixed(2)}?`);
+  if (quote.status === "converted") {
+    alert("This quote has already been converted to a job.");
+    return;
+  }
+
+  const customer =
+    customers.find(
+      c =>
+        String(c.id) === String(quote.customer_id)
+    );
+
+  if (!customer) {
+    alert("The customer attached to this quote could not be found.");
+    return;
+  }
+
+  const confirmed =
+    confirm(
+      `Convert Quote #${quote.quote_number || ""} into a job for ${customer.name}?`
+    );
+
   if (!confirmed) return;
 
   const job = {
-    user_id: currentUser.id,
-    customer_id: quote.customer_id,
-    title: `Quote #${quote.quote_number || "Job"}`,
-    description: `Converted from Quote #${quote.quote_number || ""}`,
-    scheduled_date: null,
-    scheduled_time: null,
-    status: "pending",
-    price: Number(quote.total || 0),
-    notes: quote.notes || ""
+
+    user_id:
+      currentUser.id,
+
+    customer_id:
+      quote.customer_id,
+
+    title:
+      `Quote #${quote.quote_number || "Job"}`,
+
+    description:
+      `Converted from Quote #${quote.quote_number || ""}`,
+
+    scheduled_date:
+      null,
+
+    scheduled_time:
+      null,
+
+    status:
+      "pending",
+
+    price:
+      Number(quote.total || 0),
+
+    notes:
+      quote.notes || ""
   };
 
-  const { data: createdJob, error: jobError } = await supabase
-    .from("jobs")
-    .insert(job)
-    .select()
-    .single();
+  const {
+    data: createdJob,
+    error: jobError
+  } =
+    await supabase
+      .from("jobs")
+      .insert(job)
+      .select()
+      .single();
 
   if (jobError) {
-    alert("The job could not be created:\n\n" + jobError.message);
+    alert(
+      "The job could not be created:\n\n" +
+      jobError.message
+    );
     return;
   }
 
-  const { error: quoteError } = await supabase
-    .from("quotes")
-    .update({ status: "converted" })
-    .eq("id", quote.id);
+  const {
+    error: quoteError
+  } =
+    await supabase
+      .from("quotes")
+      .update({
+        status: "converted"
+      })
+      .eq("id", quote.id);
 
   if (quoteError) {
+
     await loadJobs();
-    alert("The job was created, but the quote could not be marked as converted.\n\n" + quoteError.message);
+
+    alert(
+      "The job was created, but the quote could not be marked as converted.\n\n" +
+      quoteError.message
+    );
+
     showPage("jobs");
+
     return;
   }
 
   await loadJobs();
   await loadQuotes();
+
   showJobProfile(createdJob.id);
-  alert(`Quote #${quote.quote_number || ""} has been converted to a job.`);
+
+  alert(
+    `Quote #${quote.quote_number || ""} has been converted to a job.`
+  );
 }
 
 
@@ -2828,16 +4084,27 @@ async function convertQuoteToJob(quoteId) {
 // =====================================================
 
 async function deleteQuote(quoteId) {
-  const quote = quotes.find(q => String(q.id) === String(quoteId));
+
+  const quote =
+    quotes.find(
+      q =>
+        String(q.id) === String(quoteId)
+    );
+
   if (!quote) return;
 
-  const confirmed = confirm(`Delete Quote #${quote.quote_number || ""}? This cannot be undone.`);
+  const confirmed =
+    confirm(
+      `Delete Quote #${quote.quote_number || ""}? This cannot be undone.`
+    );
+
   if (!confirmed) return;
 
-  const { error } = await supabase
-    .from("quotes")
-    .delete()
-    .eq("id", quote.id);
+  const { error } =
+    await supabase
+      .from("quotes")
+      .delete()
+      .eq("id", quote.id);
 
   if (error) {
     alert(error.message);
@@ -2845,6 +4112,7 @@ async function deleteQuote(quoteId) {
   }
 
   await loadQuotes();
+
   showPage("quotes");
 }
 
@@ -2854,47 +4122,127 @@ async function deleteQuote(quoteId) {
 // =====================================================
 
 function renderInvoicesPage(content) {
+
   content.innerHTML = `
+
     <div class="page-actions">
+
       <div>
         <h2>Invoices</h2>
         <p>Create and track invoices.</p>
       </div>
-      <button id="addInvoiceButton" class="button primary">+ New Invoice</button>
+
+      <button id="addInvoiceButton" class="button primary">
+        + New Invoice
+      </button>
+
     </div>
+
     <div class="panel">
-      ${invoices.length ? invoices.map(invoice => {
-        const customer = customers.find(c => String(c.id) === String(invoice.customer_id));
-        return `
-          <div class="job-row" data-invoice-id="${invoice.id}" style="cursor:pointer;">
-            <div>
-              <strong>Invoice #${escapeHtml(invoice.invoice_number || "—")}</strong>
-              <div class="muted">
-                ${customer ? escapeHtml(customer.name) : "Unknown customer"}
-                ${invoice.issue_date ? " • " + invoice.issue_date : ""}
-              </div>
+
+      ${
+        invoices.length
+          ? invoices.map(invoice => {
+
+              const customer =
+                customers.find(
+                  c =>
+                    String(c.id) ===
+                    String(invoice.customer_id)
+                );
+
+              return `
+
+                <div
+                  class="job-row"
+                  data-invoice-id="${invoice.id}"
+                  style="cursor:pointer;"
+                >
+
+                  <div>
+
+                    <strong>
+                      Invoice #${escapeHtml(
+                        invoice.invoice_number || "—"
+                      )}
+                    </strong>
+
+                    <div class="muted">
+
+                      ${
+                        customer
+                          ? escapeHtml(customer.name)
+                          : "Unknown customer"
+                      }
+
+                      ${
+                        invoice.issue_date
+                          ? " • " + invoice.issue_date
+                          : ""
+                      }
+
+                    </div>
+
+                  </div>
+
+                  <div>
+
+                    <strong>
+                      £${Number(
+                        invoice.total || 0
+                      ).toFixed(2)}
+                    </strong>
+
+                    <div class="muted">
+                      ${escapeHtml(
+                        invoice.status || "sent"
+                      )}
+                    </div>
+
+                  </div>
+
+                </div>
+
+              `;
+            }).join("")
+          : `
+
+            <div class="empty-state">
+
+              <div class="empty-icon">🧾</div>
+
+              <h3>No invoices yet</h3>
+
+              <p>
+                Convert a completed job into an invoice.
+              </p>
+
             </div>
-            <div>
-              <strong>£${Number(invoice.total || 0).toFixed(2)}</strong>
-              <div class="muted">${escapeHtml(invoice.status || "sent")}</div>
-            </div>
-          </div>
-        `;
-      }).join("") : `
-        <div class="empty-state">
-          <div class="empty-icon">🧾</div>
-          <h3>No invoices yet</h3>
-          <p>Convert a completed job into an invoice.</p>
-        </div>
-      `}
+
+          `
+      }
+
     </div>
   `;
 
-  document.getElementById("addInvoiceButton").addEventListener("click", showAddInvoiceForm);
+  document
+    .getElementById("addInvoiceButton")
+    .addEventListener(
+      "click",
+      showAddInvoiceForm
+    );
 
-  content.querySelectorAll("[data-invoice-id]").forEach(row => {
-    row.addEventListener("click", () => showInvoiceProfile(row.dataset.invoiceId));
-  });
+  content
+    .querySelectorAll("[data-invoice-id]")
+    .forEach(row => {
+      row.addEventListener(
+        "click",
+        () =>
+          showInvoiceProfile(
+            row.dataset.invoiceId
+          )
+      );
+    });
 }
 
 
@@ -2903,101 +4251,286 @@ function renderInvoicesPage(content) {
 // =====================================================
 
 function showAddInvoiceForm() {
-  const modal = document.createElement("div");
+
+  const modal =
+    document.createElement("div");
+
   modal.className = "modal show";
-  const invoiceNumber = generateInvoiceNumber();
+
+  const invoiceNumber =
+    generateInvoiceNumber();
 
   modal.innerHTML = `
+
     <div class="modal-content">
+
       <div class="modal-header">
-        <div><h2>New Invoice</h2><p>Create an invoice.</p></div>
-        <button class="close">×</button>
-      </div>
-      <form id="invoiceForm">
-        <label>Customer *</label>
-        <select id="invoiceCustomer" required>
-          <option value="">Select customer</option>
-          ${customers.map(customer => `<option value="${customer.id}">${escapeHtml(customer.name)}</option>`).join("")}
-        </select>
-        <label>Invoice Number *</label>
-        <input id="invoiceNumber" value="${escapeHtml(invoiceNumber)}" required>
-        <label>Description</label>
-        <textarea id="invoiceDescription" placeholder="What is this invoice for?"></textarea>
-        <label>Subtotal</label>
-        <input id="invoiceSubtotal" type="number" step="0.01" value="0">
-        <label>VAT %</label>
-        <input id="invoiceVatPercent" type="number" step="0.01" value="20">
-        <label>VAT</label>
-        <input id="invoiceVat" type="number" step="0.01" value="0" readonly>
-        <label>Total</label>
-        <input id="invoiceTotal" type="number" step="0.01" value="0" readonly>
-        <label>Status</label>
-        <select id="invoiceStatus"><option value="sent">Sent</option><option value="paid">Paid</option></select>
-        <label>Issue Date</label>
-        <input id="invoiceIssueDate" type="date" value="${todayDate()}">
-        <label>Due Date</label>
-        <input id="invoiceDueDate" type="date">
-        <label>Notes</label>
-        <textarea id="invoiceNotes"></textarea>
-        <div class="modal-actions">
-          <button type="button" class="button secondary close">Cancel</button>
-          <button type="submit" class="button primary">Save Invoice</button>
+
+        <div>
+          <h2>New Invoice</h2>
+          <p>Create an invoice.</p>
         </div>
+
+        <button class="close">×</button>
+
+      </div>
+
+      <form id="invoiceForm">
+
+        <label>Customer *</label>
+
+        <select id="invoiceCustomer" required>
+
+          <option value="">
+            Select customer
+          </option>
+
+          ${customers.map(customer => `
+            <option value="${customer.id}">
+              ${escapeHtml(customer.name)}
+            </option>
+          `).join("")}
+
+        </select>
+
+        <label>Invoice Number *</label>
+
+        <input
+          id="invoiceNumber"
+          value="${escapeHtml(invoiceNumber)}"
+          required
+        >
+
+        <label>Description</label>
+
+        <textarea
+          id="invoiceDescription"
+          placeholder="What is this invoice for?"
+        ></textarea>
+
+        <label>Subtotal</label>
+
+        <input
+          id="invoiceSubtotal"
+          type="number"
+          step="0.01"
+          value="0"
+        >
+
+        <label>VAT %</label>
+
+        <input
+          id="invoiceVatPercent"
+          type="number"
+          step="0.01"
+          value="20"
+        >
+
+        <label>VAT</label>
+
+        <input
+          id="invoiceVat"
+          type="number"
+          step="0.01"
+          value="0"
+          readonly
+        >
+
+        <label>Total</label>
+
+        <input
+          id="invoiceTotal"
+          type="number"
+          step="0.01"
+          value="0"
+          readonly
+        >
+
+        <label>Status</label>
+
+        <select id="invoiceStatus">
+
+          <option value="sent">
+            Sent
+          </option>
+
+          <option value="paid">
+            Paid
+          </option>
+
+        </select>
+
+        <label>Issue Date</label>
+
+        <input
+          id="invoiceIssueDate"
+          type="date"
+          value="${todayDate()}"
+        >
+
+        <label>Due Date</label>
+
+        <input
+          id="invoiceDueDate"
+          type="date"
+        >
+
+        <label>Notes</label>
+
+        <textarea id="invoiceNotes"></textarea>
+
+        <div class="modal-actions">
+
+          <button
+            type="button"
+            class="button secondary close"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="button primary"
+          >
+            Save Invoice
+          </button>
+
+        </div>
+
       </form>
+
     </div>
   `;
 
   document.body.appendChild(modal);
 
-  modal.querySelectorAll(".close").forEach(button =>
-    button.addEventListener("click", () => modal.remove())
-  );
+  modal.querySelectorAll(".close")
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        () => modal.remove()
+      )
+    );
 
-  const subtotalInput = modal.querySelector("#invoiceSubtotal");
-  const vatPercentInput = modal.querySelector("#invoiceVatPercent");
-  const vatInput = modal.querySelector("#invoiceVat");
-  const totalInput = modal.querySelector("#invoiceTotal");
+  const subtotalInput =
+    modal.querySelector("#invoiceSubtotal");
+
+  const vatPercentInput =
+    modal.querySelector("#invoiceVatPercent");
+
+  const vatInput =
+    modal.querySelector("#invoiceVat");
+
+  const totalInput =
+    modal.querySelector("#invoiceTotal");
 
   function calculateInvoice() {
-    const subtotal = Number(subtotalInput.value) || 0;
-    const vatPercent = Number(vatPercentInput.value) || 0;
-    const vat = subtotal * vatPercent / 100;
-    vatInput.value = vat.toFixed(2);
-    totalInput.value = (subtotal + vat).toFixed(2);
+
+    const subtotal =
+      Number(subtotalInput.value) || 0;
+
+    const vatPercent =
+      Number(vatPercentInput.value) || 0;
+
+    const vat =
+      subtotal * vatPercent / 100;
+
+    vatInput.value =
+      vat.toFixed(2);
+
+    totalInput.value =
+      (subtotal + vat).toFixed(2);
   }
 
-  subtotalInput.addEventListener("input", calculateInvoice);
-  vatPercentInput.addEventListener("input", calculateInvoice);
+  subtotalInput.addEventListener(
+    "input",
+    calculateInvoice
+  );
+
+  vatPercentInput.addEventListener(
+    "input",
+    calculateInvoice
+  );
+
   calculateInvoice();
 
-  modal.querySelector("#invoiceForm").addEventListener("submit", async event => {
-    event.preventDefault();
-    const status = document.getElementById("invoiceStatus").value;
-    const invoice = {
-      user_id: currentUser.id,
-      customer_id: document.getElementById("invoiceCustomer").value,
-      invoice_number: document.getElementById("invoiceNumber").value.trim(),
-      description: document.getElementById("invoiceDescription").value.trim(),
-      status,
-      subtotal: Number(document.getElementById("invoiceSubtotal").value) || 0,
-      vat: Number(document.getElementById("invoiceVat").value) || 0,
-      total: Number(document.getElementById("invoiceTotal").value) || 0,
-      issue_date: document.getElementById("invoiceIssueDate").value || todayDate(),
-      due_date: document.getElementById("invoiceDueDate").value || null,
-      paid_date: status === "paid" ? todayDate() : null,
-      notes: document.getElementById("invoiceNotes").value.trim()
-    };
+  modal
+    .querySelector("#invoiceForm")
+    .addEventListener(
+      "submit",
+      async event => {
 
-    const { error } = await supabase.from("invoices").insert(invoice);
-    if (error) {
-      alert(error.message);
-      return;
-    }
+        event.preventDefault();
 
-    modal.remove();
-    await loadInvoices();
-    showPage("invoices");
-  });
+        const status =
+          document.getElementById("invoiceStatus").value;
+
+        const invoice = {
+
+          user_id:
+            currentUser.id,
+
+          customer_id:
+            document.getElementById("invoiceCustomer").value,
+
+          invoice_number:
+            document.getElementById("invoiceNumber").value.trim(),
+
+          description:
+            document.getElementById("invoiceDescription").value.trim(),
+
+          status:
+            status,
+
+          subtotal:
+            Number(
+              document.getElementById("invoiceSubtotal").value
+            ) || 0,
+
+          vat:
+            Number(
+              document.getElementById("invoiceVat").value
+            ) || 0,
+
+          total:
+            Number(
+              document.getElementById("invoiceTotal").value
+            ) || 0,
+
+          issue_date:
+            document.getElementById("invoiceIssueDate").value ||
+            todayDate(),
+
+          due_date:
+            document.getElementById("invoiceDueDate").value ||
+            null,
+
+          paid_date:
+            status === "paid"
+              ? todayDate()
+              : null,
+
+          notes:
+            document.getElementById("invoiceNotes").value.trim()
+        };
+
+        const { error } =
+          await supabase
+            .from("invoices")
+            .insert(invoice);
+
+        if (error) {
+          alert(error.message);
+          return;
+        }
+
+        modal.remove();
+
+        await loadInvoices();
+
+        showPage("invoices");
+      }
+    );
 }
 
 
@@ -3006,77 +4539,653 @@ function showAddInvoiceForm() {
 // =====================================================
 
 function showInvoiceProfile(invoiceId) {
-  const invoice = invoices.find(item => String(item.id) === String(invoiceId));
-  if (!invoice) return;
-  const customer = customers.find(c => String(c.id) === String(invoice.customer_id));
-  const content = document.getElementById("pageContent");
 
-  document.getElementById("pageTitle").textContent = `Invoice #${invoice.invoice_number || "—"}`;
-  document.getElementById("pageSubtitle").textContent = "Invoice details";
+  const invoice =
+    invoices.find(
+      item =>
+        String(item.id) ===
+        String(invoiceId)
+    );
+
+  if (!invoice) return;
+
+  const customer =
+    customers.find(
+      c =>
+        String(c.id) ===
+        String(invoice.customer_id)
+    );
+
+  const content =
+    document.getElementById("pageContent");
+
+  document.getElementById("pageTitle").textContent =
+    `Invoice #${invoice.invoice_number || "—"}`;
+
+  document.getElementById("pageSubtitle").textContent =
+    "Invoice details";
 
   content.innerHTML = `
+
     <div class="page-actions">
-      <button id="backInvoices" class="button secondary">← Invoices</button>
+
+      <button id="backInvoices" class="button secondary">
+        ← Invoices
+      </button>
+
       <div>
-        <button id="editInvoice" class="button primary">Edit Invoice</button>
-        <button id="deleteInvoice" class="button danger">Delete</button>
+
+        <button id="editInvoice" class="button primary">
+          Edit Invoice
+        </button>
+
+        <button id="deleteInvoice" class="button danger">
+          Delete
+        </button>
+
       </div>
+
     </div>
+
     <div class="content-grid">
+
       <div class="panel">
+
         <h2>Invoice Details</h2>
+
         <div class="detail-list">
-          <div><span>Invoice Number</span><strong>${escapeHtml(invoice.invoice_number || "—")}</strong></div>
-          <div><span>Customer</span><strong>${customer ? escapeHtml(customer.name) : "Unknown customer"}</strong></div>
-          <div><span>Status</span><strong>${escapeHtml(invoice.status || "sent")}</strong></div>
-          <div><span>Description</span><strong>${escapeHtml(invoice.description || "—")}</strong></div>
-          <div><span>Issue Date</span><strong>${invoice.issue_date || "—"}</strong></div>
-          <div><span>Due Date</span><strong>${invoice.due_date || "—"}</strong></div>
-          <div><span>Paid Date</span><strong>${invoice.paid_date || "—"}</strong></div>
-          <div><span>Notes</span><strong>${escapeHtml(invoice.notes || "—")}</strong></div>
+
+          <div>
+            <span>Invoice Number</span>
+
+            <strong>
+              ${escapeHtml(
+                invoice.invoice_number || "—"
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>Customer</span>
+
+            <strong>
+              ${
+                customer
+                  ? escapeHtml(customer.name)
+                  : "Unknown customer"
+              }
+            </strong>
+          </div>
+
+          <div>
+            <span>Status</span>
+
+            <strong>
+              ${escapeHtml(
+                invoice.status || "sent"
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>Description</span>
+
+            <strong>
+              ${escapeHtml(
+                invoice.description || "—"
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>Issue Date</span>
+
+            <strong>
+              ${invoice.issue_date || "—"}
+            </strong>
+          </div>
+
+          <div>
+            <span>Due Date</span>
+
+            <strong>
+              ${invoice.due_date || "—"}
+            </strong>
+          </div>
+
+          <div>
+            <span>Paid Date</span>
+
+            <strong>
+              ${invoice.paid_date || "—"}
+            </strong>
+          </div>
+
+          <div>
+            <span>Notes</span>
+
+            <strong>
+              ${escapeHtml(
+                invoice.notes || "—"
+              )}
+            </strong>
+          </div>
+
         </div>
+
       </div>
+
       <div class="panel">
+
         <h2>Financial Summary</h2>
+
         <div class="detail-list">
-          <div><span>Subtotal</span><strong>£${Number(invoice.subtotal || 0).toFixed(2)}</strong></div>
-          <div><span>VAT</span><strong>£${Number(invoice.vat || 0).toFixed(2)}</strong></div>
-          <div><span>Total</span><strong>£${Number(invoice.total || 0).toFixed(2)}</strong></div>
+
+          <div>
+            <span>Subtotal</span>
+
+            <strong>
+              £${Number(
+                invoice.subtotal || 0
+              ).toFixed(2)}
+            </strong>
+          </div>
+
+          <div>
+            <span>VAT</span>
+
+            <strong>
+              £${Number(
+                invoice.vat || 0
+              ).toFixed(2)}
+            </strong>
+          </div>
+
+          <div>
+            <span>Total</span>
+
+            <strong>
+              £${Number(
+                invoice.total || 0
+              ).toFixed(2)}
+            </strong>
+          </div>
+
         </div>
+
       </div>
+
     </div>
   `;
 
-  document.getElementById("backInvoices").addEventListener("click", () => showPage("invoices"));
-  document.getElementById("editInvoice").addEventListener("click", () => showEditInvoiceForm(invoice.id));
-  document.getElementById("deleteInvoice").addEventListener("click", () => deleteInvoice(invoice.id));
+  document
+    .getElementById("backInvoices")
+    .addEventListener(
+      "click",
+      () => showPage("invoices")
+    );
 
-  if (invoice.status !== "paid") {
-    const sendButton = document.createElement("button");
-    sendButton.id = "sendInvoiceButton";
-    sendButton.className = "button primary";
-    sendButton.textContent = "📤 Send Invoice";
-    sendButton.style.marginRight = "10px";
-    sendButton.addEventListener("click", async () => {
-      const phone = customer?.phone || "";
-      if (!phone) {
-        alert("This customer does not have a phone number saved.");
-        return;
-      }
-      if (!invoice.public_token) {
-        alert("This invoice does not have a payment link yet.");
-        return;
-      }
-      let whatsappNumber = phone.replace(/\D/g, "");
-      if (whatsappNumber.startsWith("0")) whatsappNumber = "44" + whatsappNumber.substring(1);
-      const paymentLink = `${window.location.origin}/public-invoice.html?token=${encodeURIComponent(invoice.public_token)}`;
-      const message = `Hi ${customer.name},\n\nYour invoice #${invoice.invoice_number || ""} from ${currentUser.email || "JobPilot"} is ready.\n\nView and pay your invoice here:\n${paymentLink}\n\nThank you.`;
-      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-      window.open(whatsappUrl, "_blank");
-    });
-    const actions = document.querySelector(".page-actions > div:last-child");
-    if (actions) actions.prepend(sendButton);
+  document
+  .getElementById("editInvoice")
+  .addEventListener(
+    "click",
+    () => showEditInvoiceForm(invoice.id)
+  );
+
+document
+  .getElementById("deleteInvoice")
+  .addEventListener(
+    "click",
+    () => deleteInvoice(invoice.id)
+  );
+
+if (invoice.status !== "paid") {
+
+  const sendButton =
+    document.createElement("button");
+
+  sendButton.id =
+    "sendInvoiceButton";
+
+  sendButton.className =
+    "button primary";
+
+  sendButton.textContent =
+    "📤 Send Invoice";
+
+  sendButton.style.marginRight =
+    "10px";
+
+  sendButton.addEventListener(
+    "click",
+    async () => {
+
+      const phone =
+  customer?.phone || "";
+
+if (!phone) {
+
+  alert(
+    "This customer does not have a phone number saved."
+  );
+
+  return;
+
+}
+
+if (!invoice.public_token) {
+
+  alert(
+    "This invoice does not have a payment link yet."
+  );
+
+  return;
+
+}
+
+let whatsappNumber =
+  phone.replace(/\D/g, "");
+
+if (
+  whatsappNumber.startsWith("0")
+) {
+
+  whatsappNumber =
+    "44" +
+    whatsappNumber.substring(1);
+
+}
+
+const paymentLink =
+  `${window.location.origin}/public-invoice.html?token=${encodeURIComponent(invoice.public_token)}`;
+
+const settings =
+  JSON.parse(
+    localStorage.getItem("jobpilot_settings") || "{}"
+  );
+
+const businessName =
+  settings.businessName ||
+  "our business";
+
+const message =
+  `Hi ${customer.name},\n\n` +
+  `Please find your invoice from ${businessName}.\n\n` +
+  `Invoice #${invoice.invoice_number || "—"}\n` +
+  `Amount: £${Number(invoice.total || 0).toFixed(2)}\n\n` +
+  `You can view and pay your invoice securely here:\n` +
+  `${paymentLink}\n\n` +
+  `Thank you.`;
+
+const whatsappUrl =
+  `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+
+window.location.href =
+  whatsappUrl;
+
+    }
+  );
+
+  document
+    .getElementById("editInvoice")
+    .parentElement
+    .insertBefore(
+      sendButton,
+      document.getElementById("editInvoice")
+    );
+}
+  
+}
+
+
+// =====================================================
+// EDIT INVOICE
+// =====================================================
+
+function showEditInvoiceForm(invoiceId) {
+
+  const invoice =
+    invoices.find(
+      item =>
+        String(item.id) ===
+        String(invoiceId)
+    );
+
+  if (!invoice) return;
+
+  const modal =
+    document.createElement("div");
+
+  modal.className = "modal show";
+
+  modal.innerHTML = `
+
+    <div class="modal-content">
+
+      <div class="modal-header">
+
+        <div>
+          <h2>Edit Invoice</h2>
+          <p>Update invoice details.</p>
+        </div>
+
+        <button class="close">×</button>
+
+      </div>
+
+      <form id="editInvoiceForm">
+
+        <label>Customer *</label>
+
+        <select id="editInvoiceCustomer" required>
+
+          ${customers.map(customer => `
+            <option
+              value="${customer.id}"
+              ${
+                String(customer.id) ===
+                String(invoice.customer_id)
+                  ? "selected"
+                  : ""
+              }
+            >
+              ${escapeHtml(customer.name)}
+            </option>
+          `).join("")}
+
+        </select>
+
+        <label>Invoice Number *</label>
+
+        <input
+          id="editInvoiceNumber"
+          value="${escapeHtml(
+            invoice.invoice_number || ""
+          )}"
+          required
+        >
+
+        <label>Description</label>
+
+        <textarea
+          id="editInvoiceDescription"
+          placeholder="What is this invoice for?"
+        >${escapeHtml(
+          invoice.description || ""
+        )}</textarea>
+
+        <label>Subtotal</label>
+
+        <input
+          id="editInvoiceSubtotal"
+          type="number"
+          step="0.01"
+          value="${Number(
+            invoice.subtotal || 0
+          ).toFixed(2)}"
+        >
+
+        <label>VAT %</label>
+
+        <input
+          id="editInvoiceVatPercent"
+          type="number"
+          step="0.01"
+          value="${
+            Number(invoice.subtotal || 0) > 0
+              ? (
+                  Number(invoice.vat || 0) /
+                  Number(invoice.subtotal || 0) *
+                  100
+                ).toFixed(2)
+              : "20"
+          }"
+        >
+
+        <label>VAT</label>
+
+        <input
+          id="editInvoiceVat"
+          type="number"
+          step="0.01"
+          value="${Number(
+            invoice.vat || 0
+          ).toFixed(2)}"
+          readonly
+        >
+
+        <label>Total</label>
+
+        <input
+          id="editInvoiceTotal"
+          type="number"
+          step="0.01"
+          value="${Number(
+            invoice.total || 0
+          ).toFixed(2)}"
+          readonly
+        >
+
+        <label>Status</label>
+
+        <select id="editInvoiceStatus">
+
+          <option
+            value="sent"
+            ${
+              invoice.status === "sent"
+                ? "selected"
+                : ""
+            }
+          >
+            Sent
+          </option>
+
+          <option
+            value="paid"
+            ${
+              invoice.status === "paid"
+                ? "selected"
+                : ""
+            }
+          >
+            Paid
+          </option>
+
+        </select>
+
+        <label>Issue Date</label>
+
+        <input
+          id="editInvoiceIssueDate"
+          type="date"
+          value="${invoice.issue_date || ""}"
+        >
+
+        <label>Due Date</label>
+
+        <input
+          id="editInvoiceDueDate"
+          type="date"
+          value="${invoice.due_date || ""}"
+        >
+
+        <label>Notes</label>
+
+        <textarea id="editInvoiceNotes">${escapeHtml(
+          invoice.notes || ""
+        )}</textarea>
+
+        <div class="modal-actions">
+
+          <button
+            type="button"
+            class="button secondary close"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="button primary"
+          >
+            Save Changes
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.querySelectorAll(".close")
+    .forEach(button =>
+      button.addEventListener(
+        "click",
+        () => modal.remove()
+      )
+    );
+
+  const subtotalInput =
+    modal.querySelector("#editInvoiceSubtotal");
+
+  const vatPercentInput =
+    modal.querySelector("#editInvoiceVatPercent");
+
+  const vatInput =
+    modal.querySelector("#editInvoiceVat");
+
+  const totalInput =
+    modal.querySelector("#editInvoiceTotal");
+
+  function calculateInvoice() {
+
+    const subtotal =
+      Number(subtotalInput.value) || 0;
+
+    const vatPercent =
+      Number(vatPercentInput.value) || 0;
+
+    const vat =
+      subtotal * vatPercent / 100;
+
+    vatInput.value =
+      vat.toFixed(2);
+
+    totalInput.value =
+      (subtotal + vat).toFixed(2);
   }
+
+  subtotalInput.addEventListener(
+    "input",
+    calculateInvoice
+  );
+
+  vatPercentInput.addEventListener(
+    "input",
+    calculateInvoice
+  );
+
+  modal
+    .querySelector("#editInvoiceForm")
+    .addEventListener(
+      "submit",
+      async event => {
+
+        event.preventDefault();
+
+        const status =
+          document.getElementById(
+            "editInvoiceStatus"
+          ).value;
+
+        const updates = {
+
+          customer_id:
+            document.getElementById(
+              "editInvoiceCustomer"
+            ).value,
+
+          invoice_number:
+            document.getElementById(
+              "editInvoiceNumber"
+            ).value.trim(),
+
+          description:
+            document.getElementById(
+              "editInvoiceDescription"
+            ).value.trim(),
+
+          status:
+
+            status,
+
+          subtotal:
+            Number(
+              document.getElementById(
+                "editInvoiceSubtotal"
+              ).value
+            ) || 0,
+
+          vat:
+            Number(
+              document.getElementById(
+                "editInvoiceVat"
+              ).value
+            ) || 0,
+
+          total:
+            Number(
+              document.getElementById(
+                "editInvoiceTotal"
+              ).value
+            ) || 0,
+
+          issue_date:
+            document.getElementById(
+              "editInvoiceIssueDate"
+            ).value || null,
+
+          due_date:
+            document.getElementById(
+              "editInvoiceDueDate"
+            ).value || null,
+
+          paid_date:
+            status === "paid"
+              ? (
+                  invoice.paid_date ||
+                  todayDate()
+                )
+              : null,
+
+          notes:
+            document.getElementById(
+              "editInvoiceNotes"
+            ).value.trim()
+        };
+
+        const { error } =
+          await supabase
+            .from("invoices")
+            .update(updates)
+            .eq("id", invoice.id);
+
+        if (error) {
+          alert(error.message);
+          return;
+        }
+
+        modal.remove();
+
+        await loadInvoices();
+
+        showInvoiceProfile(invoice.id);
+      }
+    );
 }
 
 
@@ -3085,16 +5194,36 @@ function showInvoiceProfile(invoiceId) {
 // =====================================================
 
 async function deleteInvoice(invoiceId) {
-  const invoice = invoices.find(item => String(item.id) === String(invoiceId));
+
+  const invoice =
+    invoices.find(
+      item =>
+        String(item.id) ===
+        String(invoiceId)
+    );
+
   if (!invoice) return;
-  const confirmed = confirm(`Delete Invoice #${invoice.invoice_number || ""}? This cannot be undone.`);
+
+  const confirmed =
+    confirm(
+      `Delete Invoice #${invoice.invoice_number || ""}? This cannot be undone.`
+    );
+
   if (!confirmed) return;
-  const { error } = await supabase.from("invoices").delete().eq("id", invoice.id);
+
+  const { error } =
+    await supabase
+      .from("invoices")
+      .delete()
+      .eq("id", invoice.id);
+
   if (error) {
     alert(error.message);
     return;
   }
+
   await loadInvoices();
+
   showPage("invoices");
 }
 
@@ -3104,56 +5233,155 @@ async function deleteInvoice(invoiceId) {
 // =====================================================
 
 async function convertJobToInvoice(jobId) {
-  const job = jobs.find(item => String(item.id) === String(jobId));
+
+  const job =
+    jobs.find(
+      item =>
+        String(item.id) ===
+        String(jobId)
+    );
+
   if (!job) {
     alert("Job could not be found.");
     return;
   }
-  if (String(job.status).toLowerCase() === "invoiced") {
+
+  if (
+    String(job.status).toLowerCase() ===
+    "invoiced"
+  ) {
     alert("This job has already been invoiced.");
     return;
   }
-  const customer = customers.find(c => String(c.id) === String(job.customer_id));
+
+  const customer =
+    customers.find(
+      c =>
+        String(c.id) ===
+        String(job.customer_id)
+    );
+
   if (!customer) {
-    alert("The customer attached to this job could not be found.");
+    alert(
+      "The customer attached to this job could not be found."
+    );
     return;
   }
-  const confirmed = confirm(`Create an invoice for ${customer.name} for £${Number(job.price || 0).toFixed(2)}?`);
+
+  const confirmed =
+    confirm(
+      `Create an invoice for ${customer.name} for £${Number(
+        job.price || 0
+      ).toFixed(2)}?`
+    );
+
   if (!confirmed) return;
-  const subtotal = Number(job.price || 0);
+
+  const subtotal =
+    Number(job.price || 0);
+
   const invoice = {
-    user_id: currentUser.id,
-    customer_id: job.customer_id,
-    invoice_number: generateInvoiceNumber(),
-    description: job.title || "Job",
-    status: "sent",
-    subtotal,
-    vat: 0,
-    total: subtotal,
-    issue_date: todayDate(),
-    due_date: null,
-    paid_date: null,
-    notes: `Created from Job: ${job.title}\n\n${job.notes || ""}`.trim()
+
+    user_id:
+      currentUser.id,
+
+    customer_id:
+      job.customer_id,
+
+    invoice_number:
+      generateInvoiceNumber(),
+
+    description:
+      job.title || "Job",
+
+    status:
+      "sent",
+
+    subtotal:
+      subtotal,
+
+    vat:
+      0,
+
+    total:
+      subtotal,
+
+    issue_date:
+      todayDate(),
+
+    due_date:
+      null,
+
+    paid_date:
+      null,
+
+    notes:
+      `Created from Job: ${job.title}\n\n${job.notes || ""}`.trim()
   };
-  const { data: createdInvoice, error: invoiceError } = await supabase.from("invoices").insert(invoice).select().single();
+
+  const {
+    data: createdInvoice,
+    error: invoiceError
+  } =
+    await supabase
+      .from("invoices")
+      .insert(invoice)
+      .select()
+      .single();
+
   if (invoiceError) {
-    console.error("Convert job to invoice:", invoiceError);
-    alert("The invoice could not be created:\n\n" + invoiceError.message);
+
+    console.error(
+      "Convert job to invoice:",
+      invoiceError
+    );
+
+    alert(
+      "The invoice could not be created:\n\n" +
+      invoiceError.message
+    );
+
     return;
   }
-  const { error: jobError } = await supabase.from("jobs").update({ status: "invoiced" }).eq("id", job.id);
+
+  const {
+    error: jobError
+  } =
+    await supabase
+      .from("jobs")
+      .update({
+        status: "invoiced"
+      })
+      .eq("id", job.id);
+
   if (jobError) {
-    console.error("Job status update:", jobError);
+
+    console.error(
+      "Job status update:",
+      jobError
+    );
+
     await loadInvoices();
     await loadJobs();
-    alert("The invoice was created, but the job could not be marked as invoiced.\n\n" + jobError.message);
+
+    alert(
+      "The invoice was created, but the job could not be marked as invoiced.\n\n" +
+      jobError.message
+    );
+
     showPage("invoices");
+
     return;
   }
+
   await loadInvoices();
   await loadJobs();
+
   showInvoiceProfile(createdInvoice.id);
-  alert(`Invoice #${createdInvoice.invoice_number} has been created.`);
+
+  alert(
+    `Invoice #${createdInvoice.invoice_number} has been created.`
+  );
 }
 
 
@@ -3162,8 +5390,13 @@ async function convertJobToInvoice(jobId) {
 // =====================================================
 
 function generateInvoiceNumber() {
-  const year = new Date().getFullYear();
-  const next = invoices.length + 1;
+
+  const year =
+    new Date().getFullYear();
+
+  const next =
+    invoices.length + 1;
+
   return `${year}-${String(next).padStart(4, "0")}`;
 }
 
@@ -3173,8 +5406,13 @@ function generateInvoiceNumber() {
 // =====================================================
 
 function generateQuoteNumber() {
-  const year = new Date().getFullYear();
-  const next = quotes.length + 1;
+
+  const year =
+    new Date().getFullYear();
+
+  const next =
+    quotes.length + 1;
+
   return `${year}-${String(next).padStart(4, "0")}`;
 }
 
@@ -3184,7 +5422,9 @@ function generateQuoteNumber() {
 // =====================================================
 
 function renderSettings(content) {
+
   content.innerHTML = `
+
     <div class="page-actions">
       <div>
         <h2>Settings</h2>
@@ -3193,186 +5433,1011 @@ function renderSettings(content) {
     </div>
 
     <div class="panel settings-panel">
+
+      <!-- ACCOUNT -->
       <h2>Account</h2>
+
       <label>Email</label>
-      <input type="email" value="${escapeHtml(currentUser.email || "")}" disabled>
+      <input
+        type="email"
+        value="${escapeHtml(currentUser.email || "")}"
+        disabled
+      >
+
       <label>New Password</label>
-      <input type="password" id="settingsPassword" placeholder="Leave blank to keep your current password">
-      <button class="button primary" onclick="changeSettingsPassword()" style="margin-top:12px;">Change Password</button>
+      <input
+        type="password"
+        id="settingsPassword"
+        placeholder="Leave blank to keep your current password"
+      >
+
+      <button
+        class="button primary"
+        onclick="changeSettingsPassword()"
+        style="margin-top:12px;"
+      >
+        Change Password
+      </button>
+
 
       <hr>
 
+
+      <!-- PAYMENTS -->
       <h2>Payments</h2>
-      <p>Connect your Stripe account to allow your customers to pay your invoices online.</p>
-      <div id="stripeConnectionStatus" class="muted" style="margin:12px 0;">Checking Stripe connection...</div>
-      <button class="button primary" id="connectStripeButton" type="button">💳 Connect Stripe</button>
+
+      <p>
+        Connect your Stripe account to allow your customers
+        to pay your invoices online.
+      </p>
+
+      <div
+        id="stripeConnectionStatus"
+        class="muted"
+        style="margin:12px 0;"
+      >
+        Checking Stripe connection...
+      </div>
+
+      <button
+        class="button primary"
+        id="connectStripeButton"
+        type="button"
+      >
+        💳 Connect Stripe
+      </button>
+
 
       <hr>
 
+
+      <!-- BUSINESS DETAILS -->
       <h2>Business Details</h2>
+
       <label>Business Name</label>
-      <input id="settingsBusinessName" type="text" placeholder="Your business name">
+      <input
+        id="settingsBusinessName"
+        type="text"
+        placeholder="Your business name"
+      >
+
       <label>Contact Name</label>
-      <input id="settingsContactName" type="text" placeholder="Your name">
+      <input
+        id="settingsContactName"
+        type="text"
+        placeholder="Your name"
+      >
+
       <label>Phone</label>
-      <input id="settingsPhone" type="text" placeholder="Phone number">
+      <input
+        id="settingsPhone"
+        type="text"
+        placeholder="Phone number"
+      >
+
       <label>Business Email</label>
-      <input id="settingsBusinessEmail" type="email" placeholder="Business email">
+      <input
+        id="settingsBusinessEmail"
+        type="email"
+        placeholder="Business email"
+      >
+
       <label>Address</label>
-      <textarea id="settingsAddress" placeholder="Business address"></textarea>
+      <textarea
+        id="settingsAddress"
+        placeholder="Business address"
+      ></textarea>
+
       <label>Postcode</label>
-      <input id="settingsPostcode" type="text" placeholder="Postcode">
-      <label>Website</label>
-      <input id="settingsWebsite" type="text" placeholder="https://">
+      <input
+        id="settingsPostcode"
+        type="text"
+        placeholder="Postcode"
+      >
 
-      <hr>
+   <label>Website</label>
+<input
+  id="settingsWebsite"
+  type="text"
+  placeholder="https://"
+>
 
-      <h2>Customer Invoice Information</h2>
-      <p class="muted">Choose which business details your customers can see on your public invoices.</p>
-      <label><input type="checkbox" id="settingsShowContactName" checked> Show contact name</label>
-      <label><input type="checkbox" id="settingsShowPhone" checked> Show phone number</label>
-      <label><input type="checkbox" id="settingsShowEmail" checked> Show business email</label>
-      <label><input type="checkbox" id="settingsShowWebsite" checked> Show website</label>
-      <label><input type="checkbox" id="settingsShowAddress"> <strong>Show business address</strong></label>
 
-      <hr>
+<hr>
 
+
+<!-- PUBLIC INVOICE PRIVACY -->
+<h2>Customer Invoice Information</h2>
+
+<p class="muted">
+  Choose which business details your customers can see
+  on your public invoices.
+</p>
+
+<label>
+  <input
+    type="checkbox"
+    id="settingsShowContactName"
+    checked
+  >
+  Show contact name
+</label>
+
+<label>
+  <input
+    type="checkbox"
+    id="settingsShowPhone"
+    checked
+  >
+  Show phone number
+</label>
+
+<label>
+  <input
+    type="checkbox"
+    id="settingsShowEmail"
+    checked
+  >
+  Show business email
+</label>
+
+<label>
+  <input
+    type="checkbox"
+    id="settingsShowWebsite"
+    checked
+  >
+  Show website
+</label>
+
+<label>
+  <input
+    type="checkbox"
+    id="settingsShowAddress"
+  >
+  <strong>Show business address</strong>
+</label>
+
+<p
+  class="muted"
+  style="font-size:13px;margin-top:5px;"
+>
+  Your business address is hidden from customers by default.
+</p>
+
+
+<hr>
+
+
+      <!-- INVOICE SETTINGS -->
       <h2>Invoice Settings</h2>
+
       <label>Invoice Prefix</label>
-      <input id="settingsInvoicePrefix" type="text" placeholder="INV-">
+      <input
+        id="settingsInvoicePrefix"
+        type="text"
+        placeholder="INV-"
+      >
+
       <label>Next Invoice Number</label>
-      <input id="settingsNextInvoiceNumber" type="number" min="1">
-      <label>Payment Terms (days)</label>
-      <input id="settingsPaymentTerms" type="number" min="0">
+      <input
+        id="settingsNextInvoiceNumber"
+        type="number"
+        min="1"
+        placeholder="1"
+      >
+
+      <label>Default Payment Terms</label>
+      <select id="settingsPaymentTerms">
+        <option value="7">7 days</option>
+        <option value="14">14 days</option>
+        <option value="30" selected>30 days</option>
+        <option value="60">60 days</option>
+      </select>
+
       <label>Default VAT Rate (%)</label>
-      <input id="settingsVatRate" type="number" min="0" step="0.01">
-      <label>Invoice Footer</label>
-      <textarea id="settingsInvoiceFooter"></textarea>
+      <input
+        id="settingsVatRate"
+        type="number"
+        step="0.01"
+        min="0"
+        value="20"
+      >
+
+      <label>Invoice Footer / Notes</label>
+      <textarea
+        id="settingsInvoiceFooter"
+        placeholder="Payment details, bank information, thank you message, etc."
+      ></textarea>
+
 
       <hr>
 
+
+      <!-- QUOTE SETTINGS -->
       <h2>Quote Settings</h2>
+
       <label>Quote Prefix</label>
-      <input id="settingsQuotePrefix" type="text" placeholder="QUO-">
+      <input
+        id="settingsQuotePrefix"
+        type="text"
+        placeholder="QUO-"
+      >
+
       <label>Next Quote Number</label>
-      <input id="settingsNextQuoteNumber" type="number" min="1">
-      <label>Quote Validity (days)</label>
-      <input id="settingsQuoteValidity" type="number" min="0">
-      <label>Quote Footer</label>
-      <textarea id="settingsQuoteFooter"></textarea>
+      <input
+        id="settingsNextQuoteNumber"
+        type="number"
+        min="1"
+        placeholder="1"
+      >
+
+      <label>Quote Validity</label>
+      <select id="settingsQuoteValidity">
+        <option value="7">7 days</option>
+        <option value="14">14 days</option>
+        <option value="30" selected>30 days</option>
+        <option value="60">60 days</option>
+      </select>
+
+      <label>Quote Footer / Notes</label>
+      <textarea
+        id="settingsQuoteFooter"
+        placeholder="Terms, notes or other information shown on quotes."
+      ></textarea>
+
 
       <hr>
 
-      <h2>Currency</h2>
+
+      <!-- APPEARANCE -->
+      <h2>Appearance</h2>
+
+      <label>Primary Colour</label>
+      <input
+        id="settingsPrimaryColour"
+        type="color"
+        value="#2563eb"
+        style="height:45px;padding:4px;"
+      >
+
+      <label>Currency</label>
       <select id="settingsCurrency">
-        <option value="GBP">GBP (£)</option>
+        <option value="GBP" selected>GBP (£)</option>
         <option value="EUR">EUR (€)</option>
         <option value="USD">USD ($)</option>
       </select>
 
-      <button id="saveSettingsButton" class="button primary" style="margin-top:20px;">Save Settings</button>
+      <label>Date Format</label>
+      <select id="settingsDateFormat">
+        <option value="DD/MM/YYYY" selected>DD/MM/YYYY</option>
+        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+      </select>
+
+
+      <hr>
+
+
+      <!-- NOTIFICATIONS -->
+      <h2>Notifications</h2>
+
+      <label>
+        <input
+          type="checkbox"
+          id="settingsEmailNotifications"
+          checked
+        >
+        Email notifications
+      </label>
+
+      <label>
+        <input
+          type="checkbox"
+          id="settingsPaymentReminders"
+        >
+        Payment reminders
+      </label>
+
+
+      <div
+        id="settingsMessage"
+        class="muted"
+        style="margin-top:15px;"
+      ></div>
+
+      <div
+        style="
+          display:flex;
+          justify-content:flex-end;
+          margin-top:25px;
+        "
+      >
+        <button
+          class="button primary"
+          onclick="saveSettings()"
+        >
+          Save Settings
+        </button>
+      </div>
+
     </div>
   `;
 
-  const stripeButton = document.getElementById("connectStripeButton");
-  if (stripeButton && typeof window.initStripePayments === "function") {
-    window.initStripePayments();
+
+  loadSettings();
+
+
+  // =====================================================
+  // STRIPE CONNECT BUTTON
+  // =====================================================
+
+  const connectStripeButton =
+    document.getElementById(
+      "connectStripeButton"
+    );
+
+  if (connectStripeButton) {
+
+    connectStripeButton.addEventListener(
+      "click",
+      connectStripe
+    );
+
   }
 
-  const saveButton = document.getElementById("saveSettingsButton");
-  if (saveButton) {
-    saveButton.addEventListener("click", saveSettings);
-  }
+  loadStripeStatus();
 
-  const savedSettings = JSON.parse(localStorage.getItem("jobpilot_settings") || "{}");
-  if (savedSettings) {
-    document.getElementById("settingsBusinessName").value = savedSettings.businessName || "";
-    document.getElementById("settingsContactName").value = savedSettings.contactName || "";
-    document.getElementById("settingsPhone").value = savedSettings.phone || "";
-    document.getElementById("settingsBusinessEmail").value = savedSettings.businessEmail || "";
-    document.getElementById("settingsAddress").value = savedSettings.address || "";
-    document.getElementById("settingsPostcode").value = savedSettings.postcode || "";
-    document.getElementById("settingsWebsite").value = savedSettings.website || "";
-    document.getElementById("settingsInvoicePrefix").value = savedSettings.invoicePrefix || "INV-";
-    document.getElementById("settingsNextInvoiceNumber").value = savedSettings.nextInvoiceNumber || 1;
-    document.getElementById("settingsPaymentTerms").value = savedSettings.paymentTerms || 30;
-    document.getElementById("settingsVatRate").value = savedSettings.vatRate ?? 20;
-    document.getElementById("settingsInvoiceFooter").value = savedSettings.invoiceFooter || "";
-    document.getElementById("settingsQuotePrefix").value = savedSettings.quotePrefix || "QUO-";
-    document.getElementById("settingsNextQuoteNumber").value = savedSettings.nextQuoteNumber || 1;
-    document.getElementById("settingsQuoteValidity").value = savedSettings.quoteValidity || 30;
-    document.getElementById("settingsQuoteFooter").value = savedSettings.quoteFooter || "";
-    document.getElementById("settingsCurrency").value = savedSettings.currency || "GBP";
-    document.getElementById("settingsShowContactName").checked = savedSettings.showContactName !== false;
-    document.getElementById("settingsShowPhone").checked = savedSettings.showPhone !== false;
-    document.getElementById("settingsShowEmail").checked = savedSettings.showEmail !== false;
-    document.getElementById("settingsShowWebsite").checked = savedSettings.showWebsite !== false;
-    document.getElementById("settingsShowAddress").checked = savedSettings.showAddress === true;
-  }
 }
 
 
-async function saveSettings() {
-  const settings = {
-    business_name: document.getElementById("settingsBusinessName").value.trim(),
-    contact_name: document.getElementById("settingsContactName").value.trim(),
-    phone: document.getElementById("settingsPhone").value.trim(),
-    email: document.getElementById("settingsBusinessEmail").value.trim(),
-    address_line1: document.getElementById("settingsAddress").value.trim(),
-    postcode: document.getElementById("settingsPostcode").value.trim(),
-    website: document.getElementById("settingsWebsite").value.trim(),
-    invoice_prefix: document.getElementById("settingsInvoicePrefix").value.trim(),
-    next_invoice_number: Number(document.getElementById("settingsNextInvoiceNumber").value) || 1,
-    invoice_payment_terms: Number(document.getElementById("settingsPaymentTerms").value) || 30,
-    default_vat_rate: Number(document.getElementById("settingsVatRate").value) || 0,
-    invoice_footer: document.getElementById("settingsInvoiceFooter").value.trim(),
-    quote_prefix: document.getElementById("settingsQuotePrefix").value.trim(),
-    next_quote_number: Number(document.getElementById("settingsNextQuoteNumber").value) || 1,
-    quote_validity_days: Number(document.getElementById("settingsQuoteValidity").value) || 30,
-    quote_footer: document.getElementById("settingsQuoteFooter").value.trim(),
-    currency: document.getElementById("settingsCurrency").value,
-    show_contact_name_on_invoice: document.getElementById("settingsShowContactName").checked,
-    show_phone_on_invoice: document.getElementById("settingsShowPhone").checked,
-    show_email_on_invoice: document.getElementById("settingsShowEmail").checked,
-    show_website_on_invoice: document.getElementById("settingsShowWebsite").checked,
-    show_address_on_invoice: document.getElementById("settingsShowAddress").checked
+// =====================================================
+// SETTINGS HELPERS
+// =====================================================
+
+function loadSettings() {
+
+  const settings = JSON.parse(
+    localStorage.getItem("jobpilot_settings") || "{}"
+  );
+
+  const setValue = (id, value) => {
+    const element =
+      document.getElementById(id);
+
+    if (
+      element &&
+      value !== undefined &&
+      value !== null
+    ) {
+      element.value = value;
+    }
   };
 
-  const { error } = await supabase
-    .from("user_settings")
-    .upsert({ user_id: currentUser.id, ...settings }, { onConflict: "user_id" });
 
-  if (error) {
-    alert("Could not save settings:\n\n" + error.message);
-    return;
+  // -------------------------------------------------
+  // BUSINESS DETAILS
+  // -------------------------------------------------
+
+  setValue(
+    "settingsBusinessName",
+    settings.businessName || ""
+  );
+
+  setValue(
+    "settingsContactName",
+    settings.contactName || ""
+  );
+
+  setValue(
+    "settingsPhone",
+    settings.phone || ""
+  );
+
+  setValue(
+    "settingsBusinessEmail",
+    settings.businessEmail || ""
+  );
+
+  setValue(
+    "settingsAddress",
+    settings.address || ""
+  );
+
+  setValue(
+    "settingsPostcode",
+    settings.postcode || ""
+  );
+
+  setValue(
+    "settingsWebsite",
+    settings.website || ""
+  );
+
+
+  // -------------------------------------------------
+  // INVOICE SETTINGS
+  // -------------------------------------------------
+
+  setValue(
+    "settingsInvoicePrefix",
+    settings.invoicePrefix || "INV-"
+  );
+
+  setValue(
+    "settingsNextInvoiceNumber",
+    settings.nextInvoiceNumber || 1
+  );
+
+  setValue(
+    "settingsPaymentTerms",
+    settings.paymentTerms || 30
+  );
+
+  setValue(
+    "settingsVatRate",
+    settings.vatRate ?? 20
+  );
+
+  setValue(
+    "settingsInvoiceFooter",
+    settings.invoiceFooter || ""
+  );
+
+
+  // -------------------------------------------------
+  // QUOTE SETTINGS
+  // -------------------------------------------------
+
+  setValue(
+    "settingsQuotePrefix",
+    settings.quotePrefix || "QUO-"
+  );
+
+  setValue(
+    "settingsNextQuoteNumber",
+    settings.nextQuoteNumber || 1
+  );
+
+  setValue(
+    "settingsQuoteValidity",
+    settings.quoteValidity || 30
+  );
+
+  setValue(
+    "settingsQuoteFooter",
+    settings.quoteFooter || ""
+  );
+
+
+  // -------------------------------------------------
+  // APPEARANCE
+  // -------------------------------------------------
+
+  setValue(
+    "settingsPrimaryColour",
+    settings.primaryColour || "#2563eb"
+  );
+
+  setValue(
+    "settingsCurrency",
+    settings.currency || "GBP"
+  );
+
+  setValue(
+    "settingsDateFormat",
+    settings.dateFormat || "DD/MM/YYYY"
+  );
+
+
+  // -------------------------------------------------
+  // NOTIFICATIONS
+  // -------------------------------------------------
+
+  const emailNotifications =
+    document.getElementById(
+      "settingsEmailNotifications"
+    );
+
+  if (emailNotifications) {
+
+    emailNotifications.checked =
+      settings.emailNotifications !== false;
+
   }
 
-  localStorage.setItem("jobpilot_settings", JSON.stringify({
-    businessName: settings.business_name,
-    contactName: settings.contact_name,
-    phone: settings.phone,
-    businessEmail: settings.email,
-    address: settings.address_line1,
-    postcode: settings.postcode,
-    website: settings.website,
-    invoicePrefix: settings.invoice_prefix,
-    nextInvoiceNumber: settings.next_invoice_number,
-    paymentTerms: settings.invoice_payment_terms,
-    vatRate: settings.default_vat_rate,
-    invoiceFooter: settings.invoice_footer,
-    quotePrefix: settings.quote_prefix,
-    nextQuoteNumber: settings.next_quote_number,
-    quoteValidity: settings.quote_validity_days,
-    quoteFooter: settings.quote_footer,
-    currency: settings.currency,
-    showContactName: settings.show_contact_name_on_invoice,
-    showPhone: settings.show_phone_on_invoice,
-    showEmail: settings.show_email_on_invoice,
-    showWebsite: settings.show_website_on_invoice,
-    showAddress: settings.show_address_on_invoice
-  }));
 
-  alert("Settings saved.");
+  const paymentReminders =
+    document.getElementById(
+      "settingsPaymentReminders"
+    );
+
+  if (paymentReminders) {
+
+    paymentReminders.checked =
+      settings.paymentReminders === true;
+
+  }
+
+
+  // -------------------------------------------------
+  // PUBLIC INVOICE PRIVACY
+  // -------------------------------------------------
+
+  const showContactName =
+    document.getElementById(
+      "settingsShowContactName"
+    );
+
+  if (showContactName) {
+
+    showContactName.checked =
+      settings.showContactName !== false;
+
+  }
+
+
+  const showPhone =
+    document.getElementById(
+      "settingsShowPhone"
+    );
+
+  if (showPhone) {
+
+    showPhone.checked =
+      settings.showPhone !== false;
+
+  }
+
+
+  const showEmail =
+    document.getElementById(
+      "settingsShowEmail"
+    );
+
+  if (showEmail) {
+
+    showEmail.checked =
+      settings.showEmail !== false;
+
+  }
+
+
+  const showWebsite =
+    document.getElementById(
+      "settingsShowWebsite"
+    );
+
+  if (showWebsite) {
+
+    showWebsite.checked =
+      settings.showWebsite !== false;
+
+  }
+
+
+  const showAddress =
+    document.getElementById(
+      "settingsShowAddress"
+    );
+
+  if (showAddress) {
+
+    // IMPORTANT:
+    // Address is OFF by default.
+
+    showAddress.checked =
+      settings.showAddress === true;
+
+  }
+
+
+  // -------------------------------------------------
+  // APPLY APPEARANCE
+  // -------------------------------------------------
+
+  applySettingsAppearance();
+
+}
+
+
+
+// =====================================================
+// SAVE SETTINGS
+// =====================================================
+
+async function saveSettings() {
+
+  const getValue = (id) => {
+    const element = document.getElementById(id);
+    return element ? element.value : "";
+  };
+
+  try {
+
+    // -------------------------------------------------
+    // GET CURRENT USER
+    // -------------------------------------------------
+
+    const {
+      data: {
+        user
+      },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError) {
+      throw userError;
+    }
+
+    if (!user) {
+      throw new Error(
+        "You are not logged in."
+      );
+    }
+
+
+    // -------------------------------------------------
+    // COLLECT SETTINGS
+    // -------------------------------------------------
+
+    const settings = {
+
+      businessName:
+        getValue("settingsBusinessName"),
+
+      contactName:
+        getValue("settingsContactName"),
+
+      phone:
+        getValue("settingsPhone"),
+
+      businessEmail:
+        getValue("settingsBusinessEmail"),
+
+      address:
+        getValue("settingsAddress"),
+
+      postcode:
+        getValue("settingsPostcode"),
+
+      website:
+        getValue("settingsWebsite"),
+
+      invoicePrefix:
+        getValue("settingsInvoicePrefix"),
+
+      nextInvoiceNumber:
+        Number(
+          getValue("settingsNextInvoiceNumber")
+        ) || 1,
+
+      paymentTerms:
+        Number(
+          getValue("settingsPaymentTerms")
+        ) || 30,
+
+      vatRate:
+        Number(
+          getValue("settingsVatRate")
+        ) || 0,
+
+      invoiceFooter:
+        getValue("settingsInvoiceFooter"),
+
+      quotePrefix:
+        getValue("settingsQuotePrefix"),
+
+      nextQuoteNumber:
+        Number(
+          getValue("settingsNextQuoteNumber")
+        ) || 1,
+
+      quoteValidity:
+        Number(
+          getValue("settingsQuoteValidity")
+        ) || 30,
+
+      quoteFooter:
+        getValue("settingsQuoteFooter"),
+
+      primaryColour:
+        getValue("settingsPrimaryColour"),
+
+      currency:
+        getValue("settingsCurrency"),
+
+      dateFormat:
+        getValue("settingsDateFormat"),
+
+      emailNotifications:
+        document.getElementById(
+          "settingsEmailNotifications"
+        )?.checked ?? true,
+
+      paymentReminders:
+  document.getElementById(
+    "settingsPaymentReminders"
+  )?.checked ?? false,
+
+showContactName:
+  document.getElementById(
+    "settingsShowContactName"
+  )?.checked ?? true,
+
+showPhone:
+  document.getElementById(
+    "settingsShowPhone"
+  )?.checked ?? true,
+
+showEmail:
+  document.getElementById(
+    "settingsShowEmail"
+  )?.checked ?? true,
+
+showWebsite:
+  document.getElementById(
+    "settingsShowWebsite"
+  )?.checked ?? true,
+
+showAddress:
+  document.getElementById(
+    "settingsShowAddress"
+  )?.checked ?? false
+      
+    };
+
+
+    // -------------------------------------------------
+    // SAVE TO SUPABASE
+    // -------------------------------------------------
+
+    const { error: saveError } =
+
+      await supabase
+
+        .from("user_settings")
+
+        .upsert(
+
+          {
+
+            user_id: user.id,
+
+            business_name:
+
+              settings.businessName,
+
+            contact_name:
+
+              settings.contactName,
+
+            phone:
+
+              settings.phone,
+
+            email:
+
+              settings.businessEmail,
+
+            website:
+
+              settings.website,
+
+            // -----------------------------------------
+
+            // PUBLIC INVOICE PRIVACY
+
+            // -----------------------------------------
+
+            show_contact_name_on_invoice:
+
+              settings.showContactName,
+
+            show_phone_on_invoice:
+
+              settings.showPhone,
+
+            show_email_on_invoice:
+
+              settings.showEmail,
+
+            show_website_on_invoice:
+
+              settings.showWebsite,
+
+            show_address_on_invoice:
+
+              settings.showAddress,
+
+            // -----------------------------------------
+
+            // BUSINESS ADDRESS
+
+            // -----------------------------------------
+
+            address_line1:
+
+              settings.address,
+
+            postcode:
+
+              settings.postcode,
+
+            // -----------------------------------------
+
+            // INVOICE SETTINGS
+
+            // -----------------------------------------
+
+            invoice_prefix:
+
+              settings.invoicePrefix,
+
+            next_invoice_number:
+
+              settings.nextInvoiceNumber,
+
+            invoice_payment_terms:
+
+              settings.paymentTerms,
+
+            default_vat_rate:
+
+              settings.vatRate,
+
+            invoice_footer:
+
+              settings.invoiceFooter,
+
+            // -----------------------------------------
+
+            // QUOTE SETTINGS
+
+            // -----------------------------------------
+
+            quote_prefix:
+
+              settings.quotePrefix,
+
+            next_quote_number:
+
+              settings.nextQuoteNumber,
+
+            quote_validity_days:
+
+              settings.quoteValidity,
+
+            quote_footer:
+
+              settings.quoteFooter,
+
+            // -----------------------------------------
+
+            // OTHER SETTINGS
+
+            // -----------------------------------------
+
+            currency:
+
+              settings.currency,
+
+            updated_at:
+
+              new Date().toISOString()
+
+          },
+
+          {
+
+            onConflict: "user_id"
+
+          }
+
+        );
+
+    if (saveError) {
+
+      throw saveError;
+
+    }
+
+
+    // -------------------------------------------------
+    // KEEP LOCAL COPY
+    // -------------------------------------------------
+
+    localStorage.setItem(
+      "jobpilot_settings",
+      JSON.stringify(settings)
+    );
+
+
+    // -------------------------------------------------
+    // APPLY APPEARANCE
+    // -------------------------------------------------
+
+    applySettingsAppearance();
+
+
+    // -------------------------------------------------
+    // SUCCESS MESSAGE
+    // -------------------------------------------------
+
+    const message =
+      document.getElementById("settingsMessage");
+
+    if (message) {
+
+      message.textContent =
+        "Settings saved successfully.";
+
+      message.style.color =
+        "var(--success)";
+
+      setTimeout(() => {
+
+        message.textContent = "";
+
+      }, 3000);
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "Save settings error:",
+      error
+    );
+
+    const message =
+      document.getElementById("settingsMessage");
+
+    if (message) {
+
+      message.textContent =
+        "Could not save settings: " +
+        error.message;
+
+      message.style.color =
+        "var(--danger, #dc2626)";
+
+    } else {
+
+      alert(
+        "Could not save settings:\n\n" +
+        error.message
+      );
+
+    }
+
+  }
+
+}
+
+
+// Make the function available to the HTML button
+window.saveSettings =
+  saveSettings;
+
+
+// =====================================================
+// APPLY SETTINGS APPEARANCE
+// =====================================================
+
+function applySettingsAppearance() {
+
+  const settings = JSON.parse(
+    localStorage.getItem("jobpilot_settings") || "{}"
+  );
+
+  const colour =
+    settings.primaryColour || "#2563eb";
+
+  document.documentElement.style.setProperty(
+    "--primary",
+    colour
+  );
 }
 
 
@@ -3381,22 +6446,49 @@ async function saveSettings() {
 // =====================================================
 
 async function changeSettingsPassword() {
-  const password = document.getElementById("settingsPassword")?.value || "";
+
+  const passwordInput =
+    document.getElementById("settingsPassword");
+
+  if (!passwordInput) return;
+
+  const password =
+    passwordInput.value.trim();
+
   if (!password) {
-    alert("Enter a new password.");
+    alert("Please enter a new password.");
     return;
   }
+
   if (password.length < 6) {
-    alert("Password must be at least 6 characters.");
+    alert(
+      "Password must be at least 6 characters."
+    );
     return;
   }
-  const { error } = await supabase.auth.updateUser({ password });
-  if (error) {
-    alert(error.message);
-    return;
+
+  try {
+
+    const { error } =
+      await supabase.auth.updateUser({
+        password
+      });
+
+    if (error) throw error;
+
+    passwordInput.value = "";
+
+    alert(
+      "Password changed successfully."
+    );
+
+  } catch (error) {
+
+    alert(
+      "Could not change password: " +
+      error.message
+    );
   }
-  document.getElementById("settingsPassword").value = "";
-  alert("Password changed successfully.");
 }
 
 
@@ -3413,16 +6505,48 @@ async function logout() {
 // HELPERS
 // =====================================================
 
-function todayDate() {
-  return new Date().toISOString().split("T")[0];
+function getCustomerName(customerId) {
+
+  const customer =
+    customers.find(
+      c =>
+        String(c.id) ===
+        String(customerId)
+    );
+
+  return customer
+    ? escapeHtml(customer.name)
+    : "Unknown customer";
 }
 
+
+function todayDate() {
+
+  const now =
+    new Date();
+
+  const year =
+    now.getFullYear();
+
+  const month =
+    String(now.getMonth() + 1)
+      .padStart(2, "0");
+
+  const day =
+    String(now.getDate())
+      .padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+
 function escapeHtml(value) {
-  return String(value ?? "")
+
+  return String(value)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
+    .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
 
@@ -3432,3 +6556,272 @@ function escapeHtml(value) {
 // =====================================================
 
 init();
+
+// =====================================================
+// STRIPE CONNECT
+// =====================================================
+
+async function loadStripeStatus() {
+
+  const statusElement =
+    document.getElementById(
+      "stripeConnectionStatus"
+    );
+
+  const connectButton =
+    document.getElementById(
+      "connectStripeButton"
+    );
+
+  if (!statusElement || !connectButton) {
+    return;
+  }
+
+
+  try {
+
+    const {
+      data: {
+        session
+      }
+    } =
+      await supabase.auth.getSession();
+
+
+    if (!session) {
+
+      statusElement.textContent =
+        "Not logged in.";
+
+      connectButton.disabled =
+        true;
+
+      return;
+
+    }
+
+
+    const response =
+      await fetch(
+        "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-connect-v3",
+        {
+          method: "POST",
+
+          headers: {
+            "Authorization":
+              `Bearer ${session.access_token}`,
+
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+            action: "status"
+          })
+        }
+      );
+
+
+    const result =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        result.error ||
+        "Could not check Stripe status."
+      );
+
+    }
+
+
+    if (
+      result.connected &&
+      result.charges_enabled
+    ) {
+
+      statusElement.innerHTML = `
+        <strong style="color:green;">
+          ✅ Stripe connected
+        </strong>
+
+        <br>
+
+        <small>
+          Your customers can pay your invoices online.
+        </small>
+      `;
+
+      connectButton.textContent =
+        "💳 Stripe Connected";
+
+      connectButton.disabled =
+        true;
+
+    } else if (result.connected) {
+
+      statusElement.innerHTML = `
+        <strong>
+          ⚠️ Stripe setup incomplete
+        </strong>
+
+        <br>
+
+        <small>
+          Complete your Stripe setup to enable payments.
+        </small>
+      `;
+
+      connectButton.textContent =
+        "💳 Complete Stripe Setup";
+
+    } else {
+
+      statusElement.innerHTML = `
+        <strong>
+          Not connected
+        </strong>
+
+        <br>
+
+        <small>
+          Connect Stripe to accept online payments.
+        </small>
+      `;
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "Stripe status error:",
+      error
+    );
+
+    statusElement.textContent =
+      "Could not check Stripe connection.";
+
+  }
+
+}
+
+
+async function connectStripe() {
+
+  const button =
+    document.getElementById(
+      "connectStripeButton"
+    );
+
+  if (!button) {
+    return;
+  }
+
+
+  button.disabled =
+    true;
+
+  button.textContent =
+    "Connecting to Stripe...";
+
+
+  try {
+
+    const {
+      data: {
+        session
+      }
+    } =
+      await supabase.auth.getSession();
+
+
+    if (!session) {
+
+      throw new Error(
+        "You are not logged in."
+      );
+
+    }
+
+
+    const response =
+      await fetch(
+       "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-connect-v3",
+        {
+          method: "POST",
+
+          headers: {
+
+            "Authorization":
+              `Bearer ${session.access_token}`,
+
+            "Content-Type":
+              "application/json"
+
+          },
+
+          body: JSON.stringify({
+
+            action:
+              "connect",
+
+            origin:
+              window.location.origin
+
+          })
+
+        }
+      );
+
+
+    const result =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        result.error ||
+        "Could not connect Stripe."
+      );
+
+    }
+
+
+    if (!result.url) {
+
+      throw new Error(
+        "Stripe did not return an onboarding URL."
+      );
+
+    }
+
+
+    window.location.href =
+      result.url;
+
+
+  } catch (error) {
+
+    console.error(
+      "Stripe connection error:",
+      error
+    );
+
+
+    alert(
+      "Could not connect Stripe:\n\n" +
+      error.message
+    );
+
+
+    button.disabled =
+      false;
+
+    button.textContent =
+      "💳 Connect Stripe";
+
+  }
+
+}

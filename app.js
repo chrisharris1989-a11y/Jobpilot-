@@ -6603,7 +6603,7 @@ async function loadStripeStatus() {
 
     const response =
       await fetch(
-        "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-connect-v3",
+        "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-connect-v4",
         {
           method: "POST",
 
@@ -6747,7 +6747,7 @@ async function connectStripe() {
 
     const response =
       await fetch(
-       "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-connect-v3",
+       "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-connect-v4",
         {
           method: "POST",
 

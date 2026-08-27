@@ -18,8 +18,8 @@ function handleOAuthReturn() {
       localStorage.removeItem(GO_CARDLESS_STORAGE_KEY);
     }
 
-    // Consume the one-time OAuth parameter immediately. This keeps the
-    // callback state out of the app's page-rendering lifecycle.
+    // Consume the one-time OAuth parameter immediately, before the SPA
+    // renders any page. This prevents callback state from affecting Settings.
     const cleanUrl =
       window.location.origin +
       window.location.pathname +
@@ -61,13 +61,15 @@ function addGoCardlessUI() {
 
     stripeButton.insertAdjacentElement("afterend", panel);
 
-    document
-      .getElementById("connectGoCardlessButton")
-      ?.addEventListener("click", connectGoCardless);
+    const button = document.getElementById("connectGoCardlessButton");
+    if (button) {
+      button.addEventListener("click", connectGoCardless);
+    }
 
     showGoCardlessResult();
     return true;
   } catch (error) {
+    // GoCardless must never be allowed to break the main JobPilot UI.
     console.error("GoCardless UI initialization failed:", error);
     return false;
   }
@@ -127,10 +129,17 @@ function showGoCardlessResult() {
   }
 }
 
-// The app is a single-page application and renders Settings dynamically.
-// app.js dispatches this event only after the Settings DOM exists.
-window.addEventListener("jobpilot:settings-rendered", () => {
-  addGoCardlessUI();
-});
+// Settings is rendered dynamically by app.js. Rather than observing every DOM
+// mutation or polling continuously, initialize immediately after a user click.
+document.addEventListener(
+  "click",
+  () => {
+    setTimeout(() => {
+      addGoCardlessUI();
+    }, 0);
+  },
+  true
+);
 
 handleOAuthReturn();
+addGoCardlessUI();

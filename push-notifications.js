@@ -4,7 +4,7 @@ const ADMIN_USER_ID = "9a89bdf0-1f17-48ec-a622-db59545e8ada";
 const VAPID_PUBLIC_KEY = "BBqcq1QrHXk03q-X8j0CibvSnHJBIZ0Z8tpuqV96Nb_a0HaUNqH6EQmNjSNbCJaCnXwpUoGfsDHytdeDYFNJtZY";
 const PUSH_ENABLED_KEY = `jobpilot-push-enabled:${ADMIN_USER_ID}`;
 const VAPID_VERSION_KEY = `jobpilot-vapid-version:${ADMIN_USER_ID}`;
-const VAPID_VERSION = "8";
+const VAPID_VERSION = "9";
 let initialisationPromise = null;
 let authListenerStarted = false;
 
@@ -115,9 +115,7 @@ export async function setupAdminPushNotifications() {
   return initialisationPromise;
 }
 
-function startPushChecks() {
-  setupAdminPushNotifications().catch(console.error);
-}
+function startPushChecks() { setupAdminPushNotifications().catch(console.error); }
 
 window.addEventListener("load", startPushChecks, { once: true });
 if (!authListenerStarted) {

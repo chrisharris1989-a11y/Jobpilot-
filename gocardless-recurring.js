@@ -20,193 +20,172 @@ async function getProfileCustomer() {
   const name = values.name || document.getElementById("pageTitle")?.textContent?.trim();
   if (!name) return null;
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  let query = supabase
+  const { data, error } = await supabase
     .from("customers")
-    .select("id,name,email")
-    .eq("user_id", user.id)
+    .select("id,name,email,address_line1,address_line2,city,postcode")
     .eq("name", name)
-    .limit(10);
+    .limit(1)
+    .maybeSingle();
 
-  const { data: matches, error } = await query;
-  if (error || !matches?.length) return null;
-
-  if (values.email && values.email !== "—") {
-    const emailMatch = matches.find(customer =>
-      String(customer.email || "").toLowerCase() === values.email.toLowerCase()
-    );
-    if (emailMatch) return emailMatch;
+  if (error) {
+    console.error("Unable to find profile customer", error);
+    return null;
   }
-
-  return matches[0];
+  return data;
 }
 
 async function getDirectDebitStatus(customerId) {
-  const { data: subscriptions } = await supabase
-    .from("gocardless_subscriptions")
-    .select("id,status,amount,currency,interval,interval_unit,day_of_month,start_date")
+  const { data: customerLink } = await supabase
+    .from("gocardless_customers")
+    .select("gocardless_customer_id")
     .eq("customer_id", customerId)
-    .in("status", ["active", "pending_submission", "pending_customer_approval"])
-    .order("created_at", { ascending: false })
-    .limit(1);
+    .maybeSingle();
 
-  if (subscriptions?.length) {
-    const sub = subscriptions[0];
-    if (sub.status === "active") return { state: "active", subscription: sub };
-    return { state: "pending", subscription: sub };
-  }
+  if (!customerLink?.gocardless_customer_id) return "none";
 
-  const { data: mandates } = await supabase
+  const { data: mandate } = await supabase
     .from("gocardless_mandates")
-    .select("id,status")
+    .select("id,status,cancelled_at,updated_at")
     .eq("customer_id", customerId)
-    .order("created_at", { ascending: false })
-    .limit(1);
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  if (mandates?.length && !["cancelled", "failed", "expired"].includes(String(mandates[0].status))) {
-    return { state: "pending", mandate: mandates[0] };
+  const { data: subscription } = await supabase
+    .from("gocardless_subscriptions")
+    .select("status,cancelled_at,updated_at")
+    .eq("customer_id", customerId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const subscriptionStatus = String(subscription?.status || "").toLowerCase();
+  const mandateStatus = String(mandate?.status || "").toLowerCase();
+
+  if (["cancelled", "canceled", "finished", "failed", "expired"].includes(subscriptionStatus) ||
+      ["cancelled", "canceled", "failed", "expired"].includes(mandateStatus)) {
+    return "cancelled";
   }
 
-  return { state: "none" };
+  if (["active", "created", "pending_customer_approval", "pending_submission"].includes(subscriptionStatus)) {
+    return subscriptionStatus === "active" ? "active" : "pending";
+  }
+
+  if (mandateStatus && mandateStatus !== "active") return "pending";
+  if (mandateStatus === "active") return "active";
+
+  return "none";
 }
 
-function createDirectDebitButton(customerId, state) {
-  const action = document.createElement("button");
-  action.type = "button";
-  action.className = "button secondary";
-  action.dataset.gocardlessRecurring = "true";
-  action.style.marginLeft = "10px";
+function buildDirectDebitButton(customer, status) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn btn-secondary gocardless-recurring-btn";
 
-  if (state === "active") {
-    action.textContent = "✓ Direct Debit Active";
-    action.disabled = true;
-    action.title = "This customer has an active recurring Direct Debit.";
-  } else if (state === "pending") {
-    action.textContent = "⏳ Direct Debit Setup Pending";
-    action.disabled = true;
-    action.title = "The Direct Debit setup is still being processed.";
+  if (status === "active") {
+    button.textContent = "✓ Direct Debit Active";
+    button.disabled = true;
+    button.title = "This customer has an active Direct Debit subscription";
+  } else if (status === "cancelled") {
+    button.textContent = "✕ Direct Debit Cancelled";
+    button.disabled = true;
+    button.title = "This customer's Direct Debit has been cancelled";
+  } else if (status === "pending") {
+    button.textContent = "Direct Debit Setup Pending";
+    button.disabled = true;
+    button.title = "Direct Debit setup is still pending";
   } else {
-    action.textContent = "🏦 Monthly Direct Debit";
-    action.addEventListener("click", () => openRecurringModal(customerId));
+    button.textContent = "Monthly Direct Debit";
+    button.addEventListener("click", () => openRecurringSetup(customer));
   }
 
-  return action;
+  return button;
 }
 
-async function addProfileButton() {
-  if (document.querySelector("[data-gocardless-profile-action]")) return true;
+async function openRecurringSetup(customer) {
+  const monthly = window.prompt("Monthly amount (£)", "10");
+  if (monthly === null) return;
+  const amount = Math.round(Number(monthly) * 100);
+  if (!Number.isInteger(amount) || amount < 1) {
+    alert("Please enter a valid monthly amount.");
+    return;
+  }
 
-  const editButton = document.getElementById("editCustomer");
-  const deleteButton = document.getElementById("deleteCustomer");
-  if (!editButton || !deleteButton) return false;
+  const day = window.prompt("Payment day (1-28)", "1");
+  if (day === null) return;
+  const dayOfMonth = Number(day);
+  if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 28) {
+    alert("Payment day must be between 1 and 28.");
+    return;
+  }
 
+  const description = window.prompt("Description", "Monthly Direct Debit");
+  if (description === null) return;
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    alert("Please sign in again before setting up Direct Debit.");
+    return;
+  }
+
+  try {
+    const response = await fetch(CREATE_RECURRING_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        customer_id: customer.id,
+        amount,
+        day_of_month: dayOfMonth,
+        description: description.slice(0, 255),
+      }),
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.authorisation_url) {
+      throw new Error(result.error || "Unable to start Direct Debit setup");
+    }
+
+    window.location.href = result.authorisation_url;
+  } catch (error) {
+    console.error(error);
+    alert(`Could not start the Direct Debit Setup: ${error.message}`);
+  }
+}
+
+async function addProfileDirectDebitAction() {
   const customer = await getProfileCustomer();
-  if (!customer) return false;
+  if (!customer) return;
 
   const status = await getDirectDebitStatus(customer.id);
-  const action = createDirectDebitButton(customer.id, status.state);
-  action.dataset.gocardlessProfileAction = "true";
+  const button = buildDirectDebitButton(customer, status);
 
-  editButton.parentElement?.insertBefore(action, editButton);
-  return true;
+  const editButton = document.getElementById("editCustomer");
+  if (!editButton) return;
+
+  const existing = document.querySelector(".gocardless-recurring-btn");
+  if (existing) existing.remove();
+
+  editButton.parentElement?.appendChild(button);
 }
 
-async function openRecurringModal(customerId) {
-  const modal = document.createElement("div");
-  modal.className = "modal show";
-  modal.innerHTML = `
-    <div class="modal-content">
-      <div class="modal-header">
-        <div>
-          <h2>Set up Monthly Direct Debit</h2>
-          <p>The customer will authorise the Direct Debit securely through GoCardless.</p>
-        </div>
-        <button class="close" type="button">×</button>
-      </div>
-
-      <form id="gocardlessRecurringForm">
-        <label>Monthly Amount (£)</label>
-        <input id="gcRecurringAmount" type="number" min="0.01" step="0.01" required placeholder="50.00">
-
-        <label>Payment Day</label>
-        <select id="gcRecurringDay">
-          ${Array.from({ length: 28 }, (_, i) => `<option value="${i + 1}">${i + 1}${[1,21].includes(i+1) ? "st" : [2,22].includes(i+1) ? "nd" : [3,23].includes(i+1) ? "rd" : "th"} of each month</option>`).join("")}
-        </select>
-
-        <label>Description</label>
-        <input id="gcRecurringDescription" maxlength="255" value="Monthly Direct Debit" required>
-
-        <p class="muted" style="margin-top:12px;">
-          GoCardless will handle the bank authorisation and Direct Debit mandate. JobPilot does not collect or store bank details.
-        </p>
-
-        <div class="modal-actions">
-          <button type="button" class="button secondary close">Cancel</button>
-          <button type="submit" class="button primary">Continue to GoCardless</button>
-        </div>
-      </form>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-  modal.querySelectorAll(".close").forEach(button =>
-    button.addEventListener("click", () => modal.remove())
-  );
-
-  modal.querySelector("#gocardlessRecurringForm").addEventListener("submit", async event => {
-    event.preventDefault();
-
-    const submit = modal.querySelector('button[type="submit"]');
-    submit.disabled = true;
-    submit.textContent = "Preparing GoCardless...";
-
-    try {
-      const amount = Math.round(Number(modal.querySelector("#gcRecurringAmount").value) * 100);
-      const dayOfMonth = Number(modal.querySelector("#gcRecurringDay").value);
-      const description = modal.querySelector("#gcRecurringDescription").value.trim();
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("You are not logged in.");
-
-      const response = await fetch(CREATE_RECURRING_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: session.access_token,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          customer_id: customerId,
-          amount,
-          day_of_month: dayOfMonth,
-          description
-        })
-      });
-
-      const result = await response.json();
-      if (!response.ok || !result.authorisation_url) {
-        throw new Error(result.error || "Could not start GoCardless Direct Debit setup.");
-      }
-
-      window.location.href = result.authorisation_url;
-    } catch (error) {
-      console.error("GoCardless recurring setup:", error);
-      alert("Could not start the Direct Debit setup:\n\n" + (error?.message || error));
-      submit.disabled = false;
-      submit.textContent = "Continue to GoCardless";
-    }
-  });
+function removeListDirectDebitButtons() {
+  document.querySelectorAll(".customer-row .gocardless-recurring-btn").forEach(button => button.remove());
 }
 
-function watchCustomerProfiles() {
-  const observer = new MutationObserver(() => {
-    addProfileButton().catch(error => console.error("GoCardless profile UI:", error));
-  });
-
-  observer.observe(document.body, { childList: true, subtree: true });
-  addProfileButton().catch(error => console.error("GoCardless profile UI:", error));
+function refreshDirectDebitUI() {
+  removeListDirectDebitButtons();
+  addProfileDirectDebitAction().catch(error => console.error("Direct Debit UI error", error));
 }
 
-watchCustomerProfiles();
+const observer = new MutationObserver(() => {
+  clearTimeout(window.__jobpilotGcRefresh);
+  window.__jobpilotGcRefresh = setTimeout(refreshDirectDebitUI, 100);
+});
+
+observer.observe(document.body, { childList: true, subtree: true });
+
+window.addEventListener("load", refreshDirectDebitUI);
+setTimeout(refreshDirectDebitUI, 250);

@@ -4,7 +4,7 @@ const ADMIN_USER_ID = "9a89bdf0-1f17-48ec-a622-db59545e8ada";
 const VAPID_PUBLIC_KEY = "BBqcq1QrHXk03q-X8j0CibvSnHJBIZ0Z8tpuqV96Nb_a0HaUNqH6EQmNjSNbCJaCnXwpUoGfsDHytdeDYFNJtZY";
 const PUSH_ENABLED_KEY = `jobpilot-push-enabled:${ADMIN_USER_ID}`;
 const VAPID_VERSION_KEY = `jobpilot-vapid-version:${ADMIN_USER_ID}`;
-const VAPID_VERSION = "5";
+const VAPID_VERSION = "6";
 
 const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
@@ -28,14 +28,14 @@ function persist(enabled) {
 }
 
 function renderPushControl() {
-  const content = document.getElementById("pageContent");
-  if (!content || document.getElementById("jobpilot-push-control")) return;
+  if (document.getElementById("jobpilot-push-control")) return;
 
+  const host = document.querySelector(".sidebar-bottom") || document.getElementById("pageContent") || document.body;
   const wrap = document.createElement("div");
   wrap.id = "jobpilot-push-control";
-  wrap.style.cssText = "margin:20px 0;padding:16px;border-radius:12px;background:var(--card-bg,#fff);border:1px solid var(--border,#e5e7eb);";
-  wrap.innerHTML = `<div style="font-weight:700;margin-bottom:6px">Push notifications</div><div style="font-size:14px;margin-bottom:12px;opacity:.75">Enable JobPilot notifications on this iPhone.</div><button id="jobpilot-push-button" class="button primary" type="button" style="width:100%;min-height:48px">🔔 Enable iPhone notifications</button>`;
-  content.prepend(wrap);
+  wrap.style.cssText = "margin:8px 0;width:100%;";
+  wrap.innerHTML = `<button id="jobpilot-push-button" class="nav-item" type="button" style="width:100%;text-align:left;cursor:pointer">🔔 Enable notifications</button>`;
+  host.prepend(wrap);
   document.getElementById("jobpilot-push-button").addEventListener("click", enablePush);
 }
 
@@ -75,7 +75,7 @@ async function enablePush() {
   } catch (error) {
     console.error("JobPilot push setup failed", error);
     persist(false);
-    if (button) { button.disabled = false; button.textContent = "🔔 Enable iPhone notifications"; }
+    if (button) { button.disabled = false; button.textContent = "🔔 Enable notifications"; }
     alert("Could not enable notifications: " + (error.message || error));
   }
 }
@@ -119,7 +119,15 @@ export async function setupAdminPushNotifications() {
   }
 }
 
-// The main app replaces #pageContent during render. Retry after each render and auth event.
+// Watch for the main app being rendered. app.js replaces the DOM after auth,
+// so a one-time window.load handler is not reliable enough on this PWA.
+const observer = new MutationObserver(() => {
+  if (document.querySelector(".sidebar-bottom")) {
+    setupAdminPushNotifications().catch(console.error);
+  }
+});
+observer.observe(document.body, { childList: true, subtree: true });
+
 function startPushChecks() {
   [500, 2000, 4000].forEach(ms => setTimeout(() => setupAdminPushNotifications().catch(console.error), ms));
 }

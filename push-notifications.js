@@ -30,19 +30,21 @@ function persist(enabled) {
   } catch (_) {}
 }
 
-function renderPushControl() {
-  if (document.getElementById("jobpilot-push-control")) return;
+function renderPushControl(enabled = false) {
   const host = document.querySelector(".sidebar-bottom");
   if (!host) return;
-  const wrap = document.createElement("div");
-  wrap.id = "jobpilot-push-control";
-  wrap.style.cssText = "margin:8px 0;width:100%;position:relative;z-index:9999;";
-  wrap.innerHTML = `<button id="jobpilot-push-button" type="button" style="display:block!important;width:100%;min-height:48px;padding:12px 16px;border:1px solid currentColor;border-radius:8px;background:transparent;font:inherit;text-align:left;cursor:pointer">🔔 Enable notifications</button>`;
-  host.prepend(wrap);
-  document.getElementById("jobpilot-push-button")?.addEventListener("click", enablePush);
+  let wrap = document.getElementById("jobpilot-push-control");
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.id = "jobpilot-push-control";
+    wrap.style.cssText = "margin:8px 0;width:100%;position:relative;z-index:9999;";
+    host.prepend(wrap);
+  }
+  wrap.innerHTML = enabled
+    ? `<button id="jobpilot-push-button" type="button" style="display:block!important;width:100%;min-height:48px;padding:12px 16px;border:1px solid currentColor;border-radius:8px;background:transparent;font:inherit;text-align:left;cursor:default">🔔 Notifications enabled</button>`
+    : `<button id="jobpilot-push-button" type="button" style="display:block!important;width:100%;min-height:48px;padding:12px 16px;border:1px solid currentColor;border-radius:8px;background:transparent;font:inherit;text-align:left;cursor:pointer">🔔 Enable notifications</button>`;
+  if (!enabled) document.getElementById("jobpilot-push-button")?.addEventListener("click", enablePush);
 }
-
-function removePushControl() { document.getElementById("jobpilot-push-control")?.remove(); }
 
 async function saveSubscription(subscription) {
   const json = subscription.toJSON();
@@ -74,12 +76,12 @@ async function enablePush() {
     subscription = await makeSubscription(registration);
     await saveSubscription(subscription);
     persist(true);
-    removePushControl();
+    renderPushControl(true);
     alert("Push notifications are now enabled on this iPhone.");
   } catch (error) {
     console.error("JobPilot push setup failed", error);
     persist(false);
-    if (button) { button.disabled = false; button.textContent = "🔔 Enable notifications"; }
+    renderPushControl(false);
     alert("Could not enable notifications: " + (error.message || error));
   }
 }
@@ -90,7 +92,7 @@ export async function setupAdminPushNotifications() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || String(user.id) !== ADMIN_USER_ID) return;
     if (!document.querySelector(".sidebar-bottom")) return;
-    renderPushControl();
+    renderPushControl(false);
     if (isIOS() && !isStandalone()) return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
     try {
@@ -106,12 +108,14 @@ export async function setupAdminPushNotifications() {
         if (!subscription) subscription = await makeSubscription(registration);
         await saveSubscription(subscription);
         persist(true);
-        removePushControl();
+        renderPushControl(true);
+      } else {
+        renderPushControl(false);
       }
     } catch (error) {
       console.error("JobPilot push initialisation failed", error);
       persist(false);
-      renderPushControl();
+      renderPushControl(false);
     }
   })().finally(() => { initialisationPromise = null; });
   return initialisationPromise;
@@ -125,16 +129,12 @@ function watchForAppRender() {
   const app = document.getElementById("app");
   if (!app) return;
   const observer = new MutationObserver(() => {
-    if (document.querySelector(".sidebar-bottom")) {
-      observer.disconnect();
+    if (document.querySelector(".sidebar-bottom") && !document.getElementById("jobpilot-push-control")) {
       setupAdminPushNotifications().catch(console.error);
     }
   });
   observer.observe(app, { childList: true, subtree: true });
-  if (document.querySelector(".sidebar-bottom")) {
-    observer.disconnect();
-    setupAdminPushNotifications().catch(console.error);
-  }
+  if (document.querySelector(".sidebar-bottom")) setupAdminPushNotifications().catch(console.error);
 }
 
 window.addEventListener("DOMContentLoaded", watchForAppRender, { once: true });

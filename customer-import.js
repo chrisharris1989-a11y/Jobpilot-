@@ -59,7 +59,7 @@ async function openImporter(){
   styles();
   const modal=document.createElement("div");modal.className="jp-import-modal";
   const card=document.createElement("div");card.className="jp-import-card";modal.appendChild(card);document.body.appendChild(modal);
-  card.innerHTML=`<h2>Import from Squeegee</h2><p class="jp-import-muted">Upload your Squeegee customer CSV. JobPilot will detect the columns, flag possible duplicates and let you review the import first.</p><div class="jp-import-drop"><input id="jp-csv" type="file" accept=".csv,text/csv"></div><div id="jp-preview"></div>`;
+  card.innerHTML=`<h2>Import Data</h2><p class="jp-import-muted">Upload a customer CSV. JobPilot will detect the columns, flag possible duplicates and let you review the import first.</p><div class="jp-import-drop"><input id="jp-csv" type="file" accept=".csv,text/csv"></div><div id="jp-preview"></div>`;
   modal.addEventListener("click",e=>{if(e.target===modal)modal.remove()});
   card.querySelector("#jp-csv").addEventListener("change",async e=>{
     const file=e.target.files?.[0];if(!file)return;const preview=card.querySelector("#jp-preview");
@@ -82,6 +82,6 @@ async function openImporter(){
 
 function addButton(){
   const add=document.getElementById("addCustomerButton");if(!add||document.getElementById("jp-import-customers"))return;
-  const b=document.createElement("button");b.id="jp-import-customers";b.type="button";b.className="button";b.textContent="Import from Squeegee";b.style.marginLeft="8px";b.addEventListener("click",openImporter);add.parentElement?.appendChild(b);
+  const b=document.createElement("button");b.id="jp-import-customers";b.type="button";b.className="button";b.textContent="Import Data";b.style.marginLeft="8px";b.addEventListener("click",openImporter);add.parentElement?.appendChild(b);
 }
 new MutationObserver(addButton).observe(document.body,{childList:true,subtree:true});window.addEventListener("load",addButton);setTimeout(addButton,500);

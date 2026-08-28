@@ -22,15 +22,27 @@ export async function showAdminUsers() {
     <div class="page-header">
       <div>
         <h2>👥 Users</h2>
-        <p>All accounts registered with JobPilot.</p>
+        <p>Search users by name, phone number or email.</p>
       </div>
     </div>
+
+    <div class="panel" style="margin-bottom:16px;">
+      <input
+        id="adminUserSearch"
+        class="search-input"
+        type="search"
+        placeholder="Search by name, phone or email..."
+        autocomplete="off"
+      >
+    </div>
+
     <div id="adminUsersList">
       <div class="panel"><p>Loading users...</p></div>
     </div>
   `;
 
   const container = document.getElementById("adminUsersList");
+  const searchInput = document.getElementById("adminUserSearch");
   if (!container) return;
 
   const { data, error } = await supabase.functions.invoke("admin-users");
@@ -57,30 +69,63 @@ export async function showAdminUsers() {
     return;
   }
 
-  container.innerHTML = users.map(user => `
-    <div class="panel" style="margin-bottom:16px;">
-      <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;">
-        <div>
-          <h3>${escapeHtml(user.name || user.email || "Unnamed user")}</h3>
-          <p>${escapeHtml(user.email)}</p>
+  const renderUsers = (term = "") => {
+    const query = String(term || "").trim().toLowerCase();
+    const filteredUsers = users.filter(user => {
+      const searchable = [user.name, user.phone, user.email]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return !query || searchable.includes(query);
+    });
+
+    if (!filteredUsers.length) {
+      container.innerHTML = `
+        <div class="panel">
+          <h3>No matching users</h3>
+          <p>Try a different name, phone number or email address.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = filteredUsers.map((user, index) => `
+      <details class="panel" style="margin-bottom:12px;">
+        <summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:16px;">
+          <div>
+            <h3 style="margin:0 0 4px;">${escapeHtml(user.name || "Unnamed user")}</h3>
+            <p style="margin:0;">${escapeHtml(user.phone || "No phone number")}</p>
+          </div>
+          <span class="muted">View details ▾</span>
+        </summary>
+
+        <div style="margin-top:16px;">
+          <hr>
+          <p><strong>Email:</strong> ${escapeHtml(user.email || "Not available")}</p>
           ${user.business_name ? `<p><strong>Business:</strong> ${escapeHtml(user.business_name)}</p>` : ""}
-          ${user.phone ? `<p><strong>Phone:</strong> ${escapeHtml(user.phone)}</p>` : ""}
+          <p><strong>Phone:</strong> ${escapeHtml(user.phone || "Not available")}</p>
+          <p><strong>Status:</strong> ${user.email_confirmed ? "Active" : "Email not confirmed"}</p>
+          <p><strong>Created:</strong> ${formatDate(user.created_at)}</p>
+          <p><strong>Last sign-in:</strong> ${formatDate(user.last_sign_in_at)}</p>
+
+          <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:16px;">
+            <div><strong>${Number(user.customer_count || 0)}</strong><div class="muted">Customers</div></div>
+            <div><strong>${Number(user.job_count || 0)}</strong><div class="muted">Jobs</div></div>
+            <div><strong>${Number(user.quote_count || 0)}</strong><div class="muted">Quotes</div></div>
+            <div><strong>${Number(user.invoice_count || 0)}</strong><div class="muted">Invoices</div></div>
+          </div>
         </div>
-        <div style="text-align:right;">
-          <strong>${user.email_confirmed ? "Active" : "Email not confirmed"}</strong>
-          <div class="muted">Created ${formatDate(user.created_at)}</div>
-          <div class="muted">Last sign-in ${formatDate(user.last_sign_in_at)}</div>
-        </div>
-      </div>
-      <hr>
-      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;">
-        <div><strong>${Number(user.customer_count || 0)}</strong><div class="muted">Customers</div></div>
-        <div><strong>${Number(user.job_count || 0)}</strong><div class="muted">Jobs</div></div>
-        <div><strong>${Number(user.quote_count || 0)}</strong><div class="muted">Quotes</div></div>
-        <div><strong>${Number(user.invoice_count || 0)}</strong><div class="muted">Invoices</div></div>
-      </div>
-    </div>
-  `).join("");
+      </details>
+    `).join("");
+  };
+
+  if (searchInput) {
+    searchInput.addEventListener("input", event => {
+      renderUsers(event.target.value);
+    });
+  }
+
+  renderUsers();
 }
 
 function formatDate(value) {

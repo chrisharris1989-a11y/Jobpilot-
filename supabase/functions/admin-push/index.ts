@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
 const ADMIN_USER_ID = "9a89bdf0-1f17-48ec-a622-db59545e8ada";
-const VAPID_PUBLIC_KEY = "BHHdZvpO9n1O9GkxaVLo7qmocYkmZQJC49wzHrJ8X78IySOrB-tnlTMfEuoKj54Mhyo3bff9LPa_Q_Vabg9c5qo";
+const VAPID_PUBLIC_KEY = "BBqcq1QrHXk03q-X8j0CibvSnHJBIZ0Z8tpuqV96Nb_a0HaUNqH6EQmNjSNbCJaCnXwpUoGfsDHytdeDYFNJtZY";
 const VAPID_SUBJECT = "mailto:admin@jobpilot.app";
 
 const corsHeaders = {
@@ -13,9 +13,7 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { status: 200, headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { status: 200, headers: corsHeaders });
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "Unauthorized" }, 401);
@@ -44,15 +42,15 @@ Deno.serve(async (req: Request) => {
     if (user.id !== ADMIN_USER_ID) return json({ error: "Forbidden" }, 403);
 
     const subscription = body.subscription;
-    if (!subscription?.endpoint || !subscription?.p256dh || !subscription?.auth) {
+    if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
       return json({ error: "Invalid push subscription." }, 400);
     }
 
     const { error } = await adminClient.from("push_subscriptions").upsert({
       user_id: ADMIN_USER_ID,
       endpoint: subscription.endpoint,
-      p256dh: subscription.p256dh,
-      auth: subscription.auth,
+      p256dh: subscription.keys.p256dh,
+      auth: subscription.keys.auth,
       user_agent: subscription.user_agent || null,
       updated_at: new Date().toISOString()
     }, { onConflict: "endpoint" });

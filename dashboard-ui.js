@@ -30,25 +30,38 @@ function hideDuplicateNavigation() {
 }
 
 function balanceTopNavigation() {
-  if (document.getElementById("jobpilot-nav-balance-style")) return;
+  const bottom = document.querySelector(".sidebar-bottom");
+  const dashboard = getPageButton("dashboard");
+  if (!bottom || !dashboard) return;
 
-  const style = document.createElement("style");
-  style.id = "jobpilot-nav-balance-style";
-  style.textContent = `
-    .sidebar-bottom {
-      display: grid !important;
-      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-      gap: 5px !important;
-      width: 100% !important;
-    }
+  // Put Dashboard in the same navigation group as Feedback, Settings and Logout.
+  // This removes the structural split that was causing a 3/1 layout on mobile.
+  if (dashboard.parentElement !== bottom) {
+    bottom.insertBefore(dashboard, bottom.firstChild);
+  }
 
-    .sidebar-bottom .nav-item {
-      width: 100% !important;
-      min-width: 0 !important;
-      box-sizing: border-box !important;
-    }
-  `;
-  document.head.appendChild(style);
+  if (!document.getElementById("jobpilot-nav-balance-style")) {
+    const style = document.createElement("style");
+    style.id = "jobpilot-nav-balance-style";
+    style.textContent = `
+      .sidebar-bottom {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-template-rows: repeat(2, auto) !important;
+        gap: 5px !important;
+        width: 100% !important;
+        align-items: stretch !important;
+      }
+
+      .sidebar-bottom .nav-item {
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
 }
 
 function hideUpcomingJobs() {

@@ -14,7 +14,7 @@ export function showFeedbackForm() {
     const {data:inserted,error}=await supabase.from("feedback").insert(feedback).select("id").single();
     if(error){console.error("Feedback error:",error);alert("Your feedback could not be sent:\n\n"+error.message);return;}
     if(inserted?.id){
-      const {data:pushData,error:pushError}=await supabase.functions.invoke("admin-push-v2",{body:{action:"feedback",feedback_id:inserted.id}});
+      const {data:pushData,error:pushError}=await supabase.functions.invoke("admin-push",{body:{action:"feedback",feedback_id:inserted.id}});
       console.log("Admin push result:",pushData,pushError);
       if(pushError){console.error("Admin push invocation failed:",pushError);}
     }

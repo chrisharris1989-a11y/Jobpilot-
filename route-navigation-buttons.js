@@ -1,15 +1,27 @@
+function uniqueStops(stops) {
+  const seen = new Set();
+  return stops.filter(stop => {
+    const key = String(stop || '').trim().toUpperCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function buildNavigationUrls() {
   const rows = [...document.querySelectorAll('.panel .job-row')];
-  const stops = rows
-    .map(row => row.querySelector('a[href*="google.com/maps/dir"]'))
-    .map(link => {
-      try {
-        return new URL(link.href).searchParams.get('destination');
-      } catch {
-        return null;
-      }
-    })
-    .filter(Boolean);
+  const stops = uniqueStops(
+    rows
+      .map(row => row.querySelector('a[href*="google.com/maps/dir"]'))
+      .map(link => {
+        try {
+          return new URL(link.href).searchParams.get('destination');
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+  );
 
   if (!stops.length) return null;
 

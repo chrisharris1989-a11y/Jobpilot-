@@ -54,6 +54,7 @@ async function geocodePostcodes(postcodes) {
   });
 
   if (!response.ok) throw new Error("The postcode service could not be reached.");
+
   const payload = await response.json();
   const map = new Map();
 
@@ -72,11 +73,14 @@ async function geocodePostcodes(postcodes) {
 async function getRoadMatrix(points) {
   const coordinates = points.map(point => `${point.lon},${point.lat}`).join(";");
   const response = await fetch(`${OSRM_TABLE_API}/${coordinates}?annotations=distance,duration`);
+
   if (!response.ok) throw new Error("The road-routing service could not be reached.");
+
   const payload = await response.json();
   if (!Array.isArray(payload.distances) || !Array.isArray(payload.durations)) {
     throw new Error("The road-routing service returned an incomplete route.");
   }
+
   return { distances: payload.distances, durations: payload.durations };
 }
 
@@ -97,22 +101,29 @@ function fixedOrderIsValid(order, jobs) {
 
 function routeCost(order, distances, startIndex = null) {
   let total = 0;
+
   if (startIndex !== null && order.length) {
     total += Number(distances[startIndex]?.[order[0]] || 0);
   }
+
   for (let i = 1; i < order.length; i++) {
     total += Number(distances[order[i - 1]]?.[order[i]] || 0);
   }
+
   return total;
 }
 
 function permutations(values) {
   if (values.length <= 1) return [values];
+
   const result = [];
   for (let i = 0; i < values.length; i++) {
     const rest = values.slice(0, i).concat(values.slice(i + 1));
-    for (const tail of permutations(rest)) result.push([values[i], ...tail]);
+    for (const tail of permutations(rest)) {
+      result.push([values[i], ...tail]);
+    }
   }
+
   return result;
 }
 
@@ -125,20 +136,21 @@ function optimiseRoute(jobs, matrix, startIndex) {
 
     for (const candidate of permutations(indexes)) {
       if (!fixedOrderIsValid(candidate, jobs)) continue;
+
       const cost = routeCost(candidate, matrix.distances, startIndex);
       if (cost < bestCost) {
         bestCost = cost;
         best = candidate;
       }
     }
+
     return best;
   }
 
-  // For larger days, use a fast nearest-neighbour route and never disturb
-  // the chronological order of jobs that have fixed appointment times.
   const remaining = new Set(indexes);
   const result = [];
   let current = startIndex !== null ? startIndex : indexes[0];
+
   if (remaining.has(current)) {
     result.push(current);
     remaining.delete(current);
@@ -146,22 +158,25 @@ function optimiseRoute(jobs, matrix, startIndex) {
 
   while (remaining.size) {
     const next = [...remaining].sort((a, b) =>
-      Number(matrix.distances[current]?.[a] || Infinity) - Number(matrix.distances[current]?.[b] || Infinity)
+      Number(matrix.distances[current]?.[a] || Infinity) -
+      Number(matrix.distances[current]?.[b] || Infinity)
     )[0];
+
     result.push(next);
     remaining.delete(next);
     current = next;
   }
 
-  const timed = result.filter(index => jobs[index].scheduled_time);
   const expected = jobs
     .map((job, index) => ({ job, index }))
     .filter(item => item.job.scheduled_time)
     .sort((a, b) => String(a.job.scheduled_time).localeCompare(String(b.job.scheduled_time)))
     .map(item => item.index);
 
-  if (timed.length && timed.map(index => index).join(",") !== expected.join(",")) {
-    const timedSet = new Set(expected);
+  const timedSet = new Set(expected);
+  const timedInResult = result.filter(index => timedSet.has(index));
+
+  if (timedInResult.length && timedInResult.join(",") !== expected.join(",")) {
     const flexible = result.filter(index => !timedSet.has(index));
     return [...expected, ...flexible];
   }
@@ -169,15 +184,46 @@ function optimiseRoute(jobs, matrix, startIndex) {
   return result;
 }
 
-function googleRouteUrl(stops, startPoint = null) {
-  if (!stops.length) return "#";
-  const addresses = stops.map(stop => encodeURIComponent(stop.postcode));
-  const origin = encodeURIComponent(startPoint?.postcode || stops[0].postcode);
-  const destination = encodeURIComponent(stops[stops.length - 1].postcode);
-  const waypoints = stops.slice(0, -1).map(stop => encodeURIComponent(stop.postcode)).join("|");
-  let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
-  if (waypoints) url += `&waypoints=${waypoints}`;
-  return url;
+// Google Maps URLs opened on mobile browsers support up to three waypoints.
+// For longer JobPilot routes we therefore split the recommended route into
+// separate legs. Each leg contains at most five stops: origin + 3 waypoints + destination.
+function googleRouteLegs(stops, startPoint = null) {
+  if (!stops.length) return [];
+
+  const legs = [];
+  let origin = startPoint?.postcode || stops[0].postcode;
+  let index = 0;
+
+  while (index < stops.length) {
+    const legStops = stops.slice(index, Math.min(index + 5, stops.length));
+    if (!legStops.length) break;
+
+    const destination = legStops[legStops.length - 1].postcode;
+    const waypointStops = legStops.slice(0, -1);
+
+    const params = new URLSearchParams();
+    params.set("api", "1");
+    params.set("origin", origin);
+    params.set("destination", destination);
+    params.set("travelmode", "driving");
+
+    if (waypointStops.length) {
+      params.set("waypoints", waypointStops.map(stop => stop.postcode).join("|"));
+    }
+
+    legs.push({
+      from: index + 1,
+      to: index + legStops.length,
+      url: `https://www.google.com/maps/dir/?${params.toString()}`
+    });
+
+    origin = destination;
+
+    if (legStops.length === 1) break;
+    index += legStops.length - 1;
+  }
+
+  return legs;
 }
 
 function setHeader(title, subtitle) {
@@ -189,10 +235,12 @@ function setHeader(title, subtitle) {
 
 function renderBackButton(content) {
   const button = content.querySelector("[data-route-back]");
-  if (button) button.addEventListener("click", () => {
-    const dashboard = document.querySelector('.nav-item[data-page="dashboard"]');
-    if (dashboard) dashboard.click();
-  });
+  if (button) {
+    button.addEventListener("click", () => {
+      const dashboard = document.querySelector('.nav-item[data-page="dashboard"]');
+      if (dashboard) dashboard.click();
+    });
+  }
 }
 
 export async function openTodayRoute() {
@@ -200,6 +248,7 @@ export async function openTodayRoute() {
   if (!content) return;
 
   setHeader("Today's Route", "Plan the most efficient order for today's work.");
+
   content.innerHTML = `
     <div class="page-actions">
       <div>
@@ -215,19 +264,36 @@ export async function openTodayRoute() {
     if (!user) throw new Error("You are not signed in.");
 
     const today = getTodayDate();
-    const [{ data: jobs, error: jobsError }, { data: customers, error: customersError }] = await Promise.all([
-      supabase.from("jobs").select("id, customer_id, title, scheduled_date, scheduled_time, status, price, notes").eq("user_id", user.id).eq("scheduled_date", today),
-      supabase.from("customers").select("id, name, address_line1, address_line2, city, postcode").eq("user_id", user.id)
+
+    const [
+      { data: jobs, error: jobsError },
+      { data: customers, error: customersError }
+    ] = await Promise.all([
+      supabase
+        .from("jobs")
+        .select("id, customer_id, title, scheduled_date, scheduled_time, status, price, notes")
+        .eq("user_id", user.id)
+        .eq("scheduled_date", today),
+      supabase
+        .from("customers")
+        .select("id, name, address_line1, address_line2, city, postcode")
+        .eq("user_id", user.id)
     ]);
 
     if (jobsError) throw jobsError;
     if (customersError) throw customersError;
 
-    const activeJobs = (jobs || []).filter(job => String(job.status || "").toLowerCase() !== "cancelled");
+    const activeJobs = (jobs || []).filter(
+      job => String(job.status || "").toLowerCase() !== "cancelled"
+    );
+
     if (!activeJobs.length) {
       content.innerHTML = `
         <div class="page-actions">
-          <div><h2>🚐 Today's Route</h2><p>No active jobs are scheduled for today.</p></div>
+          <div>
+            <h2>🚐 Today's Route</h2>
+            <p>No active jobs are scheduled for today.</p>
+          </div>
         </div>
         <div class="panel">
           <h3>No jobs to route</h3>
@@ -244,7 +310,12 @@ export async function openTodayRoute() {
         ...job,
         customer,
         postcode: normalisePostcode(customer?.postcode),
-        address: [customer?.address_line1, customer?.address_line2, customer?.city, customer?.postcode].filter(Boolean).join(", ")
+        address: [
+          customer?.address_line1,
+          customer?.address_line2,
+          customer?.city,
+          customer?.postcode
+        ].filter(Boolean).join(", ")
       };
     });
 
@@ -260,52 +331,111 @@ export async function openTodayRoute() {
     const points = routable.map(job => geocoded.get(job.postcode));
     let startPoint = null;
     let startLabel = "First scheduled job";
-    const settings = JSON.parse(localStorage.getItem("jobpilot_settings") || "{}");
+
+    const settings = JSON.parse(
+      localStorage.getItem("jobpilot_settings") || "{}"
+    );
+
     const businessPostcode = normalisePostcode(settings.postcode);
 
     if (businessPostcode) {
-      const businessGeo = (await geocodePostcodes([businessPostcode])).get(businessPostcode);
+      const businessGeo = (
+        await geocodePostcodes([businessPostcode])
+      ).get(businessPostcode);
+
       if (businessGeo) {
-        startPoint = { ...businessGeo, postcode: businessPostcode };
+        startPoint = {
+          ...businessGeo,
+          postcode: businessPostcode
+        };
         startLabel = `Business base · ${businessPostcode}`;
       }
     }
 
-    const matrixPoints = startPoint ? [startPoint, ...points] : points;
+    const matrixPoints = startPoint
+      ? [startPoint, ...points]
+      : points;
+
     const matrix = await getRoadMatrix(matrixPoints);
+
     const jobMatrix = startPoint
-      ? { distances: matrix.distances.slice(1).map(row => row.slice(1)), durations: matrix.durations.slice(1).map(row => row.slice(1)) }
+      ? {
+          distances: matrix.distances
+            .slice(1)
+            .map(row => row.slice(1)),
+          durations: matrix.durations
+            .slice(1)
+            .map(row => row.slice(1))
+        }
       : matrix;
-    const routeStartIndex = startPoint ? 0 : null;
 
     let startJobIndex = null;
+
     if (!startPoint) {
-      const timedIndexes = routable.map((job, index) => ({ job, index })).filter(item => item.job.scheduled_time).sort((a, b) => String(a.job.scheduled_time).localeCompare(String(b.job.scheduled_time)));
+      const timedIndexes = routable
+        .map((job, index) => ({ job, index }))
+        .filter(item => item.job.scheduled_time)
+        .sort((a, b) =>
+          String(a.job.scheduled_time).localeCompare(
+            String(b.job.scheduled_time)
+          )
+        );
+
       startJobIndex = timedIndexes[0]?.index ?? 0;
     }
 
-    const order = optimiseRoute(routable, jobMatrix, startJobIndex);
+    const order = optimiseRoute(
+      routable,
+      jobMatrix,
+      startJobIndex
+    );
+
     const orderedJobs = order.map(index => routable[index]);
 
     let totalDistance = 0;
     let totalDuration = 0;
+
     if (startPoint) {
       const first = order[0];
-      totalDistance += Number(matrix.distances[0]?.[first + 1] || 0);
-      totalDuration += Number(matrix.durations[0]?.[first + 1] || 0);
+      totalDistance += Number(
+        matrix.distances[0]?.[first + 1] || 0
+      );
+      totalDuration += Number(
+        matrix.durations[0]?.[first + 1] || 0
+      );
+
       for (let i = 1; i < order.length; i++) {
-        totalDistance += Number(jobMatrix.distances[order[i - 1]]?.[order[i]] || 0);
-        totalDuration += Number(jobMatrix.durations[order[i - 1]]?.[order[i]] || 0);
+        totalDistance += Number(
+          jobMatrix.distances[order[i - 1]]?.[order[i]] || 0
+        );
+        totalDuration += Number(
+          jobMatrix.durations[order[i - 1]]?.[order[i]] || 0
+        );
       }
     } else {
       for (let i = 1; i < order.length; i++) {
-        totalDistance += Number(jobMatrix.distances[order[i - 1]]?.[order[i]] || 0);
-        totalDuration += Number(jobMatrix.durations[order[i - 1]]?.[order[i]] || 0);
+        totalDistance += Number(
+          jobMatrix.distances[order[i - 1]]?.[order[i]] || 0
+        );
+        totalDuration += Number(
+          jobMatrix.durations[order[i - 1]]?.[order[i]] || 0
+        );
       }
     }
 
-    const totalValue = activeJobs.reduce((sum, job) => sum + Number(job.price || 0), 0);
-    const routeUrl = googleRouteUrl(orderedJobs, startPoint);
+    const totalValue = activeJobs.reduce(
+      (sum, job) => sum + Number(job.price || 0),
+      0
+    );
+
+    const routeLegs = googleRouteLegs(
+      orderedJobs,
+      startPoint
+    );
+
+    const mapsButton = routeLegs.length === 1
+      ? `<a class="button primary" href="${routeLegs[0].url}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;">🧭 Open in Maps</a>`
+      : `<button class="button primary" type="button" data-open-first-map>🧭 Open in Maps</button>`;
 
     content.innerHTML = `
       <div class="page-actions">
@@ -315,7 +445,7 @@ export async function openTodayRoute() {
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
           <button class="button secondary" data-route-back>← Dashboard</button>
-          <a class="button primary" href="${routeUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;">🧭 Open in Maps</a>
+          ${mapsButton}
         </div>
       </div>
 
@@ -326,8 +456,28 @@ export async function openTodayRoute() {
         <div class="stat-card"><div class="stat-icon">💷</div><div><span>Job value</span><strong>${formatMoney(totalValue)}</strong></div></div>
       </div>
 
+      ${routeLegs.length > 1 ? `
+        <div class="panel" style="margin-bottom:20px;">
+          <h3>🧭 Maps route</h3>
+          <p class="muted">You're on iPhone, and Google Maps limits a Maps URL to three intermediate stops. JobPilot has split this route into ${routeLegs.length} driving legs so every stop is included.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+            ${routeLegs.map((leg, index) => `
+              <a class="button secondary" href="${leg.url}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">
+                Leg ${index + 1}: stops ${leg.from}–${leg.to}
+              </a>
+            `).join("")}
+          </div>
+        </div>
+      ` : ""}
+
       <div class="panel">
-        <div class="panel-header"><div><h2>Recommended order</h2><p>Route calculated from postcode road distances${escapeHtml(startPoint ? ` · ${startLabel}` : " · starting with the earliest timed job")}</p></div></div>
+        <div class="panel-header">
+          <div>
+            <h2>Recommended order</h2>
+            <p>Route calculated from postcode road distances${escapeHtml(startPoint ? ` · ${startLabel}` : " · starting with the earliest timed job")}</p>
+          </div>
+        </div>
+
         ${orderedJobs.map((job, position) => `
           <div class="job-row" style="align-items:flex-start;">
             <div style="display:flex;gap:12px;min-width:0;">
@@ -346,19 +496,41 @@ export async function openTodayRoute() {
         `).join("")}
       </div>
 
-      ${missing.length || unrouteable.length ? `<div class="panel" style="margin-top:20px;border-color:#fed7aa;background:#fffbeb;"><h3>⚠️ ${missing.length + unrouteable.length} job${missing.length + unrouteable.length === 1 ? "" : "s"} not included in the route</h3><p class="muted">These jobs need a valid UK postcode before JobPilot can calculate their driving position.</p>${[...new Map([...missing, ...unrouteable].map(job => [job.id, job])).values()].map(job => `<div style="margin-top:8px;"><strong>${escapeHtml(job.customer?.name || job.title || "Job")}</strong> · ${escapeHtml(job.postcode || "No postcode")}</div>`).join("")}</div>` : ""}
+      ${missing.length || unrouteable.length ? `
+        <div class="panel" style="margin-top:20px;border-color:#fed7aa;background:#fffbeb;">
+          <h3>⚠️ ${missing.length + unrouteable.length} job${missing.length + unrouteable.length === 1 ? "" : "s"} not included in the route</h3>
+          <p class="muted">These jobs need a valid UK postcode before JobPilot can calculate their driving position.</p>
+          ${[...new Map([...missing, ...unrouteable].map(job => [job.id, job])).values()].map(job => `
+            <div style="margin-top:8px;"><strong>${escapeHtml(job.customer?.name || job.title || "Job")}</strong> · ${escapeHtml(job.postcode || "No postcode")}</div>
+          `).join("")}
+        </div>
+      ` : ""}
     `;
+
+    const firstMapButton = content.querySelector("[data-open-first-map]");
+    if (firstMapButton && routeLegs[0]) {
+      firstMapButton.addEventListener("click", () => {
+        window.open(routeLegs[0].url, "_blank", "noopener,noreferrer");
+      });
+    }
 
     renderBackButton(content);
   } catch (error) {
     console.error("Today's route:", error);
+
     content.innerHTML = `
-      <div class="page-actions"><div><h2>🚐 Today's Route</h2><p>We couldn't calculate the route.</p></div></div>
+      <div class="page-actions">
+        <div>
+          <h2>🚐 Today's Route</h2>
+          <p>We couldn't calculate the route.</p>
+        </div>
+      </div>
       <div class="panel">
         <h3>Route calculation failed</h3>
         <p class="muted">${escapeHtml(error.message || "Please check the customer postcodes and try again.")}</p>
         <button class="button secondary" data-route-back>← Back to Dashboard</button>
       </div>`;
+
     renderBackButton(content);
   }
 }

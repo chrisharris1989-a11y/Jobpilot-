@@ -29,11 +29,7 @@ function buildNavigationUrls() {
   if (base) google.searchParams.set('origin', base);
   if (stops.length > 1) google.searchParams.set('waypoints', stops.slice(0, -1).join('|'));
 
-  const waze = new URL('https://waze.com/ul');
-  waze.searchParams.set('q', stops[0]);
-  waze.searchParams.set('navigate', 'yes');
-
-  return { apple: apple.href, google: google.href, waze: waze.href };
+  return { apple: apple.href, google: google.href };
 }
 
 function replaceMapsButton() {
@@ -50,12 +46,11 @@ function replaceMapsButton() {
 
   const group = document.createElement('div');
   group.dataset.navigationButtons = 'true';
-  group.style.cssText = 'display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;max-width:420px;box-sizing:border-box;';
+  group.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%;max-width:420px;box-sizing:border-box;';
 
   const buttons = [
     [' Apple Maps', urls.apple],
-    ['Google Maps', urls.google],
-    ['Waze', urls.waze]
+    ['Google Maps', urls.google]
   ];
 
   buttons.forEach(([label, url]) => {

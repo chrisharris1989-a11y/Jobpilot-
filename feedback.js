@@ -13,12 +13,14 @@ export function showFeedbackForm() {
     const feedback={user_id:user.id,type:modal.querySelector("#feedbackType").value,subject:modal.querySelector("#feedbackSubject").value.trim(),message:modal.querySelector("#feedbackMessage").value.trim(),priority:modal.querySelector("#feedbackPriority").value,status:"open",page:window.location.hash||document.title,user_agent:navigator.userAgent};
     const {data:inserted,error}=await supabase.from("feedback").insert(feedback).select("id").single();
     if(error){console.error("Feedback error:",error);alert("Your feedback could not be sent:\n\n"+error.message);return;}
+    let pushMessage="Push diagnostic unavailable.";
     if(inserted?.id){
       const {data:pushData,error:pushError}=await supabase.functions.invoke("admin-push",{body:{action:"feedback",feedback_id:inserted.id}});
       console.log("Admin push result:",pushData,pushError);
-      if(pushError){console.error("Admin push invocation failed:",pushError);}
+      if(pushError){console.error("Admin push invocation failed:",pushError);pushMessage="Push function error: "+(pushError.message||String(pushError));}
+      else if(pushData){pushMessage=`Push diagnostic — subscriptions: ${pushData.subscriptions ?? 0}, sent: ${pushData.sent ?? 0}, failed: ${pushData.failed ?? 0}, removed: ${pushData.removed ?? 0}${pushData.errors?.length ? "\nError: "+JSON.stringify(pushData.errors[0]) : ""}`;}
     }
     modal.remove();
-    alert("Thank you! Your feedback has been sent.");
+    alert("Thank you! Your feedback has been sent.\n\n"+pushMessage);
   });
 }

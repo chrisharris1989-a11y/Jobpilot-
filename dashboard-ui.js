@@ -29,6 +29,27 @@ function hideDuplicateNavigation() {
   }
 }
 
+function balanceTopNavigation() {
+  if (document.getElementById("jobpilot-nav-balance-style")) return;
+
+  const style = document.createElement("style");
+  style.id = "jobpilot-nav-balance-style";
+  style.textContent = `
+    @media (max-width: 700px) {
+      .sidebar-bottom {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      }
+    }
+
+    @media (max-width: 430px) {
+      .sidebar-bottom {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function hideUpcomingJobs() {
   const elements = document.querySelectorAll("#app *");
 
@@ -152,6 +173,7 @@ function enhanceDashboard() {
   if (!stats) return;
 
   hideDuplicateNavigation();
+  balanceTopNavigation();
   hideUpcomingJobs();
   makeDashboardCardsClickable();
 

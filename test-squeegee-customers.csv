@@ -1,0 +1,11 @@
+Customer Name,Email,Phone,Address Line 1,Address Line 2,City,Postcode,Initial Price,Initial Date
+John Smith,john.smith@example.com,07700 900001,12 High Street,,Newmarket,CB8 0AA,25.00,2026-08-01
+Sarah Jones,sarah.jones@example.com,07700 900002,4 Station Road,Flat 2,Newmarket,CB8 1BB,30.00,2026-08-02
+Michael Brown,michael.brown@example.com,07700 900003,18 Church Lane,,Bury St Edmunds,IP33 1AA,22.50,2026-08-03
+Emma Wilson,emma.wilson@example.com,07700 900004,7 The Street,,Exning,CB8 7AA,40.00,2026-08-04
+David Taylor,david.taylor@example.com,07700 900005,25 Mill Road,,Newmarket,CB8 0QX,35.00,2026-08-05
+Lisa White,lisa.white@example.com,07700 900006,9 Park View,,Kennett,CB8 7QJ,28.00,2026-08-06
+John Smith,john.smith@example.com,07700 900001,12 High Street,,Newmarket,CB8 0AA,25.00,2026-08-01
+Robert Green,,07700 900008,3 Meadow Close,,Newmarket,CB8 8ZZ,18.00,2026-08-08
+Amy Turner,amy.turner@example.com,,41 London Road,,Newmarket,CB9 9AA,32.00,2026-08-09
+Incomplete Customer,,,,,, ,20.00,2026-08-10

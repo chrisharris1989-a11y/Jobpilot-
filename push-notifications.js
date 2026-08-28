@@ -13,8 +13,8 @@ export async function setupAdminPushNotifications(container = document.body) {
   button.id = "jobpilotPushButton";
   button.type = "button";
   button.className = "button secondary";
-  button.textContent = Notification.permission === "granted" ? "Enable phone notifications" : "🔔 Enable phone notifications";
-  button.style.cssText = "position:fixed;right:20px;bottom:20px;z-index:9999;box-shadow:0 4px 14px rgba(0,0,0,.18);";
+  button.textContent = "🔔 Enable phone notifications";
+  button.style.cssText = "position:fixed;right:20px;bottom:20px;z-index:99999;box-shadow:0 4px 14px rgba(0,0,0,.18);";
   container.appendChild(button);
 
   try {
@@ -28,8 +28,6 @@ export async function setupAdminPushNotifications(container = document.body) {
     }
   } catch (error) {
     console.warn("Push service worker setup failed:", error);
-    button.remove();
-    return;
   }
 
   button.addEventListener("click", async () => {
@@ -39,10 +37,13 @@ export async function setupAdminPushNotifications(container = document.body) {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") throw new Error("Notification permission was not granted.");
       const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-      });
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+      }
       await saveSubscription(subscription);
       button.textContent = "🔔 Notifications enabled ✓";
       alert("Push notifications are now enabled on this device.");
@@ -57,7 +58,7 @@ export async function setupAdminPushNotifications(container = document.body) {
 
 async function saveSubscription(subscription) {
   const json = subscription.toJSON();
-  const { error } = await supabase.functions.invoke("admin-push", {
+  const { data, error } = await supabase.functions.invoke("admin-push", {
     body: {
       action: "subscribe",
       subscription: {
@@ -68,6 +69,7 @@ async function saveSubscription(subscription) {
     }
   });
   if (error) throw error;
+  if (!data?.success) throw new Error(data?.error || "The device subscription was not saved.");
 }
 
 function urlBase64ToUint8Array(base64String) {

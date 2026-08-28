@@ -5,6 +5,8 @@ const VAPID_PUBLIC_KEY = "BBqcq1QrHXk03q-X8j0CibvSnHJBIZ0Z8tpuqV96Nb_a0HaUNqH6EQ
 const PUSH_ENABLED_KEY = `jobpilot-push-enabled:${ADMIN_USER_ID}`;
 const VAPID_VERSION_KEY = `jobpilot-vapid-version:${ADMIN_USER_ID}`;
 const VAPID_VERSION = "8";
+let initialisationPromise = null;
+let authListenerStarted = false;
 
 const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
@@ -30,12 +32,13 @@ function persist(enabled) {
 function renderPushControl() {
   if (document.getElementById("jobpilot-push-control")) return;
   const host = document.querySelector(".sidebar-bottom") || document.getElementById("pageContent") || document.body;
+  if (!host) return;
   const wrap = document.createElement("div");
   wrap.id = "jobpilot-push-control";
   wrap.style.cssText = "margin:8px 0;width:100%;position:relative;z-index:9999;";
   wrap.innerHTML = `<button id="jobpilot-push-button" type="button" style="display:block!important;width:100%;min-height:48px;padding:12px 16px;border:1px solid currentColor;border-radius:8px;background:transparent;font:inherit;text-align:left;cursor:pointer">🔔 Enable notifications</button>`;
   host.prepend(wrap);
-  document.getElementById("jobpilot-push-button").addEventListener("click", enablePush);
+  document.getElementById("jobpilot-push-button")?.addEventListener("click", enablePush);
 }
 
 function removePushControl() { document.getElementById("jobpilot-push-control")?.remove(); }
@@ -81,39 +84,47 @@ async function enablePush() {
 }
 
 export async function setupAdminPushNotifications() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user || String(user.id) !== ADMIN_USER_ID) return;
-  renderPushControl();
-  if (isIOS() && !isStandalone()) return;
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-  try {
-    const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-    await navigator.serviceWorker.ready;
-    let subscription = await registration.pushManager.getSubscription();
-    if (subscription && localStorage.getItem(VAPID_VERSION_KEY) !== VAPID_VERSION) {
-      await subscription.unsubscribe();
-      subscription = null;
-      persist(false);
-    }
-    if ("Notification" in window && Notification.permission === "granted") {
-      if (!subscription) subscription = await makeSubscription(registration);
-      await saveSubscription(subscription);
-      persist(true);
-      removePushControl();
-    }
-  } catch (error) {
-    console.error("JobPilot push initialisation failed", error);
-    persist(false);
+  if (initialisationPromise) return initialisationPromise;
+  initialisationPromise = (async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || String(user.id) !== ADMIN_USER_ID) return;
     renderPushControl();
-  }
+    if (isIOS() && !isStandalone()) return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+      await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+      if (subscription && localStorage.getItem(VAPID_VERSION_KEY) !== VAPID_VERSION) {
+        await subscription.unsubscribe();
+        subscription = null;
+        persist(false);
+      }
+      if ("Notification" in window && Notification.permission === "granted") {
+        if (!subscription) subscription = await makeSubscription(registration);
+        await saveSubscription(subscription);
+        persist(true);
+        removePushControl();
+      }
+    } catch (error) {
+      console.error("JobPilot push initialisation failed", error);
+      persist(false);
+      renderPushControl();
+    }
+  })().finally(() => { initialisationPromise = null; });
+  return initialisationPromise;
 }
 
-// Do not observe DOM mutations: app rendering can cause an infinite loop.
 function startPushChecks() {
-  [1000, 3000, 6000].forEach(ms => setTimeout(() => setupAdminPushNotifications().catch(console.error), ms));
+  setupAdminPushNotifications().catch(console.error);
 }
 
-window.addEventListener("load", startPushChecks);
-supabase.auth.onAuthStateChange((_event, session) => { if (session?.user) startPushChecks(); });
+window.addEventListener("load", startPushChecks, { once: true });
+if (!authListenerStarted) {
+  authListenerStarted = true;
+  supabase.auth.onAuthStateChange((_event, session) => {
+    if (session?.user) setupAdminPushNotifications().catch(console.error);
+  });
+}
 
 export { startPushChecks };

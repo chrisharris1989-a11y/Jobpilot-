@@ -3,29 +3,114 @@ import { supabase } from "./supabase.js";
 const CREATE_RECURRING_URL =
   "https://qxoynttvipducubmczwl.supabase.co/functions/v1/gocardless-create-recurring";
 
-function addButtons() {
-  document.querySelectorAll(".customer-row[data-customer-id]").forEach(row => {
-    if (row.querySelector("[data-gocardless-recurring]")) return;
+async function getProfileCustomer() {
+  const profile = document.getElementById("editCustomer");
+  if (!profile) return null;
 
-    const customerId = row.dataset.customerId;
-    const action = document.createElement("button");
-    action.type = "button";
-    action.className = "button secondary";
-    action.dataset.gocardlessRecurring = "true";
-    action.textContent = "🏦 Monthly Direct Debit";
-    action.style.marginLeft = "10px";
-    action.addEventListener("click", event => {
-      event.stopPropagation();
-      openRecurringModal(customerId);
+  const detailList = document.querySelector(".detail-list");
+  const values = {};
+  if (detailList) {
+    detailList.querySelectorAll(":scope > div").forEach(item => {
+      const label = item.querySelector("span")?.textContent?.trim().toLowerCase();
+      const value = item.querySelector("strong")?.textContent?.trim();
+      if (label && value) values[label] = value;
     });
+  }
 
-    const view = row.querySelector("span:last-child");
-    if (view) {
-      view.replaceWith(action);
-    } else {
-      row.appendChild(action);
-    }
-  });
+  const name = values.name || document.getElementById("pageTitle")?.textContent?.trim();
+  if (!name) return null;
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  let query = supabase
+    .from("customers")
+    .select("id,name,email")
+    .eq("user_id", user.id)
+    .eq("name", name)
+    .limit(10);
+
+  const { data: matches, error } = await query;
+  if (error || !matches?.length) return null;
+
+  if (values.email && values.email !== "—") {
+    const emailMatch = matches.find(customer =>
+      String(customer.email || "").toLowerCase() === values.email.toLowerCase()
+    );
+    if (emailMatch) return emailMatch;
+  }
+
+  return matches[0];
+}
+
+async function getDirectDebitStatus(customerId) {
+  const { data: subscriptions } = await supabase
+    .from("gocardless_subscriptions")
+    .select("id,status,amount,currency,interval,interval_unit,day_of_month,start_date")
+    .eq("customer_id", customerId)
+    .in("status", ["active", "pending_submission", "pending_customer_approval"])
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (subscriptions?.length) {
+    const sub = subscriptions[0];
+    if (sub.status === "active") return { state: "active", subscription: sub };
+    return { state: "pending", subscription: sub };
+  }
+
+  const { data: mandates } = await supabase
+    .from("gocardless_mandates")
+    .select("id,status")
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (mandates?.length && !["cancelled", "failed", "expired"].includes(String(mandates[0].status))) {
+    return { state: "pending", mandate: mandates[0] };
+  }
+
+  return { state: "none" };
+}
+
+function createDirectDebitButton(customerId, state) {
+  const action = document.createElement("button");
+  action.type = "button";
+  action.className = "button secondary";
+  action.dataset.gocardlessRecurring = "true";
+  action.style.marginLeft = "10px";
+
+  if (state === "active") {
+    action.textContent = "✓ Direct Debit Active";
+    action.disabled = true;
+    action.title = "This customer has an active recurring Direct Debit.";
+  } else if (state === "pending") {
+    action.textContent = "⏳ Direct Debit Setup Pending";
+    action.disabled = true;
+    action.title = "The Direct Debit setup is still being processed.";
+  } else {
+    action.textContent = "🏦 Monthly Direct Debit";
+    action.addEventListener("click", () => openRecurringModal(customerId));
+  }
+
+  return action;
+}
+
+async function addProfileButton() {
+  if (document.querySelector("[data-gocardless-profile-action]")) return true;
+
+  const editButton = document.getElementById("editCustomer");
+  const deleteButton = document.getElementById("deleteCustomer");
+  if (!editButton || !deleteButton) return false;
+
+  const customer = await getProfileCustomer();
+  if (!customer) return false;
+
+  const status = await getDirectDebitStatus(customer.id);
+  const action = createDirectDebitButton(customer.id, status.state);
+  action.dataset.gocardlessProfileAction = "true";
+
+  editButton.parentElement?.insertBefore(action, editButton);
+  return true;
 }
 
 async function openRecurringModal(customerId) {
@@ -115,10 +200,13 @@ async function openRecurringModal(customerId) {
   });
 }
 
-function watchCustomerList() {
-  addButtons();
-  const observer = new MutationObserver(addButtons);
+function watchCustomerProfiles() {
+  const observer = new MutationObserver(() => {
+    addProfileButton().catch(error => console.error("GoCardless profile UI:", error));
+  });
+
   observer.observe(document.body, { childList: true, subtree: true });
+  addProfileButton().catch(error => console.error("GoCardless profile UI:", error));
 }
 
-watchCustomerList();
+watchCustomerProfiles();

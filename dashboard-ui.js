@@ -124,6 +124,47 @@ function makeDashboardCardsClickable() {
   });
 }
 
+function makeTodayJobsClickable() {
+  const cards = document.querySelectorAll(".stats .stat-card");
+  const card = cards[4];
+  if (!card || card.dataset.routePlannerBound === "true") return;
+
+  card.dataset.routePlannerBound = "true";
+  card.style.cursor = "pointer";
+  card.setAttribute("role", "button");
+  card.setAttribute("tabindex", "0");
+  card.setAttribute("aria-label", "Open Today's Route");
+  card.title = "Open Today's Route";
+
+  const openRoute = async () => {
+    try {
+      const module = await import("./route-planner.js");
+      await module.openTodayRoute();
+    } catch (error) {
+      console.error("Today's route planner:", error);
+      alert("Today's route planner could not be loaded. Please try again.");
+    }
+  };
+
+  card.addEventListener("click", openRoute);
+  card.addEventListener("keydown", event => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openRoute();
+    }
+  });
+
+  card.addEventListener("mouseenter", () => {
+    card.style.transform = "translateY(-2px)";
+    card.style.boxShadow = "0 8px 20px rgba(15, 23, 42, 0.10)";
+  });
+
+  card.addEventListener("mouseleave", () => {
+    card.style.transform = "";
+    card.style.boxShadow = "";
+  });
+}
+
 async function updateTodaySnapshot() {
   const cards = document.querySelectorAll(".stats .stat-card");
   if (cards.length < 6) return;
@@ -221,6 +262,7 @@ function enhanceDashboard() {
     stats.appendChild(todayValueCard);
   }
 
+  makeTodayJobsClickable();
   updateTodaySnapshot();
 }
 

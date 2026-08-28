@@ -7,7 +7,7 @@ const VAPID_VERSION_KEY = `jobpilot-vapid-version:${ADMIN_USER_ID}`;
 const VAPID_VERSION = "10";
 let initialisationPromise = null;
 let authListenerStarted = false;
-let appObserverStarted = false;
+let bodyObserverStarted = false;
 
 const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
@@ -30,19 +30,21 @@ function persist(enabled) {
   } catch (_) {}
 }
 
-function renderPushControl(enabled = false) {
-  const host = document.querySelector(".sidebar-bottom");
-  if (!host) return;
+function savedEnabled() {
+  try { return localStorage.getItem(PUSH_ENABLED_KEY) === "true"; } catch (_) { return false; }
+}
+
+function renderPushControl(enabled = savedEnabled()) {
   let wrap = document.getElementById("jobpilot-push-control");
   if (!wrap) {
     wrap = document.createElement("div");
     wrap.id = "jobpilot-push-control";
-    wrap.style.cssText = "margin:8px 0;width:100%;position:relative;z-index:9999;";
-    host.prepend(wrap);
+    wrap.style.cssText = "position:fixed;top:72px;right:14px;z-index:2147483647;width:min(280px,calc(100vw - 28px));";
+    document.body.appendChild(wrap);
   }
   wrap.innerHTML = enabled
-    ? `<button id="jobpilot-push-button" type="button" style="display:block!important;width:100%;min-height:48px;padding:12px 16px;border:1px solid currentColor;border-radius:8px;background:transparent;font:inherit;text-align:left;cursor:default">🔔 Notifications enabled</button>`
-    : `<button id="jobpilot-push-button" type="button" style="display:block!important;width:100%;min-height:48px;padding:12px 16px;border:1px solid currentColor;border-radius:8px;background:transparent;font:inherit;text-align:left;cursor:pointer">🔔 Enable notifications</button>`;
+    ? `<button id="jobpilot-push-button" type="button" style="display:block!important;width:100%;min-height:46px;padding:10px 14px;border:1px solid currentColor;border-radius:10px;background:Canvas;color:CanvasText;box-shadow:0 4px 14px rgba(0,0,0,.12);font:inherit;text-align:left">🔔 Notifications enabled</button>`
+    : `<button id="jobpilot-push-button" type="button" style="display:block!important;width:100%;min-height:46px;padding:10px 14px;border:1px solid currentColor;border-radius:10px;background:Canvas;color:CanvasText;box-shadow:0 4px 14px rgba(0,0,0,.12);font:inherit;text-align:left;cursor:pointer">🔔 Enable notifications</button>`;
   if (!enabled) document.getElementById("jobpilot-push-button")?.addEventListener("click", enablePush);
 }
 
@@ -68,8 +70,7 @@ async function enablePush() {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) throw new Error("Push notifications are unavailable in this web app.");
     if (!("Notification" in window)) throw new Error("This iPhone does not expose the Notification API to JobPilot.");
     if (Notification.permission === "denied") throw new Error("Notifications are blocked for JobPilot in iPhone Settings.");
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") throw new Error("Notification permission was not granted.");
+    if (Notification.permission !== "granted" && await Notification.requestPermission() !== "granted") throw new Error("Notification permission was not granted.");
     const registration = await navigator.serviceWorker.ready;
     let subscription = await registration.pushManager.getSubscription();
     if (subscription) await subscription.unsubscribe();
@@ -80,7 +81,6 @@ async function enablePush() {
     alert("Push notifications are now enabled on this iPhone.");
   } catch (error) {
     console.error("JobPilot push setup failed", error);
-    persist(false);
     renderPushControl(false);
     alert("Could not enable notifications: " + (error.message || error));
   }
@@ -91,8 +91,8 @@ export async function setupAdminPushNotifications() {
   initialisationPromise = (async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || String(user.id) !== ADMIN_USER_ID) return;
-    if (!document.querySelector(".sidebar-bottom")) return;
-    renderPushControl(false);
+    // Always render immediately. Do not depend on the dashboard/sidebar DOM.
+    renderPushControl(savedEnabled());
     if (isIOS() && !isStandalone()) return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
     try {
@@ -110,12 +110,11 @@ export async function setupAdminPushNotifications() {
         persist(true);
         renderPushControl(true);
       } else {
-        renderPushControl(false);
+        renderPushControl(savedEnabled());
       }
     } catch (error) {
       console.error("JobPilot push initialisation failed", error);
-      persist(false);
-      renderPushControl(false);
+      renderPushControl(savedEnabled());
     }
   })().finally(() => { initialisationPromise = null; });
   return initialisationPromise;
@@ -123,27 +122,23 @@ export async function setupAdminPushNotifications() {
 
 function startPushChecks() { setupAdminPushNotifications().catch(console.error); }
 
-function watchForAppRender() {
-  if (appObserverStarted) return;
-  appObserverStarted = true;
-  const app = document.getElementById("app");
-  if (!app) return;
+function watchBody() {
+  if (bodyObserverStarted) return;
+  bodyObserverStarted = true;
   const observer = new MutationObserver(() => {
-    if (document.querySelector(".sidebar-bottom") && !document.getElementById("jobpilot-push-control")) {
-      setupAdminPushNotifications().catch(console.error);
-    }
+    if (!document.getElementById("jobpilot-push-control") && document.getElementById("app")) renderPushControl(savedEnabled());
   });
-  observer.observe(app, { childList: true, subtree: true });
-  if (document.querySelector(".sidebar-bottom")) setupAdminPushNotifications().catch(console.error);
+  observer.observe(document.body, { childList: true, subtree: true });
+  renderPushControl(savedEnabled());
 }
 
-window.addEventListener("DOMContentLoaded", watchForAppRender, { once: true });
+window.addEventListener("DOMContentLoaded", watchBody, { once: true });
 window.addEventListener("load", startPushChecks, { once: true });
 if (!authListenerStarted) {
   authListenerStarted = true;
   supabase.auth.onAuthStateChange((_event, session) => {
     if (session?.user) {
-      watchForAppRender();
+      watchBody();
       setupAdminPushNotifications().catch(console.error);
     }
   });

@@ -36,27 +36,51 @@ async function getDirectDebitStatus(customerId) {
   return "none";
 }
 
-function buildDirectDebitButton(customer, status) {
+function createSetupButton(customer, label = "Set Up New Direct Debit") {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "btn btn-secondary gocardless-recurring-btn";
-  if (status === "active") {
-    button.textContent = "✓ Direct Debit Active";
-    button.disabled = true;
-    button.title = "This customer has an active Direct Debit subscription";
-  } else if (status === "cancelled") {
-    button.textContent = "✕ Direct Debit Cancelled";
-    button.title = "This customer's Direct Debit has been cancelled";
-    button.addEventListener("click", () => openRecurringSetup(customer));
-  } else if (status === "pending") {
-    button.textContent = "Direct Debit Setup Pending";
-    button.disabled = true;
-    button.title = "Direct Debit setup is still pending";
-  } else {
-    button.textContent = "Monthly Direct Debit";
-    button.addEventListener("click", () => openRecurringSetup(customer));
-  }
+  button.className = "btn btn-secondary gocardless-recurring-setup-btn";
+  button.textContent = label;
+  button.addEventListener("click", () => openRecurringSetup(customer));
   return button;
+}
+
+function buildDirectDebitControls(customer, status) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "gocardless-recurring-controls";
+  wrapper.style.display = "inline-flex";
+  wrapper.style.gap = "8px";
+  wrapper.style.alignItems = "center";
+
+  if (status === "active") {
+    const statusButton = document.createElement("button");
+    statusButton.type = "button";
+    statusButton.className = "btn btn-secondary gocardless-recurring-btn";
+    statusButton.textContent = "✓ Direct Debit Active";
+    statusButton.disabled = true;
+    statusButton.title = "This customer has an active Direct Debit subscription";
+    wrapper.appendChild(statusButton);
+  } else if (status === "cancelled") {
+    const statusButton = document.createElement("button");
+    statusButton.type = "button";
+    statusButton.className = "btn btn-secondary gocardless-recurring-btn";
+    statusButton.textContent = "✕ Direct Debit Cancelled";
+    statusButton.disabled = true;
+    statusButton.title = "This customer's Direct Debit has been cancelled";
+    wrapper.appendChild(statusButton);
+    wrapper.appendChild(createSetupButton(customer));
+  } else if (status === "pending") {
+    const statusButton = document.createElement("button");
+    statusButton.type = "button";
+    statusButton.className = "btn btn-secondary gocardless-recurring-btn";
+    statusButton.textContent = "Direct Debit Setup Pending";
+    statusButton.disabled = true;
+    statusButton.title = "Direct Debit setup is still pending";
+    wrapper.appendChild(statusButton);
+  } else {
+    wrapper.appendChild(createSetupButton(customer, "Monthly Direct Debit"));
+  }
+  return wrapper;
 }
 
 async function openRecurringSetup(customer) {
@@ -87,16 +111,16 @@ async function addProfileDirectDebitAction() {
   const customer = await getProfileCustomer();
   if (!customer) return;
   const status = await getDirectDebitStatus(customer.id);
-  const button = buildDirectDebitButton(customer, status);
+  const controls = buildDirectDebitControls(customer, status);
   const editButton = document.getElementById("editCustomer");
   if (!editButton) return;
-  const existing = document.querySelector(".gocardless-recurring-btn");
+  const existing = document.querySelector(".gocardless-recurring-controls, .gocardless-recurring-btn");
   if (existing) existing.remove();
-  editButton.parentElement?.appendChild(button);
+  editButton.parentElement?.appendChild(controls);
 }
 
 function removeListDirectDebitButtons() {
-  document.querySelectorAll(".customer-row .gocardless-recurring-btn").forEach(button => button.remove());
+  document.querySelectorAll(".customer-row .gocardless-recurring-controls, .customer-row .gocardless-recurring-btn").forEach(button => button.remove());
 }
 function refreshDirectDebitUI() {
   removeListDirectDebitButtons();

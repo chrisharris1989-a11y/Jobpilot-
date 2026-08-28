@@ -4,9 +4,10 @@ const ADMIN_USER_ID = "9a89bdf0-1f17-48ec-a622-db59545e8ada";
 const VAPID_PUBLIC_KEY = "BBqcq1QrHXk03q-X8j0CibvSnHJBIZ0Z8tpuqV96Nb_a0HaUNqH6EQmNjSNbCJaCnXwpUoGfsDHytdeDYFNJtZY";
 const PUSH_ENABLED_KEY = `jobpilot-push-enabled:${ADMIN_USER_ID}`;
 const VAPID_VERSION_KEY = `jobpilot-vapid-version:${ADMIN_USER_ID}`;
-const VAPID_VERSION = "9";
+const VAPID_VERSION = "10";
 let initialisationPromise = null;
 let authListenerStarted = false;
+let appObserverStarted = false;
 
 const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
@@ -31,7 +32,7 @@ function persist(enabled) {
 
 function renderPushControl() {
   if (document.getElementById("jobpilot-push-control")) return;
-  const host = document.querySelector(".sidebar-bottom") || document.getElementById("pageContent") || document.body;
+  const host = document.querySelector(".sidebar-bottom");
   if (!host) return;
   const wrap = document.createElement("div");
   wrap.id = "jobpilot-push-control";
@@ -88,6 +89,7 @@ export async function setupAdminPushNotifications() {
   initialisationPromise = (async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || String(user.id) !== ADMIN_USER_ID) return;
+    if (!document.querySelector(".sidebar-bottom")) return;
     renderPushControl();
     if (isIOS() && !isStandalone()) return;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
@@ -117,11 +119,33 @@ export async function setupAdminPushNotifications() {
 
 function startPushChecks() { setupAdminPushNotifications().catch(console.error); }
 
+function watchForAppRender() {
+  if (appObserverStarted) return;
+  appObserverStarted = true;
+  const app = document.getElementById("app");
+  if (!app) return;
+  const observer = new MutationObserver(() => {
+    if (document.querySelector(".sidebar-bottom")) {
+      observer.disconnect();
+      setupAdminPushNotifications().catch(console.error);
+    }
+  });
+  observer.observe(app, { childList: true, subtree: true });
+  if (document.querySelector(".sidebar-bottom")) {
+    observer.disconnect();
+    setupAdminPushNotifications().catch(console.error);
+  }
+}
+
+window.addEventListener("DOMContentLoaded", watchForAppRender, { once: true });
 window.addEventListener("load", startPushChecks, { once: true });
 if (!authListenerStarted) {
   authListenerStarted = true;
   supabase.auth.onAuthStateChange((_event, session) => {
-    if (session?.user) setupAdminPushNotifications().catch(console.error);
+    if (session?.user) {
+      watchForAppRender();
+      setupAdminPushNotifications().catch(console.error);
+    }
   });
 }
 

@@ -4,7 +4,7 @@ const ADMIN_USER_ID = "9a89bdf0-1f17-48ec-a622-db59545e8ada";
 const VAPID_PUBLIC_KEY = "BBqcq1QrHXk03q-X8j0CibvSnHJBIZ0Z8tpuqV96Nb_a0HaUNqH6EQmNjSNbCJaCnXwpUoGfsDHytdeDYFNJtZY";
 const PUSH_ENABLED_KEY = `jobpilot-push-enabled:${ADMIN_USER_ID}`;
 const VAPID_VERSION_KEY = `jobpilot-vapid-version:${ADMIN_USER_ID}`;
-const VAPID_VERSION = "7";
+const VAPID_VERSION = "8";
 
 const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
@@ -29,19 +29,16 @@ function persist(enabled) {
 
 function renderPushControl() {
   if (document.getElementById("jobpilot-push-control")) return;
-
   const host = document.querySelector(".sidebar-bottom") || document.getElementById("pageContent") || document.body;
   const wrap = document.createElement("div");
   wrap.id = "jobpilot-push-control";
-  wrap.style.cssText = "margin:8px 0;width:100%;";
-  wrap.innerHTML = `<button id="jobpilot-push-button" class="nav-item" type="button" style="width:100%;text-align:left;cursor:pointer">🔔 Enable notifications</button>`;
+  wrap.style.cssText = "margin:8px 0;width:100%;position:relative;z-index:9999;";
+  wrap.innerHTML = `<button id="jobpilot-push-button" type="button" style="display:block!important;width:100%;min-height:48px;padding:12px 16px;border:1px solid currentColor;border-radius:8px;background:transparent;font:inherit;text-align:left;cursor:pointer">🔔 Enable notifications</button>`;
   host.prepend(wrap);
   document.getElementById("jobpilot-push-button").addEventListener("click", enablePush);
 }
 
-function removePushControl() {
-  document.getElementById("jobpilot-push-control")?.remove();
-}
+function removePushControl() { document.getElementById("jobpilot-push-control")?.remove(); }
 
 async function saveSubscription(subscription) {
   const json = subscription.toJSON();
@@ -62,15 +59,11 @@ async function enablePush() {
   if (button) { button.disabled = true; button.textContent = "Enabling notifications…"; }
   try {
     if (isIOS() && !isStandalone()) throw new Error("Open JobPilot from its Home Screen icon to enable iPhone notifications.");
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) throw new Error("Push notifications are not available in this iPhone web app.");
-
-    let permission = "granted";
-    if ("Notification" in window) {
-      if (Notification.permission === "denied") throw new Error("Notifications are blocked for JobPilot in iPhone Settings.");
-      permission = await Notification.requestPermission();
-    }
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) throw new Error("Push notifications are unavailable in this web app.");
+    if (!("Notification" in window)) throw new Error("This iPhone does not expose the Notification API to JobPilot.");
+    if (Notification.permission === "denied") throw new Error("Notifications are blocked for JobPilot in iPhone Settings.");
+    const permission = await Notification.requestPermission();
     if (permission !== "granted") throw new Error("Notification permission was not granted.");
-
     const registration = await navigator.serviceWorker.ready;
     let subscription = await registration.pushManager.getSubscription();
     if (subscription) await subscription.unsubscribe();
@@ -90,52 +83,34 @@ async function enablePush() {
 export async function setupAdminPushNotifications() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || String(user.id) !== ADMIN_USER_ID) return;
-
-  // The control must be visible before feature detection. This lets us
-  // diagnose iOS capability issues by clicking it instead of silently exiting.
   renderPushControl();
-
   if (isIOS() && !isStandalone()) return;
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-
   try {
     const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
     await navigator.serviceWorker.ready;
     let subscription = await registration.pushManager.getSubscription();
-
     if (subscription && localStorage.getItem(VAPID_VERSION_KEY) !== VAPID_VERSION) {
       await subscription.unsubscribe();
       subscription = null;
       persist(false);
     }
-
     if ("Notification" in window && Notification.permission === "granted") {
       if (!subscription) subscription = await makeSubscription(registration);
       await saveSubscription(subscription);
       persist(true);
       removePushControl();
-      return;
-    }
-
-    if ("Notification" in window && Notification.permission === "denied") {
-      persist(false);
-      return;
     }
   } catch (error) {
     console.error("JobPilot push initialisation failed", error);
     persist(false);
-    // Keep the button visible so the user can retry from a user gesture.
     renderPushControl();
   }
 }
 
-const observer = new MutationObserver(() => {
-  if (document.querySelector(".sidebar-bottom")) setupAdminPushNotifications().catch(console.error);
-});
-observer.observe(document.body, { childList: true, subtree: true });
-
+// Do not observe DOM mutations: app rendering can cause an infinite loop.
 function startPushChecks() {
-  [500, 2000, 4000].forEach(ms => setTimeout(() => setupAdminPushNotifications().catch(console.error), ms));
+  [1000, 3000, 6000].forEach(ms => setTimeout(() => setupAdminPushNotifications().catch(console.error), ms));
 }
 
 window.addEventListener("load", startPushChecks);

@@ -4,7 +4,7 @@ const ADMIN_USER_ID = "9a89bdf0-1f17-48ec-a622-db59545e8ada";
 const VAPID_PUBLIC_KEY = "BBqcq1QrHXk03q-X8j0CibvSnHJBIZ0Z8tpuqV96Nb_a0HaUNqH6EQmNjSNbCJaCnXwpUoGfsDHytdeDYFNJtZY";
 const PUSH_ENABLED_KEY = `jobpilot-push-enabled:${ADMIN_USER_ID}`;
 const VAPID_VERSION_KEY = `jobpilot-vapid-version:${ADMIN_USER_ID}`;
-const VAPID_VERSION = "6";
+const VAPID_VERSION = "7";
 
 const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
@@ -61,9 +61,16 @@ async function enablePush() {
   const button = document.getElementById("jobpilot-push-button");
   if (button) { button.disabled = true; button.textContent = "Enabling notifications…"; }
   try {
-    if (Notification.permission === "denied") throw new Error("Notifications are blocked for JobPilot in iPhone Settings.");
-    const permission = await Notification.requestPermission();
+    if (isIOS() && !isStandalone()) throw new Error("Open JobPilot from its Home Screen icon to enable iPhone notifications.");
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) throw new Error("Push notifications are not available in this iPhone web app.");
+
+    let permission = "granted";
+    if ("Notification" in window) {
+      if (Notification.permission === "denied") throw new Error("Notifications are blocked for JobPilot in iPhone Settings.");
+      permission = await Notification.requestPermission();
+    }
     if (permission !== "granted") throw new Error("Notification permission was not granted.");
+
     const registration = await navigator.serviceWorker.ready;
     let subscription = await registration.pushManager.getSubscription();
     if (subscription) await subscription.unsubscribe();
@@ -83,8 +90,13 @@ async function enablePush() {
 export async function setupAdminPushNotifications() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || String(user.id) !== ADMIN_USER_ID) return;
+
+  // The control must be visible before feature detection. This lets us
+  // diagnose iOS capability issues by clicking it instead of silently exiting.
+  renderPushControl();
+
   if (isIOS() && !isStandalone()) return;
-  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return;
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
   try {
     const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
@@ -97,7 +109,7 @@ export async function setupAdminPushNotifications() {
       persist(false);
     }
 
-    if (Notification.permission === "granted") {
+    if ("Notification" in window && Notification.permission === "granted") {
       if (!subscription) subscription = await makeSubscription(registration);
       await saveSubscription(subscription);
       persist(true);
@@ -105,26 +117,20 @@ export async function setupAdminPushNotifications() {
       return;
     }
 
-    if (Notification.permission === "default") {
-      renderPushControl();
+    if ("Notification" in window && Notification.permission === "denied") {
+      persist(false);
       return;
     }
-
-    persist(false);
-    removePushControl();
   } catch (error) {
     console.error("JobPilot push initialisation failed", error);
     persist(false);
+    // Keep the button visible so the user can retry from a user gesture.
     renderPushControl();
   }
 }
 
-// Watch for the main app being rendered. app.js replaces the DOM after auth,
-// so a one-time window.load handler is not reliable enough on this PWA.
 const observer = new MutationObserver(() => {
-  if (document.querySelector(".sidebar-bottom")) {
-    setupAdminPushNotifications().catch(console.error);
-  }
+  if (document.querySelector(".sidebar-bottom")) setupAdminPushNotifications().catch(console.error);
 });
 observer.observe(document.body, { childList: true, subtree: true });
 

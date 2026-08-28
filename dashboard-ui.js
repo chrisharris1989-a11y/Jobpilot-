@@ -19,18 +19,32 @@ function getPageButton(page) {
 function hideDuplicateNavigation() {
   ["customers", "jobs", "quotes", "invoices"].forEach(page => {
     const button = getPageButton(page);
-    if (button) {
-      button.style.display = "none";
-    }
+    if (button) button.style.display = "none";
   });
 
-  // The old navigation divider is no longer needed when the top navigation
-  // only contains Dashboard, Feedback, Settings and Sign out.
   const bottom = document.querySelector(".sidebar-bottom");
   if (bottom) {
     bottom.style.borderTop = "0";
     bottom.style.paddingTop = "4px";
   }
+}
+
+function hideUpcomingJobs() {
+  const elements = document.querySelectorAll("#app *");
+
+  elements.forEach(element => {
+    if (element.children.length > 0) return;
+
+    const text = String(element.textContent || "").trim().toLowerCase();
+    if (text !== "upcoming jobs") return;
+
+    const panel = element.closest(".stat-card, .card, .dashboard-card, .panel, section, article");
+    if (panel) {
+      panel.style.display = "none";
+    } else {
+      element.style.display = "none";
+    }
+  });
 }
 
 function makeDashboardCardsClickable() {
@@ -138,10 +152,9 @@ function enhanceDashboard() {
   if (!stats) return;
 
   hideDuplicateNavigation();
+  hideUpcomingJobs();
   makeDashboardCardsClickable();
 
-  // The dashboard is rendered synchronously by app.js, so the first four
-  // cards exist immediately. Add the two snapshot cards once per render.
   if (stats.dataset.snapshotCardsAdded !== "true") {
     stats.dataset.snapshotCardsAdded = "true";
 
@@ -172,7 +185,6 @@ function enhanceDashboard() {
     stats.appendChild(todayValueCard);
   }
 
-  // Re-run after the cards have been inserted so the live values populate.
   updateTodaySnapshot();
 }
 

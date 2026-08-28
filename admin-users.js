@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { setupAdminPushNotifications } from "./push-notifications.js";
 
 const JOBPILOT_ADMIN_ID = "9a89bdf0-1f17-48ec-a622-db59545e8ada";
 
@@ -23,6 +24,7 @@ export async function showAdminUsers() {
       <div>
         <h2>👥 Users</h2>
         <p>Search users by name, phone number or email.</p>
+        <div id="adminPushControls"></div>
       </div>
     </div>
 
@@ -32,6 +34,8 @@ export async function showAdminUsers() {
 
     <div id="adminUsersList"><div class="panel"><p>Loading users...</p></div></div>
   `;
+
+  await setupAdminPushNotifications(document.getElementById("adminPushControls"));
 
   const container = document.getElementById("adminUsersList");
   const searchInput = document.getElementById("adminUserSearch");
@@ -132,28 +136,13 @@ export async function showAdminUsers() {
   const showEditForm = (user) => {
     const existing = container.querySelector(`[data-user-form="${CSS.escape(user.id)}"]`);
     if (existing) return;
-
     const details = [...container.querySelectorAll("details")].find(el => el.querySelector(`[data-edit-user="${CSS.escape(user.id)}"]`));
     if (!details) return;
-
     const form = document.createElement("div");
     form.setAttribute("data-user-form", user.id);
     form.style.cssText = "margin-top:16px;padding:16px;border-top:1px solid var(--border-color,#ddd);";
-    form.innerHTML = `
-      <h4 style="margin:0 0 12px;">Edit user account</h4>
-      <div style="display:grid;gap:10px;">
-        <label>Name<input data-field="name" value="${escapeHtml(user.name)}"></label>
-        <label>Phone number<input data-field="phone" type="tel" value="${escapeHtml(user.phone)}"></label>
-        <label>Email<input data-field="email" type="email" value="${escapeHtml(user.email)}"></label>
-        <label>Business name<input data-field="business_name" value="${escapeHtml(user.business_name)}"></label>
-      </div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;">
-        <button type="button" class="secondary-btn" data-cancel-edit>Cancel</button>
-        <button type="button" class="primary-btn" data-save-edit>Save changes</button>
-      </div>
-    `;
+    form.innerHTML = `<h4 style="margin:0 0 12px;">Edit user account</h4><div style="display:grid;gap:10px;"><label>Name<input data-field="name" value="${escapeHtml(user.name)}"></label><label>Phone number<input data-field="phone" type="tel" value="${escapeHtml(user.phone)}"></label><label>Email<input data-field="email" type="email" value="${escapeHtml(user.email)}"></label><label>Business name<input data-field="business_name" value="${escapeHtml(user.business_name)}"></label></div><div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;"><button type="button" class="secondary-btn" data-cancel-edit>Cancel</button><button type="button" class="primary-btn" data-save-edit>Save changes</button></div>`;
     details.appendChild(form);
-
     form.querySelector("[data-cancel-edit]").addEventListener("click", () => form.remove());
     form.querySelector("[data-save-edit]").addEventListener("click", async () => {
       const get = field => form.querySelector(`[data-field="${field}"]`).value.trim();

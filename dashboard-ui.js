@@ -35,16 +35,17 @@ function balanceTopNavigation() {
   const style = document.createElement("style");
   style.id = "jobpilot-nav-balance-style";
   style.textContent = `
-    @media (max-width: 700px) {
-      .sidebar-bottom {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-      }
+    .sidebar-bottom {
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 5px !important;
+      width: 100% !important;
     }
 
-    @media (max-width: 430px) {
-      .sidebar-bottom {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-      }
+    .sidebar-bottom .nav-item {
+      width: 100% !important;
+      min-width: 0 !important;
+      box-sizing: border-box !important;
     }
   `;
   document.head.appendChild(style);

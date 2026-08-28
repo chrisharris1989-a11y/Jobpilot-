@@ -1,4 +1,11 @@
-self.addEventListener('install',event=>event.waitUntil(self.skipWaiting()));
-self.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));
-self.addEventListener('push',event=>{let p={};try{p=event.data?event.data.json():{}}catch(e){}event.waitUntil(self.registration.showNotification(p.title||'JobPilot',{body:p.body||'You have a new JobPilot notification.',icon:p.icon||'/favicon.ico',badge:p.badge||'/favicon.ico',data:{url:p.url||'/'},tag:p.tag||'jobpilot-notification',renotify:true}))});
-self.addEventListener('notificationclick',event=>{event.notification.close();const u=event.notification?.data?.url||'/';event.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(cs=>{for(const c of cs){if('focus'in c){c.focus();if('navigate'in c)c.navigate(u);return}}if(self.clients.openWindow)return self.clients.openWindow(u)}))});
+self.addEventListener("install", event => event.waitUntil(self.skipWaiting()));
+self.addEventListener("activate", event => event.waitUntil((async () => {
+  try {
+    const registrations = await self.registration.scope ? [self.registration] : [];
+    await Promise.all(registrations.map(r => r.unregister()));
+  } catch (_) {}
+  try {
+    const names = await caches.keys();
+    await Promise.all(names.map(name => caches.delete(name)));
+  } catch (_) {}
+})()));

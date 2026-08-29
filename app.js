@@ -5840,6 +5840,8 @@ function renderConnectionsPage(content) {
         💳 Connect Stripe
       </button>
 
+      <!-- GOCARDLESS -->
+      <div id="gocardlessConnectionContainer"></div>
 
       <hr>
 

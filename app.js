@@ -6007,6 +6007,7 @@ function renderConnectionsPage(content) {
       connectFreeAgent
     );
   }
+  loadFreeAgentStatus();
 }
 
 // =====================================================

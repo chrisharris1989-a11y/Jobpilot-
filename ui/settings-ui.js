@@ -82,8 +82,45 @@
       .settings-section:last-of-type {
         margin-bottom: 0;
       }
+
+      .settings-save-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 6px;
+        padding-top: 2px;
+      }
     `;
     document.head.appendChild(style);
+  }
+
+  function moveSaveActionOutsideCards(panel) {
+    if (panel.dataset.saveActionMoved === "true") return;
+
+    const saveButton = panel.querySelector('button[onclick="saveSettings()"]');
+    const message = document.getElementById("settingsMessage");
+
+    if (!saveButton) return;
+
+    const saveContainer = saveButton.parentElement;
+    const pageContent = panel.parentElement;
+
+    if (!pageContent) return;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "settings-save-actions";
+
+    if (message && message.parentElement === panel) {
+      wrapper.appendChild(message);
+    }
+
+    if (saveContainer && saveContainer.parentElement === panel) {
+      wrapper.appendChild(saveContainer);
+    } else {
+      wrapper.appendChild(saveButton);
+    }
+
+    pageContent.appendChild(wrapper);
+    panel.dataset.saveActionMoved = "true";
   }
 
   function sectionizeSettings() {
@@ -100,6 +137,9 @@
     // The integrations should not live on Settings. Remove the old Stripe
     // block before turning the remaining settings into cards.
     removeStripeFromSettings();
+
+    // Keep the Save Settings action separate from the Notifications card.
+    moveSaveActionOutsideCards(panel);
 
     // Re-read the direct headings after Stripe removal.
     const remainingHeadings = Array.from(panel.querySelectorAll(":scope > h2"));

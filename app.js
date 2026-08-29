@@ -5874,8 +5874,6 @@ function renderConnectionsPage(content) {
 
     </div>
   `;
-    </div>
-  `;
 
   const connectStripeButton =
     document.getElementById("connectStripeButton");

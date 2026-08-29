@@ -5803,6 +5803,62 @@ function renderSettings(content) {
 
 }
 
+async function connectFreeAgent() {
+  const button = document.getElementById("connectFreeAgentButton");
+  if (!button) return;
+
+  button.disabled = true;
+  button.textContent = "Connecting to FreeAgent...";
+
+  try {
+    const { data: { session } } =
+      await supabase.auth.getSession();
+
+    if (!session) {
+      throw new Error("You are not logged in.");
+    }
+
+    const response = await fetch(
+      "https://qxoynttvipducubmczwl.supabase.co/functions/v1/freeagent-connect",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: session.access_token,
+          "Content-Type": "application/json"
+        },
+        body: "{}"
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.url) {
+      throw new Error(
+        result.error ||
+        "Could not start FreeAgent connection."
+      );
+    }
+
+    window.location.href = result.url;
+
+  } catch (error) {
+    console.error(
+      "FreeAgent connection error:",
+      error
+    );
+
+    alert(
+      "Could not connect FreeAgent:\n\n" +
+      (error?.message || error)
+    );
+
+    button.disabled = false;
+    button.textContent = "📊 Connect FreeAgent";
+  }
+}
+
+
 function renderConnectionsPage(content) {
 
   content.innerHTML = `

@@ -15,24 +15,28 @@ export async function uploadBusinessLogo(file, userId) {
   if (!ALLOWED_TYPES.has(file.type)) throw new Error("Please choose a supported image file (JPG, PNG, WebP, GIF or SVG).");
   if (file.size > MAX_LOGO_SIZE) throw new Error("The logo must be 5 MB or smaller.");
 
-  const extension = file.name.includes(".") ? file.name.split(".").pop().toLowerCase() : "png";
-  const path = `${userId}/logo.${extension}`;
+  const path = `${userId}/logo`;
+  const bucket = supabase.storage.from(BUCKET);
 
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+  // Remove the previous object first so replacement does not depend on upsert permissions.
+  const { error: removeError } = await bucket.remove([path]);
+  if (removeError && !/not found/i.test(removeError.message || "")) throw removeError;
+
+  const { error } = await bucket.upload(path, file, {
     contentType: file.type,
-    upsert: true,
+    upsert: false,
     cacheControl: "3600"
   });
 
   if (error) throw error;
 
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  const { data } = bucket.getPublicUrl(path);
   return data.publicUrl;
 }
 
 export async function deleteBusinessLogo(userId, logoUrl) {
   if (!userId) return;
-  const path = logoUrl ? extractLogoPath(logoUrl) : null;
+  const path = logoUrl ? extractLogoPath(logoUrl) : `${userId}/logo`;
   if (!path || !path.startsWith(`${userId}/`)) return;
 
   const { error } = await supabase.storage.from(BUCKET).remove([path]);
@@ -40,7 +44,13 @@ export async function deleteBusinessLogo(userId, logoUrl) {
 }
 
 function extractLogoPath(url) {
-  const marker = `/storage/v1/object/public/${BUCKET}/`;
-  const index = url.indexOf(marker);
-  return index === -1 ? null : decodeURIComponent(url.slice(index + marker.length));
+  const publicMarker = `/storage/v1/object/public/${BUCKET}/`;
+  const index = url.indexOf(publicMarker);
+  if (index !== -1) return decodeURIComponent(url.slice(index + publicMarker.length));
+
+  const signMarker = `/storage/v1/object/sign/${BUCKET}/`;
+  const signIndex = url.indexOf(signMarker);
+  if (signIndex !== -1) return decodeURIComponent(url.slice(signIndex + signMarker.length).split("?")[0]);
+
+  return null;
 }

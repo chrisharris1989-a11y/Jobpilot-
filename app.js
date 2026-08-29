@@ -501,6 +501,11 @@ function showPage(page) {
       "Create and track invoices."
     ],
 
+    connections: [
+      "Connections",
+     "Manage your connected services."
+    ],
+
     settings: [
       "Settings",
       "Manage your JobPilot account."

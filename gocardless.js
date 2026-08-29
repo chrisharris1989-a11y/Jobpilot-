@@ -137,7 +137,7 @@ handleOAuthReturn();
 // JobPilot renders Settings dynamically. Only react to the Settings navigation
 // button, and only after JobPilot has finished rendering the new page.
 document.addEventListener("click", event => {
-  const settingsButton = event.target.closest?.('[data-page="settings"]');
+  const settingsButton = event.target.closest?.('[data-page="connections"]');
   if (!settingsButton) return;
 
   setTimeout(() => waitForPaymentsUI(), 0);

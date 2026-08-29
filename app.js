@@ -5942,8 +5942,17 @@ function renderConnectionsPage(content) {
   }
 
   loadStripeStatus();
-}
 
+  const connectFreeAgentButton =
+    document.getElementById("connectFreeAgentButton");
+
+  if (connectFreeAgentButton) {
+    connectFreeAgentButton.addEventListener(
+      "click",
+      connectFreeAgent
+    );
+  }
+}
 
 // =====================================================
 // SETTINGS HELPERS

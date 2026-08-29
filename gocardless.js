@@ -92,7 +92,7 @@ function addGoCardlessUI() {
       return true;
     }
 
-    const stripeButton = document.getElementById("connectStripeButton");
+    const stripeButton = document.getElementById("gocardlessConnectionContainer");
     if (!stripeButton) return false;
 
     const panel = document.createElement("div");
@@ -113,7 +113,7 @@ function addGoCardlessUI() {
       </div>
     `;
 
-    stripeButton.insertAdjacentElement("afterend", panel);
+    container.appendChild(panel);
 
     const button = document.getElementById("connectGoCardlessButton");
     if (button) button.addEventListener("click", connectGoCardless);

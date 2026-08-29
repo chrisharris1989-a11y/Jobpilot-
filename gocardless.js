@@ -9,7 +9,6 @@ function handleOAuthReturn() {
   try {
     const params = new URLSearchParams(window.location.search);
     const result = params.get("gocardless");
-
     if (!result) return;
 
     if (result === "connected") {
@@ -19,10 +18,7 @@ function handleOAuthReturn() {
     }
 
     const cleanUrl =
-      window.location.origin +
-      window.location.pathname +
-      window.location.hash;
-
+      window.location.origin + window.location.pathname + window.location.hash;
     window.history.replaceState({}, document.title, cleanUrl);
   } catch (error) {
     console.error("GoCardless OAuth return handling failed:", error);
@@ -32,14 +28,10 @@ function handleOAuthReturn() {
 async function showGoCardlessResult() {
   const status = document.getElementById("gocardlessConnectionStatus");
   const button = document.getElementById("connectGoCardlessButton");
-
   if (!status) return;
 
   try {
-    const {
-      data: { session }
-    } = await supabase.auth.getSession();
-
+    const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       status.textContent = "Not connected";
       return;
@@ -52,21 +44,17 @@ async function showGoCardlessResult() {
         apikey: session.access_token,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        action: "status"
-      })
+      body: JSON.stringify({ action: "status" })
     });
 
     const result = await response.json();
 
     if (!response.ok || !result.connected) {
       status.textContent = "Not connected";
-
       if (button) {
         button.textContent = "🏦 Connect GoCardless";
         button.disabled = false;
       }
-
       return;
     }
 
@@ -77,7 +65,6 @@ async function showGoCardlessResult() {
       button.textContent = "🏦 GoCardless Connected";
       button.disabled = true;
     }
-
   } catch (error) {
     console.error("GoCardless status check failed:", error);
     status.textContent = "Unable to check GoCardless connection.";
@@ -106,7 +93,6 @@ async function connectGoCardless() {
     });
 
     const result = await response.json();
-
     if (!response.ok || !result.url) {
       throw new Error(result.error || "Could not start GoCardless connection.");
     }
@@ -132,20 +118,17 @@ function addGoCardlessUI() {
 
     const panel = document.createElement("div");
     panel.id = "gocardlessConnectionPanel";
-    panel.style.marginTop = "18px";
     panel.innerHTML = `
-      <div style="border:1px solid #e5e7eb;border-radius:10px;padding:16px;background:#fafafa;">
-        <h3 style="margin:0 0 6px;">GoCardless</h3>
-        <p class="muted" style="margin:0 0 12px;">
-          Connect GoCardless to let your customers pay invoices by bank.
-        </p>
-        <div id="gocardlessConnectionStatus" class="muted" style="margin-bottom:12px;">
-          Not connected
-        </div>
-        <button class="button primary" id="connectGoCardlessButton" type="button">
-          🏦 Connect GoCardless
-        </button>
+      <h2>🏦 GoCardless</h2>
+      <p class="muted">
+        Connect GoCardless to let your customers pay invoices by bank.
+      </p>
+      <div id="gocardlessConnectionStatus" class="muted">
+        Not connected
       </div>
+      <button class="button primary" id="connectGoCardlessButton" type="button">
+        🏦 Connect GoCardless
+      </button>
     `;
 
     container.appendChild(panel);
@@ -169,11 +152,8 @@ function waitForPaymentsUI(attempts = 20) {
 
 handleOAuthReturn();
 
-// JobPilot renders Settings dynamically. Only react to the Settings navigation
-// button, and only after JobPilot has finished rendering the new page.
 document.addEventListener("click", event => {
-  const settingsButton = event.target.closest?.('[data-page="connections"]');
-  if (!settingsButton) return;
-
+  const connectionsButton = event.target.closest?.('[data-page="connections"]');
+  if (!connectionsButton) return;
   setTimeout(() => waitForPaymentsUI(), 100);
 });

@@ -28,14 +28,9 @@
     let container = status || button;
     while (container && container.parentElement) {
       container = container.parentElement;
-      if (
-        container.contains(status) &&
-        container.contains(button)
-      ) {
+      if (container.contains(status) && container.contains(button)) {
         const headings = container.querySelectorAll("h2");
-        if (headings.length <= 1) {
-          container.remove();
-        }
+        if (headings.length <= 1) container.remove();
         break;
       }
     }
@@ -63,25 +58,11 @@
         margin: 0 0 18px;
       }
 
-      .settings-section > h2:first-child {
-        margin-top: 0;
-      }
-
-      .settings-section > hr {
-        display: none;
-      }
-
-      .settings-section > label:first-of-type {
-        margin-top: 4px;
-      }
-
-      .settings-section > p:first-of-type {
-        margin-top: 0;
-      }
-
-      .settings-section:last-of-type {
-        margin-bottom: 0;
-      }
+      .settings-section > h2:first-child { margin-top: 0; }
+      .settings-section > hr { display: none; }
+      .settings-section > label:first-of-type { margin-top: 4px; }
+      .settings-section > p:first-of-type { margin-top: 0; }
+      .settings-section:last-of-type { margin-bottom: 0; }
 
       .settings-save-actions {
         display: flex;
@@ -89,38 +70,59 @@
         margin-top: 6px;
         padding-top: 2px;
       }
+
+      /* Business Details: spacious, consistent form layout. */
+      .settings-section.settings-business-details {
+        padding-bottom: 26px;
+      }
+
+      .settings-section.settings-business-details > label {
+        display: block;
+        margin: 0 0 7px;
+      }
+
+      .settings-section.settings-business-details > input,
+      .settings-section.settings-business-details > textarea,
+      .settings-section.settings-business-details > select {
+        display: block;
+        width: 100%;
+        margin: 0 0 18px;
+      }
+
+      @media (min-width: 700px) {
+        .settings-section.settings-business-details {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          column-gap: 20px;
+          row-gap: 7px;
+        }
+
+        .settings-section.settings-business-details > h2 {
+          grid-column: 1 / -1;
+          margin-bottom: 5px;
+        }
+
+        .settings-section.settings-business-details > label,
+        .settings-section.settings-business-details > input,
+        .settings-section.settings-business-details > textarea,
+        .settings-section.settings-business-details > select {
+          min-width: 0;
+        }
+
+        .settings-section.settings-business-details > input,
+        .settings-section.settings-business-details > textarea,
+        .settings-section.settings-business-details > select {
+          margin-bottom: 12px;
+        }
+      }
     `;
     document.head.appendChild(style);
   }
 
-  function moveSaveActionOutsideCards(panel) {
-    if (panel.dataset.saveActionMoved === "true") return;
-
-    const saveButton = panel.querySelector('button[onclick="saveSettings()"]');
-    const message = document.getElementById("settingsMessage");
-
-    if (!saveButton) return;
-
-    const saveContainer = saveButton.parentElement;
-    const pageContent = panel.parentElement;
-
-    if (!pageContent) return;
-
-    const wrapper = document.createElement("div");
-    wrapper.className = "settings-save-actions";
-
-    if (message && message.parentElement === panel) {
-      wrapper.appendChild(message);
-    }
-
-    if (saveContainer && saveContainer.parentElement === panel) {
-      wrapper.appendChild(saveContainer);
-    } else {
-      wrapper.appendChild(saveButton);
-    }
-
-    pageContent.appendChild(wrapper);
-    panel.dataset.saveActionMoved = "true";
+  function markBusinessDetailsSection() {
+    const heading = Array.from(document.querySelectorAll(".settings-section > h2"))
+      .find((item) => item.textContent.trim() === "Business Details");
+    heading?.closest(".settings-section")?.classList.add("settings-business-details");
   }
 
   function sectionizeSettings() {
@@ -133,30 +135,20 @@
     if (!headings.length) return;
 
     addSettingsSectionStyles();
-
-    // The integrations should not live on Settings. Remove the old Stripe
-    // block before turning the remaining settings into cards.
     removeStripeFromSettings();
-
-    // Keep the Save Settings action separate from the Notifications card.
     moveSaveActionOutsideCards(panel);
 
-    // Re-read the direct headings after Stripe removal.
     const remainingHeadings = Array.from(panel.querySelectorAll(":scope > h2"));
-
     remainingHeadings.forEach((heading) => {
       const section = document.createElement("section");
       section.className = "settings-section";
-
       panel.insertBefore(section, heading);
       section.appendChild(heading);
 
       let node = section.nextSibling;
       while (node) {
         const next = node.nextSibling;
-        if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "H2") {
-          break;
-        }
+        if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "H2") break;
         if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "HR") {
           node.remove();
           break;
@@ -168,6 +160,29 @@
 
     panel.classList.add("settings-sectionized");
     panel.dataset.sectionized = "true";
+    markBusinessDetailsSection();
+  }
+
+  function moveSaveActionOutsideCards(panel) {
+    if (panel.dataset.saveActionMoved === "true") return;
+
+    const saveButton = panel.querySelector('button[onclick="saveSettings()"]');
+    const message = document.getElementById("settingsMessage");
+    if (!saveButton) return;
+
+    const saveContainer = saveButton.parentElement;
+    const pageContent = panel.parentElement;
+    if (!pageContent) return;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "settings-save-actions";
+
+    if (message && message.parentElement === panel) wrapper.appendChild(message);
+    if (saveContainer && saveContainer.parentElement === panel) wrapper.appendChild(saveContainer);
+    else wrapper.appendChild(saveButton);
+
+    pageContent.appendChild(wrapper);
+    panel.dataset.saveActionMoved = "true";
   }
 
   const observer = new MutationObserver(() => {
@@ -176,7 +191,6 @@
   });
 
   observer.observe(document.body, { childList: true, subtree: true });
-
   removeStripeFromSettings();
   sectionizeSettings();
 })();

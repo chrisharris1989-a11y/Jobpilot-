@@ -6868,7 +6868,7 @@ async function loadStripeStatus() {
         <br>
 
         <small>
-          Your customers can pay your invoices online.
+          ${result.account_name || "Stripe account connected to JobPilot."}
         </small>
       `;
 

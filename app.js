@@ -5886,7 +5886,7 @@ async function loadFreeAgentStatus() {
 
     if (error) {
       console.error("FreeAgent status check failed:", error);
-      status.textContent = "Unable to check FreeAgent connection.";
+      status.textContent = "FreeAgent check error.";
       return;
     }
 

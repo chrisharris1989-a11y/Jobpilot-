@@ -5858,6 +5858,61 @@ async function connectFreeAgent() {
   }
 }
 
+async function loadFreeAgentStatus() {
+  const status =
+    document.getElementById("freeagentConnectionStatus");
+
+  const button =
+    document.getElementById("connectFreeAgentButton");
+
+  if (!status) return;
+
+  try {
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      status.textContent = "FreeAgent not connected.";
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("freeagent_connections")
+      .select("company_name")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("FreeAgent status check failed:", error);
+      status.textContent = "Unable to check FreeAgent connection.";
+      return;
+    }
+
+    if (data) {
+      status.innerHTML =
+        `<strong style="color:green;">✅ FreeAgent connected</strong><br><small>${data.company_name || "FreeAgent account connected to JobPilot."}</small>`;
+
+      if (button) {
+        button.textContent = "📊 FreeAgent Connected";
+        button.disabled = true;
+      }
+    } else {
+      status.textContent = "FreeAgent not connected.";
+
+      if (button) {
+        button.textContent = "📊 Connect FreeAgent";
+        button.disabled = false;
+      }
+    }
+
+  } catch (error) {
+    console.error("FreeAgent status rendering failed:", error);
+    status.textContent = "Unable to check FreeAgent connection.";
+  }
+}
+
 
 function renderConnectionsPage(content) {
 

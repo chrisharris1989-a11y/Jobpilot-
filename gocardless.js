@@ -140,5 +140,5 @@ document.addEventListener("click", event => {
   const settingsButton = event.target.closest?.('[data-page="connections"]');
   if (!settingsButton) return;
 
-  setTimeout(() => waitForPaymentsUI(), 0);
+  setTimeout(() => waitForPaymentsUI(), 100);
 });

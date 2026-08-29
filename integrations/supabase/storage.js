@@ -18,13 +18,9 @@ export async function uploadBusinessLogo(file, userId) {
   const path = `${userId}/logo`;
   const bucket = supabase.storage.from(BUCKET);
 
-  // Remove the previous object first so replacement does not depend on upsert permissions.
-  const { error: removeError } = await bucket.remove([path]);
-  if (removeError && !/not found/i.test(removeError.message || "")) throw removeError;
-
   const { error } = await bucket.upload(path, file, {
     contentType: file.type,
-    upsert: false,
+    upsert: true,
     cacheControl: "3600"
   });
 

@@ -536,6 +536,10 @@ function showPage(page) {
     renderInvoicesPage(content);
   }
 
+  if (page === "connections") {
+  renderConnectionsPage(content);
+}
+
   if (page === "settings") {
     renderSettings(content);
   }

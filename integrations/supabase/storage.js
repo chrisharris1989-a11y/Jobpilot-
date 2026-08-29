@@ -2,7 +2,13 @@ import { supabase } from "../../supabase.js";
 
 const BUCKET = "business-logos";
 const MAX_LOGO_SIZE = 5 * 1024 * 1024;
-const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"]);
+const ALLOWED_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/svg+xml"
+]);
 
 export async function uploadBusinessLogo(file, userId) {
   if (!file || !userId) throw new Error("A logo file and signed-in user are required.");
@@ -11,16 +17,25 @@ export async function uploadBusinessLogo(file, userId) {
 
   const path = `${userId}/${crypto.randomUUID()}-logo`;
   const bucket = supabase.storage.from(BUCKET);
-  const { error } = await bucket.upload(path, file, { contentType: file.type, upsert: false, cacheControl: "3600" });
+
+  const { error } = await bucket.upload(path, file, {
+    contentType: file.type,
+    upsert: false,
+    cacheControl: "3600"
+  });
+
   if (error) throw error;
+
   const { data } = bucket.getPublicUrl(path);
   return { url: data.publicUrl, path };
 }
 
 export async function deleteBusinessLogo(userId, logoUrl) {
   if (!userId) return;
+
   const path = logoUrl ? extractLogoPath(logoUrl) : null;
   if (!path || !path.startsWith(`${userId}/`)) return;
+
   const { error } = await supabase.storage.from(BUCKET).remove([path]);
   if (error) throw error;
 }
@@ -28,5 +43,7 @@ export async function deleteBusinessLogo(userId, logoUrl) {
 function extractLogoPath(url) {
   const marker = `/storage/v1/object/public/${BUCKET}/`;
   const index = url?.indexOf(marker);
-  return index >= 0 ? decodeURIComponent(url.slice(index + marker.length)) : null;
+  return index >= 0
+    ? decodeURIComponent(url.slice(index + marker.length))
+    : null;
 }

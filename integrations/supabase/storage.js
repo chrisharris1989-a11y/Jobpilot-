@@ -18,9 +18,16 @@ export async function uploadBusinessLogo(file, userId) {
   const path = `${userId}/logo`;
   const bucket = supabase.storage.from(BUCKET);
 
+  // Remove the existing logo first. The DELETE policy permits this for the user's folder.
+  const { error: removeError } = await bucket.remove([path]);
+  if (removeError && !removeError.message?.toLowerCase().includes("not found")) {
+    throw removeError;
+  }
+
+  // Create the replacement as a normal INSERT, so the INSERT policy is used directly.
   const { error } = await bucket.upload(path, file, {
     contentType: file.type,
-    upsert: true,
+    upsert: false,
     cacheControl: "3600"
   });
 

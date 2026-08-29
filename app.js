@@ -5874,6 +5874,20 @@ function renderConnectionsPage(content) {
 
     </div>
   `;
+    </div>
+  `;
+
+  const connectStripeButton =
+    document.getElementById("connectStripeButton");
+
+  if (connectStripeButton) {
+    connectStripeButton.addEventListener(
+      "click",
+      connectStripe
+    );
+  }
+
+  loadStripeStatus();
 }
 
 

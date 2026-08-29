@@ -29,23 +29,58 @@ function handleOAuthReturn() {
   }
 }
 
-function showGoCardlessResult() {
+async function showGoCardlessResult() {
   const status = document.getElementById("gocardlessConnectionStatus");
   const button = document.getElementById("connectGoCardlessButton");
+
   if (!status) return;
 
   try {
-    if (localStorage.getItem(GO_CARDLESS_STORAGE_KEY) === "true") {
-      status.innerHTML =
-        `<strong style="color:green;">✅ GoCardless connected</strong><br><small>Your GoCardless account is connected to JobPilot.</small>`;
+    const {
+      data: { session }
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      status.textContent = "Not connected";
+      return;
+    }
+
+    const response = await fetch(GO_CARDLESS_CONNECT_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        apikey: session.access_token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        action: "status"
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.connected) {
+      status.textContent = "Not connected";
 
       if (button) {
-        button.textContent = "🏦 GoCardless Connected";
-        button.disabled = true;
+        button.textContent = "🏦 Connect GoCardless";
+        button.disabled = false;
       }
+
+      return;
     }
+
+    status.innerHTML =
+      `<strong style="color:green;">✅ GoCardless connected</strong><br><small>${result.organisation_name || "GoCardless account connected to JobPilot."}</small>`;
+
+    if (button) {
+      button.textContent = "🏦 GoCardless Connected";
+      button.disabled = true;
+    }
+
   } catch (error) {
-    console.error("GoCardless status rendering failed:", error);
+    console.error("GoCardless status check failed:", error);
+    status.textContent = "Unable to check GoCardless connection.";
   }
 }
 

@@ -5798,6 +5798,102 @@ function renderSettings(content) {
 
 }
 
+function renderConnectionsPage(content) {
+
+  content.innerHTML = `
+
+    <div class="page-actions">
+      <div>
+        <h2>Connections</h2>
+        <p>Connect the services you use with JobPilot.</p>
+      </div>
+    </div>
+
+    <div class="panel settings-panel">
+
+      <!-- STRIPE -->
+      <h2>💳 Stripe</h2>
+
+      <p>
+        Connect your Stripe account to allow your customers
+        to pay your invoices online.
+      </p>
+
+      <div
+        id="stripeConnectionStatus"
+        class="muted"
+        style="margin:12px 0;"
+      >
+        Checking Stripe connection...
+      </div>
+
+      <button
+        class="button primary"
+        id="connectStripeButton"
+        type="button"
+      >
+        💳 Connect Stripe
+      </button>
+
+
+      <hr>
+
+
+      <!-- GOCARDLESS -->
+      <h2>🏦 GoCardless</h2>
+
+      <p>
+        Connect your GoCardless account for payment collection.
+      </p>
+
+      <div
+        id="gocardlessConnectionStatus"
+        class="muted"
+        style="margin:12px 0;"
+      >
+        Checking GoCardless connection...
+      </div>
+
+      <button
+        class="button primary"
+        id="connectGoCardlessButton"
+        type="button"
+      >
+        🏦 Connect GoCardless
+      </button>
+
+
+      <hr>
+
+
+      <!-- FREEAGENT -->
+      <h2>📊 FreeAgent</h2>
+
+      <p>
+        Connect your FreeAgent account to manage your
+        accounting data from JobPilot.
+      </p>
+
+      <div
+        id="freeagentConnectionStatus"
+        class="muted"
+        style="margin:12px 0;"
+      >
+        FreeAgent not connected.
+      </div>
+
+      <button
+        class="button primary"
+        id="connectFreeAgentButton"
+        type="button"
+      >
+        📊 Connect FreeAgent
+      </button>
+
+    </div>
+  `;
+}
+
 
 // =====================================================
 // SETTINGS HELPERS

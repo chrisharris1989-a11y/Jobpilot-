@@ -323,6 +323,10 @@ function renderApp() {
             🧾 Invoices
           </button>
 
+          <button class="nav-item" data-page="connections">
+           🔗 Connections
+          </button>
+
         </nav>
 
         <div class="sidebar-bottom">

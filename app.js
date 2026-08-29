@@ -5844,33 +5844,6 @@ function renderConnectionsPage(content) {
       <hr>
 
 
-      <!-- GOCARDLESS -->
-      <h2>🏦 GoCardless</h2>
-
-      <p>
-        Connect your GoCardless account for payment collection.
-      </p>
-
-      <div
-        id="gocardlessConnectionStatus"
-        class="muted"
-        style="margin:12px 0;"
-      >
-        Checking GoCardless connection...
-      </div>
-
-      <button
-        class="button primary"
-        id="connectGoCardlessButton"
-        type="button"
-      >
-        🏦 Connect GoCardless
-      </button>
-
-
-      <hr>
-
-
       <!-- FREEAGENT -->
       <h2>📊 FreeAgent</h2>
 

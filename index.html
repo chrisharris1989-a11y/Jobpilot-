@@ -26,7 +26,15 @@
   <script type="module" src="/connections-ui.js"></script>
   <script type="module" src="/customers/customer-import.js"></script>
   <script type="module" src="/data/data-transfer.js"></script>
+
+  <!-- CLEAN architecture modules -->
+  <script type="module" src="/core/app-core.js"></script>
+  <script type="module" src="/auth/auth.js"></script>
+  <script type="module" src="/jobs/jobs.js"></script>
+
+  <!-- Existing application remains the active entry point during migration -->
   <script type="module" src="/app.js"></script>
+
   <script type="module" src="/dashboard/dashboard-ui.js"></script>
   <script type="module" src="/admin/admin-users-bootstrap.js"></script>
   <script type="module" src="/navigation/route-navigation-buttons.js"></script>

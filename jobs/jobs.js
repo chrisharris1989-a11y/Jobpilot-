@@ -7,7 +7,6 @@
 // =====================================================
 
 import { supabase } from "../supabase.js";
-import { escapeHtml } from "../ui/ui.js";
 import {
   currentUser,
   customers,
@@ -504,7 +503,7 @@ export function showEditJobForm(jobId) {
         </select>
 
         <label>Job Title *</label>
-        <input id="editJobTitle" required value="${escapeHtml(job.title || "")}">
+        <input id="editJobTitle" value="${escapeHtml(job.title || "")}" required>
 
         <label>Description</label>
         <textarea id="editJobDescription">${escapeHtml(job.description || "")}</textarea>
@@ -517,12 +516,11 @@ export function showEditJobForm(jobId) {
 
         <label>Status</label>
         <select id="editJobStatus">
-          ${["pending", "scheduled", "in_progress", "completed", "cancelled", "invoiced"]
-            .map(status => `
-              <option value="${status}" ${String(job.status) === status ? "selected" : ""}>
-                ${status === "in_progress" ? "In Progress" : status.charAt(0).toUpperCase() + status.slice(1)}
-              </option>
-            `).join("")}
+          <option value="pending" ${job.status === "pending" ? "selected" : ""}>Pending</option>
+          <option value="scheduled" ${job.status === "scheduled" ? "selected" : ""}>Scheduled</option>
+          <option value="completed" ${job.status === "completed" ? "selected" : ""}>Completed</option>
+          <option value="cancelled" ${job.status === "cancelled" ? "selected" : ""}>Cancelled</option>
+          <option value="invoiced" ${job.status === "invoiced" ? "selected" : ""}>Invoiced</option>
         </select>
 
         <label>Recurring Job</label>
@@ -573,7 +571,7 @@ export function showEditJobForm(jobId) {
       event.preventDefault();
 
       const recurring = recurringCheckbox.checked;
-      const recurringInterval = recurring
+      const interval = recurring
         ? Number(modal.querySelector("#editJobRecurringInterval").value)
         : null;
 
@@ -587,8 +585,7 @@ export function showEditJobForm(jobId) {
         price: Number(modal.querySelector("#editJobPrice").value) || 0,
         notes: modal.querySelector("#editJobNotes").value.trim(),
         recurring,
-        recurring_interval_weeks: recurringInterval,
-        recurring_active: recurring
+        recurring_interval_weeks: interval
       };
 
       const { error } = await supabase
@@ -601,6 +598,14 @@ export function showEditJobForm(jobId) {
         return;
       }
 
+      if (
+        updates.status === "completed" &&
+        job.recurring &&
+        job.recurring_active
+      ) {
+        await createNextRecurringAppointment({ ...job, ...updates });
+      }
+
       modal.remove();
       await loadJobs();
       showJobProfile(job.id);
@@ -610,53 +615,93 @@ export function showEditJobForm(jobId) {
 
 
 // =====================================================
-// DELETE JOB
+// CREATE NEXT RECURRING APPOINTMENT
 // =====================================================
 
-export async function deleteJob(jobId) {
-  const job = jobs.find(
-    item => String(item.id) === String(jobId)
-  );
+async function createNextRecurringAppointment(sourceJob) {
 
-  if (!job) return;
+  if (!sourceJob?.recurring || !sourceJob.recurring_active) return null;
+  if (!sourceJob.scheduled_date) return null;
 
-  const confirmed = confirm(
-    `Delete "${job.title || "this job"}"? This cannot be undone.`
-  );
+  const interval = Number(sourceJob.recurring_interval_weeks) || 4;
+  const seriesId = sourceJob.recurring_parent_id || sourceJob.id;
 
-  if (!confirmed) return;
+  let candidateDate = new Date(`${sourceJob.scheduled_date}T12:00:00`);
+  let existingJob = true;
 
-  const { error } = await supabase
-    .from("jobs")
-    .delete()
-    .eq("id", job.id);
+  while (existingJob) {
+    candidateDate.setDate(candidateDate.getDate() + interval * 7);
 
-  if (error) {
-    alert("The job could not be deleted:\n\n" + error.message);
-    return;
+    const candidateDateString =
+      candidateDate.toISOString().split("T")[0];
+
+    existingJob = jobs.find(item => {
+      const itemSeriesId = item.recurring_parent_id || item.id;
+
+      return (
+        String(itemSeriesId) === String(seriesId) &&
+        String(item.scheduled_date) === String(candidateDateString)
+      );
+    });
   }
 
-  await loadJobs();
-  showPage("jobs");
+  const nextJob = {
+    user_id: sourceJob.user_id,
+    customer_id: sourceJob.customer_id,
+    title: sourceJob.title,
+    description: sourceJob.description,
+    scheduled_date: candidateDate.toISOString().split("T")[0],
+    scheduled_time: sourceJob.scheduled_time,
+    status: "scheduled",
+    price: sourceJob.price,
+    notes: sourceJob.notes,
+    recurring: true,
+    recurring_interval_weeks: interval,
+    recurring_parent_id: seriesId,
+    recurring_active: true
+  };
+
+  const { data, error } = await supabase
+    .from("jobs")
+    .insert(nextJob)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Could not create next recurring appointment:", error);
+    alert("Could not create the next recurring appointment:\n\n" + error.message);
+    return null;
+  }
+
+  return data;
 }
 
 
 // =====================================================
-// RECURRING HELPERS
+// SKIP NEXT RECURRING JOB
 // =====================================================
 
-export async function skipNextRecurringJob(jobId) {
+async function skipNextRecurringJob(jobId) {
+
   const job = jobs.find(
     item => String(item.id) === String(jobId)
   );
 
   if (!job) return;
+
+  if (!job.recurring || !job.recurring_active) {
+    alert("This job is not currently recurring.");
+    return;
+  }
+
+  if (!confirm("Skip the next recurring appointment?")) return;
 
   const seriesId = job.recurring_parent_id || job.id;
 
   const nextJob = jobs
     .filter(item => {
       const itemSeriesId = item.recurring_parent_id || item.id;
+
       return (
         String(itemSeriesId) === String(seriesId) &&
         String(item.id) !== String(job.id) &&
@@ -671,7 +716,7 @@ export async function skipNextRecurringJob(jobId) {
     )[0];
 
   if (!nextJob) {
-    alert("There is no future appointment to skip.");
+    alert("There is no upcoming recurring appointment to skip.");
     return;
   }
 
@@ -681,26 +726,37 @@ export async function skipNextRecurringJob(jobId) {
     .eq("id", nextJob.id);
 
   if (error) {
-    alert("The appointment could not be skipped:\n\n" + error.message);
+    alert("Could not skip the appointment:\n\n" + error.message);
     return;
   }
 
+  await createNextRecurringAppointment(nextJob);
   await loadJobs();
   showJobProfile(job.id);
+  alert("The next recurring appointment has been skipped.");
 }
 
-export async function stopRecurringJob(jobId) {
+
+// =====================================================
+// STOP RECURRING JOB
+// =====================================================
+
+async function stopRecurringJob(jobId) {
+
   const job = jobs.find(
     item => String(item.id) === String(jobId)
   );
 
   if (!job) return;
 
-  const confirmed = confirm(
-    "Stop this recurring job? Existing appointments will remain, but no further recurring appointments will be created."
-  );
+  if (!job.recurring) {
+    alert("This job is not a recurring job.");
+    return;
+  }
 
-  if (!confirmed) return;
+  if (!confirm(
+    "Stop this recurring job?\n\nExisting appointments will remain, but no new recurring appointments will be created."
+  )) return;
 
   const seriesId = job.recurring_parent_id || job.id;
 
@@ -710,10 +766,77 @@ export async function stopRecurringJob(jobId) {
     .or(`id.eq.${seriesId},recurring_parent_id.eq.${seriesId}`);
 
   if (error) {
-    alert("The recurring job could not be stopped:\n\n" + error.message);
+    alert("Could not stop recurring:\n\n" + error.message);
     return;
   }
 
   await loadJobs();
   showJobProfile(job.id);
+  alert("Recurring appointments have been stopped.");
 }
+
+
+// =====================================================
+// DELETE JOB
+// =====================================================
+
+export async function deleteJob(jobId) {
+
+  const job = jobs.find(
+    item => String(item.id) === String(jobId)
+  );
+
+  if (!job) return;
+
+  if (!confirm(
+    `Delete "${job.title || "this job"}"? This cannot be undone.`
+  )) return;
+
+  const { error } = await supabase
+    .from("jobs")
+    .delete()
+    .eq("id", job.id);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  await loadJobs();
+  showPage("jobs");
+}
+
+
+// =====================================================
+// HELPERS
+// =====================================================
+
+export function getJobStatusLabel(status) {
+  const labels = {
+    pending: "Pending",
+    scheduled: "Scheduled",
+    in_progress: "In Progress",
+    completed: "Completed",
+    cancelled: "Cancelled",
+    invoiced: "Invoiced"
+  };
+
+  return labels[String(status || "").toLowerCase()] || "Pending";
+}
+
+export function getJobPrice(job) {
+  return job ? Number(job.price || 0) : 0;
+}
+
+
+// =====================================================
+// BACKWARDS COMPATIBILITY
+// =====================================================
+
+window.renderJobsPage = renderJobsPage;
+window.showAddJobForm = showAddJobForm;
+window.showJobProfile = showJobProfile;
+window.showEditJobForm = showEditJobForm;
+window.deleteJob = deleteJob;
+window.getJobStatusLabel = getJobStatusLabel;
+window.getJobPrice = getJobPrice;

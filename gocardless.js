@@ -1,7 +1,7 @@
 import { supabase } from "./supabase.js";
 
 const GO_CARDLESS_CONNECT_URL =
-  "https://qxoynttvipducubmczwl.supabase.co/functions/v1/gocardless-connect";
+  "https://ncitqqhxaxjhepfsnltk.supabase.co/functions/v1/gocardless-connect";
 
 const GO_CARDLESS_STORAGE_KEY = "jobpilot_gocardless_connected";
 

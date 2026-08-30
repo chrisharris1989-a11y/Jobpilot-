@@ -15,9 +15,7 @@ export async function uploadBusinessLogo(file, userId) {
   if (!ALLOWED_TYPES.has(file.type)) throw new Error("Please choose a supported image file (JPG, PNG, WebP, GIF or SVG).");
   if (file.size > MAX_LOGO_SIZE) throw new Error("The logo must be 5 MB or smaller.");
 
-  // Use a unique object name for each upload. This avoids Storage INSERT/UPDATE
-  // collisions and lets the database point to the newly uploaded logo atomically.
-  const path = `${userId}/logo-${crypto.randomUUID()}`;
+  const path = `${userId}/${crypto.randomUUID()}-logo`;
   const bucket = supabase.storage.from(BUCKET);
 
   const { error } = await bucket.upload(path, file, {
@@ -29,11 +27,12 @@ export async function uploadBusinessLogo(file, userId) {
   if (error) throw error;
 
   const { data } = bucket.getPublicUrl(path);
-  return data.publicUrl;
+  return { url: data.publicUrl, path };
 }
 
 export async function deleteBusinessLogo(userId, logoUrl) {
   if (!userId) return;
+
   const path = logoUrl ? extractLogoPath(logoUrl) : null;
   if (!path || !path.startsWith(`${userId}/`)) return;
 
@@ -42,14 +41,9 @@ export async function deleteBusinessLogo(userId, logoUrl) {
 }
 
 function extractLogoPath(url) {
-  if (!url) return null;
-  const publicMarker = `/storage/v1/object/public/${BUCKET}/`;
-  const index = url.indexOf(publicMarker);
-  if (index !== -1) return decodeURIComponent(url.slice(index + publicMarker.length));
-
-  const signMarker = `/storage/v1/object/sign/${BUCKET}/`;
-  const signIndex = url.indexOf(signMarker);
-  if (signIndex !== -1) return decodeURIComponent(url.slice(signIndex + signMarker.length).split("?")[0]);
-
-  return null;
+  const marker = `/storage/v1/object/public/${BUCKET}/`;
+  const index = url?.indexOf(marker);
+  return index >= 0
+    ? decodeURIComponent(url.slice(index + marker.length))
+    : null;
 }

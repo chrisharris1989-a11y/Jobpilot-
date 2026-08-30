@@ -5819,7 +5819,7 @@ async function connectFreeAgent() {
     }
 
     const response = await fetch(
-      "https://qxoynttvipducubmczwl.supabase.co/functions/v1/freeagent-connect",
+      "https://ncitqqhxaxjhepfsnltk.supabase.co/functions/v1/freeagent-connect",
       {
         method: "POST",
         headers: {
@@ -6822,7 +6822,7 @@ async function loadStripeStatus() {
 
     const response =
       await fetch(
-        "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-connect-v3",
+        "https://ncitqqhxaxjhepfsnltk.supabase.co/functions/v1/stripe-connect-v3",
         {
           method: "POST",
 
@@ -6966,7 +6966,7 @@ async function connectStripe() {
 
     const response =
       await fetch(
-       "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-connect-v3",
+       "https://ncitqqhxaxjhepfsnltk.supabase.co/functions/v1/stripe-connect-v3",
         {
           method: "POST",
 

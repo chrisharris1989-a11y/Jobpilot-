@@ -1,4 +1,4 @@
-const FUNCTION_URL = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/public-invoice-v1";
+const FUNCTION_URL = "https://ncitqqhxaxjhepfsnltk.supabase.co/functions/v1/public-invoice-v1";
 const params = new URLSearchParams(window.location.search);
 const token = params.get("token");
 const paymentStatus = params.get("payment");

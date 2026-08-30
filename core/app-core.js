@@ -5,14 +5,17 @@
 // This module owns application state, initialisation, the
 // application shell and page switching.
 //
-// The remaining page/service functions are intentionally
-// still in app.js at this stage and will be extracted into
-// their own modules in the following sections.
+// Data loading is kept here because jobs and the other
+// application modules consume the live state exported below.
+// Page/service functions remain in app.js until their own
+// modules are extracted.
 // =====================================================
 
 import { supabase } from "../supabase.js";
 import { showFeedbackForm } from "../feedback.js";
 import { showFeedbackAdmin } from "../feedback-admin.js";
+import { showLogin, logout } from "../auth/auth.js";
+import { escapeHtml } from "../ui/ui.js";
 
 export let currentUser = null;
 export let customers = [];
@@ -21,6 +24,70 @@ export let quotes = [];
 export let invoices = [];
 
 const app = document.getElementById("app");
+
+
+// =====================================================
+// DATA LOADERS
+// =====================================================
+
+export async function loadCustomers() {
+  const { data, error } = await supabase
+    .from("customers")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Customers:", error);
+    return;
+  }
+
+  customers = data || [];
+}
+
+export async function loadJobs() {
+  const { data, error } = await supabase
+    .from("jobs")
+    .select("*")
+    .order("scheduled_date", {
+      ascending: true,
+      nullsFirst: false
+    });
+
+  if (error) {
+    console.error("Jobs:", error);
+    return;
+  }
+
+  jobs = data || [];
+}
+
+export async function loadQuotes() {
+  const { data, error } = await supabase
+    .from("quotes")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Quotes:", error);
+    return;
+  }
+
+  quotes = data || [];
+}
+
+export async function loadInvoices() {
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Invoices:", error);
+    return;
+  }
+
+  invoices = data || [];
+}
 
 
 // =====================================================
@@ -73,165 +140,78 @@ export function renderApp() {
     <div class="app-layout">
 
       <aside class="sidebar">
-
         <div class="logo">
-
           <div class="logo-mark">J</div>
-
           <div>
             <strong>JobPilot</strong>
             <span>Trades CRM</span>
           </div>
-
         </div>
 
         <nav>
-
-          <button class="nav-item active" data-page="dashboard">
-            🏠 Dashboard
-          </button>
-
-          <button class="nav-item" data-page="customers">
-            👥 Customers
-          </button>
-
-          <button class="nav-item" data-page="jobs">
-            📋 Jobs
-          </button>
-
-          <button class="nav-item" data-page="quotes">
-            💷 Quotes
-          </button>
-
-          <button class="nav-item" data-page="invoices">
-            🧾 Invoices
-          </button>
-
-          <button class="nav-item" data-page="connections">
-           🔗 Connections
-          </button>
-
+          <button class="nav-item active" data-page="dashboard">🏠 Dashboard</button>
+          <button class="nav-item" data-page="customers">👥 Customers</button>
+          <button class="nav-item" data-page="jobs">📋 Jobs</button>
+          <button class="nav-item" data-page="quotes">💷 Quotes</button>
+          <button class="nav-item" data-page="invoices">🧾 Invoices</button>
+          <button class="nav-item" data-page="connections">🔗 Connections</button>
         </nav>
 
         <div class="sidebar-bottom">
-
-          <button class="nav-item" id="feedbackButton" >
-           🐛 Feedback
-          </button>
-
-          <button class="nav-item" id="adminFeedbackButton" >
-           📋 Beta Feedback
-          </button>
-
-          <button class="nav-item" data-page="settings">
-           ⚙️ Settings
-          </button>
-
-          <button class="nav-item" id="logoutButton">
-            🚪 Sign out
-          </button>
-
+          <button class="nav-item" id="feedbackButton">🐛 Feedback</button>
+          <button class="nav-item" id="adminFeedbackButton">📋 Beta Feedback</button>
+          <button class="nav-item" data-page="settings">⚙️ Settings</button>
+          <button class="nav-item" id="logoutButton">🚪 Sign out</button>
         </div>
-
       </aside>
 
       <main class="main">
-
         <header class="topbar">
-
           <div>
-
-            <h1 id="pageTitle">
-              Dashboard
-            </h1>
-
-            <p id="pageSubtitle">
-              Here's what's happening with your business.
-            </p>
-
+            <h1 id="pageTitle">Dashboard</h1>
+            <p id="pageSubtitle">Here's what's happening with your business.</p>
           </div>
 
           <div class="avatar">
             ${escapeHtml(
-              currentUser.email
-                .substring(0, 2)
-                .toUpperCase()
+              currentUser.email.substring(0, 2).toUpperCase()
             )}
           </div>
-
         </header>
 
         <section id="pageContent"></section>
-
       </main>
-
     </div>
   `;
 
   document
     .querySelectorAll(".nav-item[data-page]")
     .forEach(button => {
-      button.addEventListener(
-        "click",
-        () => showPage(button.dataset.page)
-      );
+      button.addEventListener("click", () => showPage(button.dataset.page));
     });
 
-
-  // FEEDBACK BUTTON
-
-  const feedbackButton =
-    document.getElementById("feedbackButton");
-
-  const adminFeedbackButton =
-    document.getElementById(
-      "adminFeedbackButton"
-    );
+  const feedbackButton = document.getElementById("feedbackButton");
+  const adminFeedbackButton = document.getElementById("adminFeedbackButton");
 
   if (adminFeedbackButton) {
-
     if (
       currentUser &&
-      String(currentUser.id) ===
-        "9a89bdf0-1f17-48ec-a622-db59545e8ada"
+      String(currentUser.id) === "9a89bdf0-1f17-48ec-a622-db59545e8ada"
     ) {
-
-      adminFeedbackButton.style.display =
-        "block";
-
-      adminFeedbackButton.addEventListener(
-        "click",
-        () => showFeedbackAdmin()
-      );
-
+      adminFeedbackButton.style.display = "block";
+      adminFeedbackButton.addEventListener("click", () => showFeedbackAdmin());
     } else {
-
-      adminFeedbackButton.style.display =
-        "none";
-
+      adminFeedbackButton.style.display = "none";
     }
-
   }
 
   if (feedbackButton) {
-
-    feedbackButton.addEventListener(
-      "click",
-      () => showFeedbackForm()
-    );
-
+    feedbackButton.addEventListener("click", () => showFeedbackForm());
   }
-
-
-  // LOGOUT BUTTON
 
   document
     .getElementById("logoutButton")
-    .addEventListener(
-      "click",
-      logout
-    );
-
+    .addEventListener("click", logout);
 
   showPage("dashboard");
 }
@@ -244,90 +224,36 @@ export function renderApp() {
 export function showPage(page) {
   document
     .querySelectorAll(".nav-item")
-    .forEach(button => {
-      button.classList.remove("active");
-    });
+    .forEach(button => button.classList.remove("active"));
 
-  const activeButton =
-    document.querySelector(
-      `.nav-item[data-page="${page}"]`
-    );
+  const activeButton = document.querySelector(
+    `.nav-item[data-page="${page}"]`
+  );
 
   if (activeButton) {
     activeButton.classList.add("active");
   }
 
   const titles = {
-    dashboard: [
-      "Dashboard",
-      "Here's what's happening with your business."
-    ],
-
-    customers: [
-      "Customers",
-      "Manage your customers."
-    ],
-
-    jobs: [
-      "Jobs",
-      "Schedule and manage your work."
-    ],
-
-    quotes: [
-      "Quotes",
-      "Create and track quotations."
-    ],
-
-    invoices: [
-      "Invoices",
-      "Create and track invoices."
-    ],
-
-    connections: [
-      "Connections",
-      "Manage your connected services."
-    ],
-
-    settings: [
-      "Settings",
-      "Manage your JobPilot account."
-    ]
+    dashboard: ["Dashboard", "Here's what's happening with your business."],
+    customers: ["Customers", "Manage your customers."],
+    jobs: ["Jobs", "Schedule and manage your work."],
+    quotes: ["Quotes", "Create and track quotations."],
+    invoices: ["Invoices", "Create and track invoices."],
+    connections: ["Connections", "Manage your connected services."],
+    settings: ["Settings", "Manage your JobPilot account."]
   };
 
-  document.getElementById("pageTitle").textContent =
-    titles[page][0];
+  document.getElementById("pageTitle").textContent = titles[page][0];
+  document.getElementById("pageSubtitle").textContent = titles[page][1];
 
-  document.getElementById("pageSubtitle").textContent =
-    titles[page][1];
+  const content = document.getElementById("pageContent");
 
-  const content =
-    document.getElementById("pageContent");
-
-  if (page === "dashboard") {
-    renderDashboard(content);
-  }
-
-  if (page === "customers") {
-    renderCustomersPage(content);
-  }
-
-  if (page === "jobs") {
-    renderJobsPage(content);
-  }
-
-  if (page === "quotes") {
-    renderQuotesPage(content);
-  }
-
-  if (page === "invoices") {
-    renderInvoicesPage(content);
-  }
-
-  if (page === "connections") {
-    renderConnectionsPage(content);
-  }
-
-  if (page === "settings") {
-    renderSettings(content);
-  }
+  if (page === "dashboard") renderDashboard(content);
+  if (page === "customers") renderCustomersPage(content);
+  if (page === "jobs") renderJobsPage(content);
+  if (page === "quotes") renderQuotesPage(content);
+  if (page === "invoices") renderInvoicesPage(content);
+  if (page === "connections") renderConnectionsPage(content);
+  if (page === "settings") renderSettings(content);
 }

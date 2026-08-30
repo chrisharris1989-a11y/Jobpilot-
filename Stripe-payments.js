@@ -27,7 +27,7 @@ window.createInvoiceCheckout = async function (supabase, invoiceId) {
 
     const response =
       await fetch(
-        "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-checkout-v1",
+        "https://ncitqqhxaxjhepfsnltk.supabase.co/functions/v1/stripe-checkout-v1",
         {
           method: "POST",
 

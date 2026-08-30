@@ -4,6 +4,15 @@
 // Shared UI helpers live here so future visual/interface
 // changes do not need to be added to app.js.
 
+export function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export function setElementVisible(elementOrId, visible) {
   const element =
     typeof elementOrId === "string"

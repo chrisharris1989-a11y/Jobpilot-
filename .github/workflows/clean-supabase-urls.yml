@@ -1,0 +1,34 @@
+name: Fix CLEAN Supabase integration URLs
+
+on:
+  push:
+    branches:
+      - migration/clean-supabase-integrations
+
+permissions:
+  contents: write
+
+jobs:
+  replace-old-supabase-urls:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: migration/clean-supabase-integrations
+
+      - name: Replace stale Supabase project URLs
+        run: |
+          find . -type f \( -name '*.js' -o -name '*.mjs' -o -name '*.ts' -o -name '*.tsx' -o -name '*.json' \) -not -path './.git/*' -print0 | xargs -0 sed -i 's#https://qxoynttvipducubmczwl\.supabase\.co#https://ncitqqhxaxjhepfsnltk.supabase.co#g'
+
+      - name: Commit changes if needed
+        run: |
+          if git diff --quiet; then
+            echo 'No stale Supabase URLs found.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'Replace stale Supabase project URLs'
+          git push origin HEAD:migration/clean-supabase-integrations

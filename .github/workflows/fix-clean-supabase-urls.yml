@@ -1,0 +1,35 @@
+name: Fix CLEAN Supabase URLs
+
+on:
+  push:
+    branches:
+      - migration/clean-supabase-integrations
+
+permissions:
+  contents: write
+
+jobs:
+  fix-urls:
+    if: ${{ !contains(github.event.head_commit.message, '[clean-url-fix]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout migration branch
+        uses: actions/checkout@v4
+
+      - name: Replace stale Supabase project URLs
+        run: |
+          OLD='https://qxoynttvipducubmczwl.supabase.co'
+          NEW='https://ncitqqhxaxjhepfsnltk.supabase.co'
+          grep -RIl --exclude-dir=.git "$OLD" . | xargs -r sed -i "s#${OLD}#${NEW}#g"
+
+      - name: Commit URL migration
+        run: |
+          if git diff --quiet; then
+            echo "No stale Supabase URLs found."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Fix stale Supabase URLs [clean-url-fix]"
+          git push origin HEAD:migration/clean-supabase-integrations

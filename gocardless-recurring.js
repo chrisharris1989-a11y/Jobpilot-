@@ -1,7 +1,7 @@
 import { supabase } from "./supabase.js";
 
 const CREATE_RECURRING_URL =
-  "https://qxoynttvipducubmczwl.supabase.co/functions/v1/gocardless-create-recurring";
+  "https://ncitqqhxaxjhepfsnltk.supabase.co/functions/v1/gocardless-create-recurring";
 
 async function getProfileCustomer() {
   const profile = document.getElementById("editCustomer");

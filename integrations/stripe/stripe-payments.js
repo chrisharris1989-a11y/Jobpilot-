@@ -8,7 +8,7 @@ window.createInvoiceCheckout = async function (supabase, invoiceId) {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) throw new Error(sessionError.message);
     if (!session) throw new Error("You are not logged in.");
-    const response = await fetch("https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-checkout-v1", { method:"POST", headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`}, body:JSON.stringify({invoice_id:String(invoiceId),origin:window.location.origin}) });
+    const response = await fetch("https://ncitqqhxaxjhepfsnltk.supabase.co/functions/v1/stripe-checkout-v1", { method:"POST", headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`}, body:JSON.stringify({invoice_id:String(invoiceId),origin:window.location.origin}) });
     const text = await response.text(); let result;
     try { result = JSON.parse(text); } catch { throw new Error(`Stripe server returned an invalid response (${response.status}).`); }
     if (!response.ok) throw new Error(result.error || `Could not create Stripe payment (${response.status}).`);

@@ -19,7 +19,6 @@ export function showLogin() {
   app.innerHTML = `
     <div class="auth-page">
       <div class="auth-card">
-
         <div class="auth-logo">
           <div class="logo-mark">J</div>
           <div>
@@ -29,36 +28,20 @@ export function showLogin() {
         </div>
 
         <h1>Welcome to JobPilot</h1>
-
         <p class="auth-subtitle">
           Your simple CRM for running your trade business.
         </p>
 
         <form id="loginForm">
-
           <label>Email</label>
-
-          <input
-            id="email"
-            type="email"
-            required
-            placeholder="you@example.com"
-          >
+          <input id="email" type="email" required placeholder="you@example.com">
 
           <label>Password</label>
-
-          <input
-            id="password"
-            type="password"
-            required
-            minlength="6"
-            placeholder="••••••••"
-          >
+          <input id="password" type="password" required minlength="6" placeholder="••••••••">
 
           <button class="button primary auth-button">
             Sign in
           </button>
-
         </form>
 
         <div id="authMessage"></div>
@@ -66,7 +49,6 @@ export function showLogin() {
         <button id="signupButton" class="link-button">
           Create a new account
         </button>
-
       </div>
     </div>
   `;
@@ -88,19 +70,15 @@ export function showLogin() {
 export async function login(event) {
   event.preventDefault();
 
-  const email =
-    document.getElementById("email").value.trim();
-
-  const password =
-    document.getElementById("password").value;
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
 
   showAuthMessage("Signing in...");
 
-  const { error } =
-    await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
 
   if (error) {
     showAuthMessage(error.message, true);
@@ -113,11 +91,8 @@ export async function login(event) {
 // =====================================================
 
 export async function signup() {
-  const email =
-    document.getElementById("email").value.trim();
-
-  const password =
-    document.getElementById("password").value;
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
 
   if (!email || password.length < 6) {
     showAuthMessage(
@@ -129,11 +104,10 @@ export async function signup() {
 
   showAuthMessage("Creating account...");
 
-  const { error } =
-    await supabase.auth.signUp({
-      email,
-      password
-    });
+  const { error } = await supabase.auth.signUp({
+    email,
+    password
+  });
 
   if (error) {
     showAuthMessage(error.message, true);
@@ -147,16 +121,28 @@ export async function signup() {
 
 
 // =====================================================
+// LOGOUT
+// =====================================================
+
+export async function logout() {
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    console.error("Logout error:", error);
+    alert("Could not sign out:\n\n" + error.message);
+  }
+}
+
+
+// =====================================================
 // AUTH MESSAGE
 // =====================================================
 
 export function showAuthMessage(message, error = false) {
-  const element =
-    document.getElementById("authMessage");
+  const element = document.getElementById("authMessage");
 
   if (!element) return;
 
   element.textContent = message;
-  element.style.color =
-    error ? "#dc2626" : "#2563eb";
+  element.style.color = error ? "#dc2626" : "#2563eb";
 }

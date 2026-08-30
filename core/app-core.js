@@ -4,15 +4,12 @@
 // Section 1 extracted from the original app.js.
 // This module owns application state, initialisation, the
 // application shell and page switching.
-//
-// The remaining page/service functions are intentionally
-// still in app.js at this stage and will be extracted into
-// their own modules in the following sections.
 // =====================================================
 
 import { supabase } from "../supabase.js";
 import { showFeedbackForm } from "../feedback.js";
 import { showFeedbackAdmin } from "../feedback-admin.js";
+import { loadAppData } from "../data/data-loader.js";
 
 export let currentUser = null;
 export let customers = [];
@@ -55,10 +52,12 @@ export async function init() {
 // =====================================================
 
 export async function loadApp() {
-  await loadCustomers();
-  await loadJobs();
-  await loadQuotes();
-  await loadInvoices();
+  const data = await loadAppData();
+
+  customers = data.customers;
+  jobs = data.jobs;
+  quotes = data.quotes;
+  invoices = data.invoices;
 
   renderApp();
 }

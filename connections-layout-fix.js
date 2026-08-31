@@ -5,8 +5,18 @@
 // =====================================================
 
 (function () {
-  const ACCOUNTING_IDS = ["freeagent", "xero", "sage"];
-  const PAYMENT_IDS = ["stripe", "gocardless"];
+  function statusIsConnected(statusElement) {
+    const text = statusElement?.textContent?.trim().toLowerCase() || "";
+    if (!text) return false;
+    // "Not connected" must never count as connected.
+    if (/\bnot\s+connected\b/.test(text)) return false;
+    return /\bconnected\b/.test(text);
+  }
+
+  function markConnection(card, statusElement) {
+    if (!card) return;
+    card.dataset.connected = statusIsConnected(statusElement) ? "true" : "false";
+  }
 
   function moveAndMarkCards() {
     const accountingGroup = document.getElementById("jobpilot-accounting-group");
@@ -17,39 +27,40 @@
     const paymentCards = paymentsGroup.querySelector(".connections-group-cards");
     if (!accountingCards || !paymentCards) return false;
 
-    // FreeAgent's existing card is identified by its status element.
     const freeagentStatus = document.getElementById("freeagentConnectionStatus");
     if (freeagentStatus) {
       const freeagentCard = freeagentStatus.closest(".connection-card");
       if (freeagentCard) {
         freeagentCard.dataset.accountingProvider = "freeagent";
-        // A connected FreeAgent card belongs inside Accounting.
+        markConnection(freeagentCard, freeagentStatus);
         if (freeagentCard.parentElement !== accountingCards) {
           accountingCards.appendChild(freeagentCard);
         }
       }
     }
 
-    // Ensure placeholder cards have accounting provider markers.
     accountingCards.querySelectorAll(".accounting-placeholder-card").forEach(card => {
       const heading = card.querySelector("h2")?.textContent?.toLowerCase() || "";
       if (heading.includes("xero")) card.dataset.accountingProvider = "xero";
       if (heading.includes("sage")) card.dataset.accountingProvider = "sage";
+      card.dataset.connected = "false";
     });
 
-    // Ensure payment cards have provider markers.
     const stripeStatus = document.getElementById("stripeConnectionStatus");
     if (stripeStatus) {
       const stripeCard = stripeStatus.closest(".connection-card");
       if (stripeCard) {
         stripeCard.dataset.connectionProvider = "stripe";
+        markConnection(stripeCard, stripeStatus);
         if (stripeCard.parentElement !== paymentCards) paymentCards.appendChild(stripeCard);
       }
     }
 
     const goCard = document.getElementById("gocardlessConnectionContainer");
+    const goStatus = document.getElementById("gocardlessConnectionStatus");
     if (goCard) {
       goCard.dataset.connectionProvider = "gocardless";
+      markConnection(goCard, goStatus);
       if (goCard.parentElement !== paymentCards) paymentCards.appendChild(goCard);
     }
 
@@ -74,13 +85,21 @@
     accountingGroup.querySelectorAll("[data-accounting-provider]").forEach(card => {
       const id = card.dataset.accountingProvider;
       const connected = card.dataset.connected === "true";
-      card.style.display = accountingSelected.has(id) || connected ? "block" : "none";
+      card.style.setProperty(
+        "display",
+        accountingSelected.has(id) || connected ? "block" : "none",
+        "important"
+      );
     });
 
     paymentsGroup.querySelectorAll("[data-connection-provider]").forEach(card => {
       const id = card.dataset.connectionProvider;
       const connected = card.dataset.connected === "true";
-      card.style.display = paymentSelected.has(id) || connected ? "block" : "none";
+      card.style.setProperty(
+        "display",
+        paymentSelected.has(id) || connected ? "block" : "none",
+        "important"
+      );
     });
   }
 
@@ -97,7 +116,6 @@
 
     document.addEventListener("change", event => {
       if (event.target?.matches?.("[data-connection-selector]")) {
-        // Allow the existing selector handler to save first, then re-apply layout.
         setTimeout(sync, 0);
       }
     });

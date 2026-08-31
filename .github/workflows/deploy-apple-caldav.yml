@@ -8,6 +8,7 @@ on:
       - 'supabase/config.toml'
       - 'supabase/functions/apple-caldav-import/**'
       - '.github/workflows/deploy-apple-caldav.yml'
+  workflow_dispatch:
 
 jobs:
   deploy:

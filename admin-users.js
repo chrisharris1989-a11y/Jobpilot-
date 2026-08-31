@@ -1,6 +1,6 @@
 import { supabase } from "./supabase.js";
 
-const JOBPILOT_ADMIN_ID = "9a89bdf0-1f17-48ec-a622-db59545e8ada";
+const JOBPILOT_ADMIN_ID = "49174b88-6f46-4d94-963d-b3103d25ada9";
 
 export async function showAdminUsers() {
   const { data: { user } = {} } = await supabase.auth.getUser();

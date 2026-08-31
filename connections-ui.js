@@ -162,7 +162,7 @@ import { supabase } from "./supabase.js";
     document.head.appendChild(style);
   }
 
-  function makeCard(statusId, buttonId, providerId) {
+  function makeCard(statusId, buttonId, providerId = null) {
     const status = document.getElementById(statusId);
     const button = document.getElementById(buttonId);
     if (!status || !button) return;
@@ -176,7 +176,10 @@ import { supabase } from "./supabase.js";
 
     const card = document.createElement("div");
     card.className = "connection-card";
-    card.dataset.accountingProvider = providerId;
+
+    if (providerId) {
+      card.dataset.accountingProvider = providerId;
+    }
 
     heading.parentNode.insertBefore(card, heading);
     card.appendChild(heading);
@@ -222,7 +225,7 @@ import { supabase } from "./supabase.js";
       return normaliseSelection(metadataSelection);
     }
 
-    // Existing FreeAgent users should keep seeing FreeAgent
+    // Existing FreeAgent users keep seeing FreeAgent
     // automatically when this feature is introduced.
     try {
       const { data } = await supabase
@@ -354,7 +357,7 @@ import { supabase } from "./supabase.js";
 
     panel.classList.add("connections-page-panel");
 
-    makeCard("stripeConnectionStatus", "connectStripeButton", "stripe");
+    makeCard("stripeConnectionStatus", "connectStripeButton");
     makeCard("freeagentConnectionStatus", "connectFreeAgentButton", "freeagent");
 
     const goStatus = document.getElementById("gocardlessConnectionStatus");

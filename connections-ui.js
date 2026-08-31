@@ -140,6 +140,12 @@ import { supabase } from "./supabase.js";
         box-shadow: none !important;
       }
 
+      /* Visibility is controlled with a class so the provider cards can
+         override the !important display rules above. */
+      .connections-page-panel .connections-card-hidden {
+        display: none !important;
+      }
+
       .connections-page-panel .connection-card h2,
       .connections-page-panel #gocardlessConnectionContainer h2,
       .connections-page-panel .accounting-placeholder-card h2 {
@@ -391,7 +397,7 @@ import { supabase } from "./supabase.js";
     document.querySelectorAll("[data-accounting-provider]").forEach(card => {
       const providerId = card.dataset.accountingProvider;
       const connected = card.dataset.connected === "true";
-      card.style.display = selectedSet.has(providerId) || connected ? "block" : "none";
+      card.classList.toggle("connections-card-hidden", !selectedSet.has(providerId) && !connected);
     });
   }
 
@@ -400,7 +406,7 @@ import { supabase } from "./supabase.js";
     document.querySelectorAll("[data-connection-provider]").forEach(card => {
       const providerId = card.dataset.connectionProvider;
       const connected = card.dataset.connected === "true";
-      card.style.display = selectedSet.has(providerId) || connected ? "block" : "none";
+      card.classList.toggle("connections-card-hidden", !selectedSet.has(providerId) && !connected);
     });
   }
 
@@ -480,7 +486,9 @@ import { supabase } from "./supabase.js";
       cards.appendChild(goCard);
     }
 
-    const selected = await getSelection(PAYMENT_SELECTION_KEY, PAYMENT_PROVIDERS, ["stripe", "gocardless"]);
+    // No metadata means no payment service has been selected yet.
+    // Existing connected services are still kept visible by the visibility rule.
+    const selected = await getSelection(PAYMENT_SELECTION_KEY, PAYMENT_PROVIDERS, []);
     selector.querySelectorAll("[data-connection-selector]").forEach(input => {
       input.checked = selected.includes(input.dataset.connectionSelector);
     });
@@ -520,14 +528,10 @@ import { supabase } from "./supabase.js";
   addStyles();
 
   const observer = new MutationObserver(() => {
-    formatConnections();
+    if (document.querySelector(".settings-panel")) formatConnections();
   });
+
   observer.observe(document.body, { childList: true, subtree: true });
-
-  supabase.auth.onAuthStateChange((_event, session) => {
-    currentUser = session?.user || null;
-    if (session?.user) formatConnections();
-  });
-
-  formatConnections();
+  document.addEventListener("DOMContentLoaded", formatConnections);
+  setTimeout(formatConnections, 500);
 })();

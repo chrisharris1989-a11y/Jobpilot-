@@ -1,14 +1,13 @@
 // =====================================================
 // JOBPILOT CONNECTIONS LAYOUT FIX
-// Keeps connected cards inside their parent group and
-// hides unselected, unconnected service cards.
+// Keeps connection cards inside their parent group and
+// shows/hides cards strictly according to the selector.
 // =====================================================
 
 (function () {
   function statusIsConnected(statusElement) {
     const text = statusElement?.textContent?.trim().toLowerCase() || "";
     if (!text) return false;
-    // "Not connected" must never count as connected.
     if (/\bnot\s+connected\b/.test(text)) return false;
     return /\bconnected\b/.test(text);
   }
@@ -82,22 +81,22 @@
     const accountingSelected = new Set(selectedIds("jobpilot-accounting-selector"));
     const paymentSelected = new Set(selectedIds("jobpilot-payment-selector"));
 
+    // The selector is authoritative. A connected service can be hidden
+    // by the user; hiding it does not disconnect the underlying integration.
     accountingGroup.querySelectorAll("[data-accounting-provider]").forEach(card => {
       const id = card.dataset.accountingProvider;
-      const connected = card.dataset.connected === "true";
       card.style.setProperty(
         "display",
-        accountingSelected.has(id) || connected ? "block" : "none",
+        accountingSelected.has(id) ? "block" : "none",
         "important"
       );
     });
 
     paymentsGroup.querySelectorAll("[data-connection-provider]").forEach(card => {
       const id = card.dataset.connectionProvider;
-      const connected = card.dataset.connected === "true";
       card.style.setProperty(
         "display",
-        paymentSelected.has(id) || connected ? "block" : "none",
+        paymentSelected.has(id) ? "block" : "none",
         "important"
       );
     });

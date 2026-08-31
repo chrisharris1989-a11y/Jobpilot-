@@ -1,7 +1,7 @@
 // =====================================================
 // JOBPILOT HEADER NAVIGATION ORDER
-// Keeps the navigation order consistent for standard and
-// admin users without changing the existing page handlers.
+// Reorders the existing navigation without changing any
+// page handlers or authentication behaviour.
 // =====================================================
 
 (function () {
@@ -87,16 +87,21 @@
       else if (!key) unknown.push(button);
     });
 
-    ORDER.forEach(key => {
+    // Requested order first, except Feedback and Sign out are held back
+    // until the end so any existing core application tabs stay above them.
+    ["dashboard", "settings", "connections", "finance", "adminFeedback", "users"]
+      .forEach(key => {
+        const button = keyed.get(key);
+        if (button) nav.appendChild(button);
+      });
+
+    unknown.forEach(button => nav.appendChild(button));
+
+    ["feedback", "logout"].forEach(key => {
       const button = keyed.get(key);
       if (button) nav.appendChild(button);
     });
 
-    // Preserve the existing application tabs that are not part of the
-    // requested header arrangement, without losing them.
-    unknown.forEach(button => nav.appendChild(button));
-
-    // Remove the old empty navigation wrappers after their children move.
     sidebar.querySelectorAll(":scope > nav, :scope > .sidebar-bottom").forEach(container => {
       if (container.id === NAV_ID) return;
       if (!container.querySelector(".nav-item")) container.remove();

@@ -12,12 +12,24 @@ import { supabase } from "./supabase.js";
   const SELECTION_KEY = "accounting_software";
 
   // Add new accounting providers here as their integrations
-  // are introduced. The UI already supports multiple selections.
+  // are introduced. The UI supports multiple selections.
   const ACCOUNTING_PROVIDERS = [
     {
       id: "freeagent",
       name: "FreeAgent",
       icon: "📊"
+    },
+    {
+      id: "xero",
+      name: "Xero",
+      icon: "🟢",
+      placeholder: true
+    },
+    {
+      id: "sage",
+      name: "Sage",
+      icon: "🟠",
+      placeholder: true
     }
   ];
 
@@ -158,6 +170,40 @@ import { supabase } from "./supabase.js";
         font-size: 13px !important;
         color: var(--muted) !important;
       }
+
+      .accounting-placeholder-card {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        margin: 0 0 16px !important;
+        padding: 20px !important;
+        border: 1px solid #e5e7eb !important;
+        border-radius: 12px !important;
+        background: #fafafa !important;
+      }
+
+      .accounting-placeholder-card h2 {
+        margin: 0 0 7px !important;
+        font-size: 18px !important;
+        line-height: 1.3 !important;
+      }
+
+      .accounting-placeholder-card p {
+        margin: 0 0 14px !important;
+        color: var(--muted) !important;
+      }
+
+      .accounting-placeholder-card .connection-status {
+        min-height: 20px !important;
+        margin: 0 0 14px !important;
+      }
+
+      .accounting-placeholder-card .connection-status strong {
+        color: #6b7280 !important;
+      }
+
+      .accounting-placeholder-card .button {
+        min-height: 40px !important;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -188,6 +234,34 @@ import { supabase } from "./supabase.js";
     card.appendChild(button);
 
     status.classList.add("connection-status");
+  }
+
+  function makePlaceholderCard(panel, provider) {
+    if (!provider.placeholder) return;
+    if (document.querySelector(`[data-accounting-provider="${provider.id}"]`)) return;
+
+    const card = document.createElement("div");
+    card.className = "accounting-placeholder-card";
+    card.dataset.accountingProvider = provider.id;
+
+    card.innerHTML = `
+      <h2>${provider.icon} ${provider.name}</h2>
+      <p>Connect ${provider.name} to sync your accounting data with JobPilot.</p>
+      <div class="connection-status">
+        <strong>Not connected</strong>
+      </div>
+      <button class="button" type="button" disabled>
+        Connect ${provider.name}
+      </button>
+    `;
+
+    panel.appendChild(card);
+  }
+
+  function makePlaceholderCards(panel) {
+    ACCOUNTING_PROVIDERS
+      .filter(provider => provider.placeholder)
+      .forEach(provider => makePlaceholderCard(panel, provider));
   }
 
   async function getUser() {
@@ -359,6 +433,7 @@ import { supabase } from "./supabase.js";
 
     makeCard("stripeConnectionStatus", "connectStripeButton");
     makeCard("freeagentConnectionStatus", "connectFreeAgentButton", "freeagent");
+    makePlaceholderCards(panel);
 
     const goStatus = document.getElementById("gocardlessConnectionStatus");
     if (goStatus) goStatus.classList.add("connection-status");

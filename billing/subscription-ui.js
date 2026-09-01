@@ -15,8 +15,14 @@ import { getCompanyContext } from "../company-context.js";
 
   async function render() {
     if (!isSettings() || !manager()) return;
+
     const panel = document.querySelector(".settings-panel");
-    if (!panel || panel.querySelector("#jobpilot-billing-section")) return;
+    if (!panel || panel.querySelector("#jobpilot-upgrade-account")) return;
+
+    const accountHeading = Array.from(panel.querySelectorAll(".settings-section > h2"))
+      .find((heading) => heading.textContent.trim() === "Account");
+    const accountSection = accountHeading?.closest(".settings-section");
+    if (!accountSection) return;
 
     const { data, error } = await supabase.rpc("get_my_company_entitlements");
     if (error || !data?.length) {
@@ -25,56 +31,55 @@ import { getCompanyContext } from "../company-context.js";
     }
 
     const entitlement = data[0];
-    const section = document.createElement("section");
-    section.id = "jobpilot-billing-section";
-    section.className = "settings-section";
-    section.innerHTML = `
-      <h2>Subscription</h2>
-      <p style="color:#64748b;margin-top:0;">Your JobPilot plan and company billing.</p>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin:16px 0;">
-        <div style="padding:10px 14px;border:1px solid #e5e7eb;border-radius:10px;"><strong>${escapeHtml(capitalize(entitlement.plan))}</strong><div style="font-size:12px;color:#64748b;">Plan</div></div>
-        <div style="padding:10px 14px;border:1px solid #e5e7eb;border-radius:10px;"><strong>${entitlement.max_users}</strong><div style="font-size:12px;color:#64748b;">Maximum users</div></div>
-        <div style="padding:10px 14px;border:1px solid #e5e7eb;border-radius:10px;"><strong>${escapeHtml(capitalize(entitlement.subscription_status || "none"))}</strong><div style="font-size:12px;color:#64748b;">Billing status</div></div>
+    const wrapper = document.createElement("div");
+    wrapper.id = "jobpilot-upgrade-account";
+    wrapper.style.cssText = "margin-top:18px;padding-top:18px;border-top:1px solid var(--border,#e5e7eb);";
+    wrapper.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+        <div>
+          <strong>JobPilot plan</strong>
+          <div style="font-size:13px;color:#64748b;margin-top:3px;">
+            ${escapeHtml(capitalize(entitlement.plan))} · Up to ${Number(entitlement.max_users) || 1} user${Number(entitlement.max_users) === 1 ? "" : "s"}
+          </div>
+        </div>
+        <div id="jobpilot-upgrade-actions" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
       </div>
-      <div id="jobpilot-billing-message" style="margin:12px 0;"></div>
-      <div id="jobpilot-billing-actions" style="display:flex;gap:10px;flex-wrap:wrap;"></div>
+      <div id="jobpilot-upgrade-message" style="margin-top:10px;font-size:13px;"></div>
     `;
-    panel.appendChild(section);
+    accountSection.appendChild(wrapper);
 
-    const actions = section.querySelector("#jobpilot-billing-actions");
+    const actions = wrapper.querySelector("#jobpilot-upgrade-actions");
+
     if (entitlement.subscription_status && ["active", "trialing", "past_due", "canceled"].includes(entitlement.subscription_status)) {
-      const manage = button("Manage billing", "button primary");
+      const manage = button("Manage billing", "button");
       manage.addEventListener("click", () => openBilling("portal"));
       actions.appendChild(manage);
     }
 
-    if (entitlement.plan === "solo" || !entitlement.entitled) {
+    let upgradePlans = [];
+    if (entitlement.plan === "solo" || !entitlement.entitled) upgradePlans = ["team", "business", "pro"];
+    if (entitlement.plan === "team" && entitlement.entitled) upgradePlans = ["business", "pro"];
+    if (entitlement.plan === "business" && entitlement.entitled) upgradePlans = ["pro"];
+
+    if (upgradePlans.length) {
       const upgrade = button("Upgrade account", "button primary");
-      upgrade.addEventListener("click", () => showUpgradeOptions(actions));
-      actions.appendChild(upgrade);
-    } else if (entitlement.plan === "team") {
-      const upgrade = button("Upgrade account", "button primary");
-      upgrade.addEventListener("click", () => showUpgradeOptions(actions, ["business", "pro"]));
-      actions.appendChild(upgrade);
-    } else if (entitlement.plan === "business") {
-      const upgrade = button("Upgrade account", "button primary");
-      upgrade.addEventListener("click", () => showUpgradeOptions(actions, ["pro"]));
+      upgrade.addEventListener("click", () => showUpgradeOptions(actions, upgradePlans));
       actions.appendChild(upgrade);
     }
 
     if (entitlement.cancel_at_period_end && entitlement.current_period_end) {
-      const message = section.querySelector("#jobpilot-billing-message");
+      const message = wrapper.querySelector("#jobpilot-upgrade-message");
       message.textContent = `Your subscription is scheduled to end on ${new Date(entitlement.current_period_end).toLocaleDateString()}.`;
       message.style.color = "#92400e";
     }
   }
 
-  function showUpgradeOptions(actions, allowedPlans = ["team", "business", "pro"]) {
+  function showUpgradeOptions(actions, allowedPlans) {
     if (actions.querySelector("#jobpilot-upgrade-options")) return;
 
     const options = document.createElement("div");
     options.id = "jobpilot-upgrade-options";
-    options.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;width:100%;margin-top:4px;";
+    options.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;width:100%;margin-top:8px;";
 
     const labels = {
       team: "Upgrade to Team",
@@ -88,13 +93,16 @@ import { getCompanyContext } from "../company-context.js";
       options.appendChild(option);
     });
 
-    actions.appendChild(options);
+    actions.parentElement.appendChild(options);
   }
 
   async function openBilling(action, plan) {
-    const section = document.getElementById("jobpilot-billing-section");
-    const message = section?.querySelector("#jobpilot-billing-message");
-    if (message) { message.textContent = "Opening Stripe billing..."; message.style.color = "#64748b"; }
+    const wrapper = document.getElementById("jobpilot-upgrade-account");
+    const message = wrapper?.querySelector("#jobpilot-upgrade-message");
+    if (message) {
+      message.textContent = "Opening Stripe billing...";
+      message.style.color = "#64748b";
+    }
 
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -103,7 +111,10 @@ import { getCompanyContext } from "../company-context.js";
 
       const response = await fetch("https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-billing-v1", {
         method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({ action, plan, origin: window.location.origin }),
       });
       const result = await response.json();
@@ -112,7 +123,10 @@ import { getCompanyContext } from "../company-context.js";
       window.location.assign(result.url);
     } catch (error) {
       console.error("JobPilot billing error:", error);
-      if (message) { message.textContent = error.message || String(error); message.style.color = "#b91c1c"; }
+      if (message) {
+        message.textContent = error.message || String(error);
+        message.style.color = "#b91c1c";
+      }
     }
   }
 

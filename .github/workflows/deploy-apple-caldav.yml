@@ -25,6 +25,6 @@ jobs:
           version: latest
 
       - name: Deploy Apple CalDAV function
-        run: supabase functions deploy apple-caldav-import --project-ref qxoynttvipducubmczwl
+        run: supabase functions deploy apple-caldav-import --project-ref qxoynttvipducubmczwl --no-verify-jwt
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

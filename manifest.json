@@ -1,1 +1,18 @@
-{"name":"JobPilot","short_name":"JobPilot","start_url":"/","display":"standalone","background_color":"#ffffff","theme_color":"#ffffff","icons":[{"src":"/favicon.ico","sizes":"48x48 72x72 96x96 144x144 192x192 512x512","type":"image/x-icon"}]}
+{
+  "name": "JobPilot",
+  "short_name": "JobPilot",
+  "description": "JobPilot - CRM for tradespeople",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/jobpilot-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

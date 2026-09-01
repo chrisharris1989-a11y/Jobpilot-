@@ -9,7 +9,7 @@
   "theme_color": "#ffffff",
   "icons": [
     {
-      "src": "/jobpilot-icon.svg",
+      "src": "/apple-touch-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

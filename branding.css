@@ -3,13 +3,12 @@
 ===================================================== */
 
 .logo-mark {
-  background-color: transparent;
-  background-image: url("/jobpilot-icon.svg");
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
-  color: transparent;
-  overflow: hidden;
+  display: block;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  object-fit: cover;
+  flex: 0 0 auto;
 }
 
 .logo,

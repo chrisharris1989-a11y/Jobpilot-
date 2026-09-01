@@ -49,15 +49,17 @@ import { getCompanyContext } from "../company-context.js";
     }
 
     if (entitlement.plan === "solo" || !entitlement.entitled) {
-      [
-        ["team", "Choose Team"],
-        ["business", "Choose Business"],
-        ["pro", "Choose Pro"],
-      ].forEach(([plan, label]) => {
-        const upgrade = button(label, "button");
-        upgrade.addEventListener("click", () => openBilling("checkout", plan));
-        actions.appendChild(upgrade);
-      });
+      const upgrade = button("Upgrade account", "button primary");
+      upgrade.addEventListener("click", () => showUpgradeOptions(actions));
+      actions.appendChild(upgrade);
+    } else if (entitlement.plan === "team") {
+      const upgrade = button("Upgrade account", "button primary");
+      upgrade.addEventListener("click", () => showUpgradeOptions(actions, ["business", "pro"]));
+      actions.appendChild(upgrade);
+    } else if (entitlement.plan === "business") {
+      const upgrade = button("Upgrade account", "button primary");
+      upgrade.addEventListener("click", () => showUpgradeOptions(actions, ["pro"]));
+      actions.appendChild(upgrade);
     }
 
     if (entitlement.cancel_at_period_end && entitlement.current_period_end) {
@@ -65,6 +67,28 @@ import { getCompanyContext } from "../company-context.js";
       message.textContent = `Your subscription is scheduled to end on ${new Date(entitlement.current_period_end).toLocaleDateString()}.`;
       message.style.color = "#92400e";
     }
+  }
+
+  function showUpgradeOptions(actions, allowedPlans = ["team", "business", "pro"]) {
+    if (actions.querySelector("#jobpilot-upgrade-options")) return;
+
+    const options = document.createElement("div");
+    options.id = "jobpilot-upgrade-options";
+    options.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;width:100%;margin-top:4px;";
+
+    const labels = {
+      team: "Upgrade to Team",
+      business: "Upgrade to Business",
+      pro: "Upgrade to Pro",
+    };
+
+    allowedPlans.forEach((plan) => {
+      const option = button(labels[plan], "button");
+      option.addEventListener("click", () => openBilling("checkout", plan));
+      options.appendChild(option);
+    });
+
+    actions.appendChild(options);
   }
 
   async function openBilling(action, plan) {

@@ -1,0 +1,27 @@
+/* =====================================================
+   JOBPILOT BRANDING OVERRIDES
+===================================================== */
+
+.logo-mark {
+  background-color: transparent;
+  background-image: url("/jobpilot-icon.svg");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  color: transparent;
+  overflow: hidden;
+}
+
+.logo,
+.auth-logo {
+  cursor: pointer;
+}
+
+.logo:hover .logo-mark,
+.auth-logo:hover .logo-mark {
+  transform: translateY(-1px);
+}
+
+.logo-mark {
+  transition: transform 0.15s ease;
+}

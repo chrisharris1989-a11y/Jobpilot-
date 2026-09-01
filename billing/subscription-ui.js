@@ -14,11 +14,28 @@ import { getCompanyContext } from "../company-context.js";
     return membership?.status === "active" && ["owner", "admin"].includes(membership.role);
   }
 
-  function findAccountSection(panel) {
-    const heading = Array.from(panel.querySelectorAll("h2"))
-      .find((item) => item.textContent.trim() === "Account");
-    if (!heading) return null;
-    return heading.closest(".settings-section") || heading.parentElement;
+  function findBillingSection(panel) {
+    const existing = panel.querySelector("#jobpilot-subscription-section");
+    if (existing) return existing;
+
+    const section = document.createElement("section");
+    section.id = "jobpilot-subscription-section";
+    section.className = "settings-section";
+    section.innerHTML = "<h2>Subscription</h2><div id=\"jobpilot-subscription-content\"></div>";
+
+    const businessHeading = Array.from(panel.querySelectorAll("h2"))
+      .find((heading) => heading.textContent.trim() === "Business Details");
+    const businessSection = businessHeading?.closest(".settings-section");
+
+    if (businessSection && businessSection.parentElement === panel) {
+      panel.insertBefore(section, businessSection);
+    } else if (businessHeading && businessHeading.parentElement === panel) {
+      panel.insertBefore(section, businessHeading);
+    } else {
+      panel.appendChild(section);
+    }
+
+    return section;
   }
 
   async function render() {
@@ -27,24 +44,21 @@ import { getCompanyContext } from "../company-context.js";
     const panel = document.querySelector(".settings-panel");
     if (!panel) return;
 
-    const accountSection = findAccountSection(panel);
-    if (!accountSection) return;
-
-    if (accountSection.querySelector("#jobpilot-upgrade-account")) return;
+    const section = findBillingSection(panel);
+    const content = section?.querySelector("#jobpilot-subscription-content");
+    if (!content || content.dataset.loaded === "true") return;
 
     rendering = true;
     try {
       const { data, error } = await supabase.rpc("get_my_company_entitlements");
       if (error || !data?.length) {
         console.error("JobPilot billing:", error);
+        section.remove();
         return;
       }
 
       const entitlement = data[0];
-      const wrapper = document.createElement("div");
-      wrapper.id = "jobpilot-upgrade-account";
-      wrapper.style.cssText = "margin-top:18px;padding-top:18px;border-top:1px solid var(--border,#e5e7eb);";
-      wrapper.innerHTML = `
+      content.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
           <div>
             <strong>JobPilot plan</strong>
@@ -56,9 +70,8 @@ import { getCompanyContext } from "../company-context.js";
         </div>
         <div id="jobpilot-upgrade-message" style="margin-top:10px;font-size:13px;"></div>
       `;
-      accountSection.appendChild(wrapper);
 
-      const actions = wrapper.querySelector("#jobpilot-upgrade-actions");
+      const actions = content.querySelector("#jobpilot-upgrade-actions");
 
       if (entitlement.subscription_status && ["active", "trialing", "past_due", "canceled"].includes(entitlement.subscription_status)) {
         const manage = button("Manage billing", "button");
@@ -78,10 +91,12 @@ import { getCompanyContext } from "../company-context.js";
       }
 
       if (entitlement.cancel_at_period_end && entitlement.current_period_end) {
-        const message = wrapper.querySelector("#jobpilot-upgrade-message");
+        const message = content.querySelector("#jobpilot-upgrade-message");
         message.textContent = `Your subscription is scheduled to end on ${new Date(entitlement.current_period_end).toLocaleDateString()}.`;
         message.style.color = "#92400e";
       }
+
+      content.dataset.loaded = "true";
     } finally {
       rendering = false;
     }
@@ -110,8 +125,8 @@ import { getCompanyContext } from "../company-context.js";
   }
 
   async function openBilling(action, plan) {
-    const wrapper = document.getElementById("jobpilot-upgrade-account");
-    const message = wrapper?.querySelector("#jobpilot-upgrade-message");
+    const section = document.getElementById("jobpilot-subscription-section");
+    const message = section?.querySelector("#jobpilot-upgrade-message");
     if (message) {
       message.textContent = "Opening Stripe billing...";
       message.style.color = "#64748b";

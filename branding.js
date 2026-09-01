@@ -8,12 +8,19 @@ const JOBPILOT_ICON = "/jobpilot-icon.svg";
 
 function applyJobPilotBranding() {
   document.querySelectorAll(".logo-mark").forEach(mark => {
-    mark.textContent = "";
-    mark.setAttribute("aria-hidden", "true");
-    mark.style.backgroundImage = `url("${JOBPILOT_ICON}")`;
-    mark.style.backgroundSize = "cover";
-    mark.style.backgroundPosition = "center";
-    mark.style.backgroundRepeat = "no-repeat";
+    if (mark.tagName === "IMG" && mark.getAttribute("src") === JOBPILOT_ICON) {
+      return;
+    }
+
+    const image = document.createElement("img");
+    image.src = JOBPILOT_ICON;
+    image.alt = "JobPilot";
+    image.width = 42;
+    image.height = 42;
+    image.setAttribute("aria-hidden", "false");
+
+    mark.replaceWith(image);
+    image.className = "logo-mark";
   });
 }
 

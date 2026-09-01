@@ -40,3 +40,6 @@ jobs:
             git rebase origin/main
             git push
           fi
+
+      # Force a fresh workflow run after icon-source changes without changing artwork.
+      # This line is intentionally only a workflow comment; it has no effect on the PNGs.

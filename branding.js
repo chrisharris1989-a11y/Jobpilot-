@@ -67,3 +67,5 @@ if (document.readyState === "loading") {
 } else {
   startBrandingObserver();
 }
+
+// Force a fresh deployment after moving the approved image into Vite's public directory.

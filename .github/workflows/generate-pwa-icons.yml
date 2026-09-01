@@ -1,0 +1,35 @@
+name: Generate JobPilot PWA Icons
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  generate-icons:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Generate PNG icons from the exact JobPilot SVG
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin
+          rsvg-convert -w 180 -h 180 jobpilot-icon.svg -o apple-touch-icon.png
+          rsvg-convert -w 192 -h 192 jobpilot-icon.svg -o icon-192.png
+          rsvg-convert -w 512 -h 512 jobpilot-icon.svg -o icon-512.png
+
+      - name: Commit generated icons
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apple-touch-icon.png icon-192.png icon-512.png
+          if git diff --cached --quiet; then
+            echo "Icons are already up to date."
+          else
+            git commit -m "Add PNG PWA icons for JobPilot"
+            git push
+          fi

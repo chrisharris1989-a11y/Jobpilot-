@@ -19,23 +19,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Restore the exact approved PNG icons under fresh filenames
+      - name: Generate Home Screen icons exactly like the known-good version
         run: |
-          # IMPORTANT: these files are copied byte-for-byte from the known-good commit.
-          # No rasterising, compositing, resizing, or other processing is performed.
-          git show 553871338d617a1f60b7db14aaa30208d0316f29:apple-touch-icon.png > jobpilot-apple-touch-icon-v2.png
-          git show 553871338d617a1f60b7db14aaa30208d0316f29:icon-192.png > jobpilot-icon-192-v2.png
-          git show 553871338d617a1f60b7db14aaa30208d0316f29:icon-512.png > jobpilot-icon-512-v2.png
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin
 
-      - name: Commit exact approved icons
+          # This is deliberately the simple method used for the version where
+          # the approved J displayed correctly, with the small iOS halo.
+          # Do not composite, resize after rendering, or otherwise alter the artwork.
+          rsvg-convert -w 180 -h 180 jobpilot-icon.svg -o jobpilot-apple-touch-icon-v3.png
+          rsvg-convert -w 192 -h 192 jobpilot-icon.svg -o jobpilot-icon-192-v3.png
+          rsvg-convert -w 512 -h 512 jobpilot-icon.svg -o jobpilot-icon-512-v3.png
+
+      - name: Commit the new exact-raster icons
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add jobpilot-apple-touch-icon-v2.png jobpilot-icon-192-v2.png jobpilot-icon-512-v2.png
+          git add jobpilot-apple-touch-icon-v3.png jobpilot-icon-192-v3.png jobpilot-icon-512-v3.png
           if git diff --cached --quiet; then
-            echo "Cache-busted icons are already present."
+            echo "Icons are already up to date."
           else
-            git commit -m "Add cache-busted approved JobPilot PWA icons"
+            git commit -m "Use known-good JobPilot icon rasterisation"
             git fetch origin main
             git rebase origin/main
             git push

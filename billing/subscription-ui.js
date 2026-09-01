@@ -21,7 +21,19 @@ import { getCompanyContext } from "../company-context.js";
     const section = document.createElement("section");
     section.id = "jobpilot-subscription-section";
     section.className = "settings-section";
-    section.innerHTML = "<h2>Subscription</h2><div id=\"jobpilot-subscription-content\"></div>";
+    section.innerHTML = `
+      <h2>Subscription</h2>
+      <div id="jobpilot-subscription-content">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+          <div>
+            <strong>JobPilot plan</strong>
+            <div id="jobpilot-plan-summary" style="font-size:13px;color:#64748b;margin-top:3px;">Loading plan...</div>
+          </div>
+          <div id="jobpilot-upgrade-actions" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+        </div>
+        <div id="jobpilot-upgrade-message" style="margin-top:10px;font-size:13px;"></div>
+      </div>
+    `;
 
     const businessHeading = Array.from(panel.querySelectorAll("h2"))
       .find((heading) => heading.textContent.trim() === "Business Details");
@@ -49,45 +61,51 @@ import { getCompanyContext } from "../company-context.js";
     if (!content || content.dataset.loaded === "true") return;
 
     rendering = true;
+
+    const { company } = getCompanyContext();
+    const contextPlan = company?.plan || "solo";
+    const contextMaxUsers = Number(company?.max_users) || (contextPlan === "solo" ? 1 : 10);
+    const planSummary = content.querySelector("#jobpilot-plan-summary");
+    const actions = content.querySelector("#jobpilot-upgrade-actions");
+
+    // Render the visible plan and upgrade action from the already-loaded
+    // company context first. The card must never depend on the billing RPC
+    // before showing useful UI.
+    planSummary.textContent = `${capitalize(contextPlan)} · Up to ${contextMaxUsers} user${contextMaxUsers === 1 ? "" : "s"}`;
+
+    let upgradePlans = [];
+    if (contextPlan === "solo") upgradePlans = ["team", "business", "pro"];
+    if (contextPlan === "team") upgradePlans = ["business", "pro"];
+    if (contextPlan === "business") upgradePlans = ["pro"];
+
+    if (upgradePlans.length && !actions.querySelector("#jobpilot-upgrade-button")) {
+      const upgrade = button("Upgrade account", "button primary");
+      upgrade.id = "jobpilot-upgrade-button";
+      upgrade.addEventListener("click", () => showUpgradeOptions(actions, upgradePlans));
+      actions.appendChild(upgrade);
+    }
+
+    content.dataset.loaded = "true";
+    rendering = false;
+
+    // Billing status is supplementary. If the RPC is unavailable, keep the
+    // plan and Upgrade account UI visible rather than leaving a blank card.
     try {
       const { data, error } = await supabase.rpc("get_my_company_entitlements");
       if (error || !data?.length) {
-        console.error("JobPilot billing:", error);
-        section.remove();
+        console.error("JobPilot billing entitlement:", error);
         return;
       }
 
       const entitlement = data[0];
-      content.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
-          <div>
-            <strong>JobPilot plan</strong>
-            <div style="font-size:13px;color:#64748b;margin-top:3px;">
-              ${escapeHtml(capitalize(entitlement.plan))} · Up to ${Number(entitlement.max_users) || 1} user${Number(entitlement.max_users) === 1 ? "" : "s"}
-            </div>
-          </div>
-          <div id="jobpilot-upgrade-actions" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
-        </div>
-        <div id="jobpilot-upgrade-message" style="margin-top:10px;font-size:13px;"></div>
-      `;
-
-      const actions = content.querySelector("#jobpilot-upgrade-actions");
+      const actualPlan = entitlement.plan || contextPlan;
+      const actualMaxUsers = Number(entitlement.max_users) || contextMaxUsers;
+      planSummary.textContent = `${capitalize(actualPlan)} · Up to ${actualMaxUsers} user${actualMaxUsers === 1 ? "" : "s"}`;
 
       if (entitlement.subscription_status && ["active", "trialing", "past_due", "canceled"].includes(entitlement.subscription_status)) {
         const manage = button("Manage billing", "button");
         manage.addEventListener("click", () => openBilling("portal"));
-        actions.appendChild(manage);
-      }
-
-      let upgradePlans = [];
-      if (entitlement.plan === "solo" || !entitlement.entitled) upgradePlans = ["team", "business", "pro"];
-      if (entitlement.plan === "team" && entitlement.entitled) upgradePlans = ["business", "pro"];
-      if (entitlement.plan === "business" && entitlement.entitled) upgradePlans = ["pro"];
-
-      if (upgradePlans.length) {
-        const upgrade = button("Upgrade account", "button primary");
-        upgrade.addEventListener("click", () => showUpgradeOptions(actions, upgradePlans));
-        actions.appendChild(upgrade);
+        actions.insertBefore(manage, actions.firstChild);
       }
 
       if (entitlement.cancel_at_period_end && entitlement.current_period_end) {
@@ -95,15 +113,13 @@ import { getCompanyContext } from "../company-context.js";
         message.textContent = `Your subscription is scheduled to end on ${new Date(entitlement.current_period_end).toLocaleDateString()}.`;
         message.style.color = "#92400e";
       }
-
-      content.dataset.loaded = "true";
-    } finally {
-      rendering = false;
+    } catch (error) {
+      console.error("JobPilot billing entitlement:", error);
     }
   }
 
   function showUpgradeOptions(actions, allowedPlans) {
-    if (actions.querySelector("#jobpilot-upgrade-options")) return;
+    if (actions.parentElement.querySelector("#jobpilot-upgrade-options")) return;
 
     const options = document.createElement("div");
     options.id = "jobpilot-upgrade-options";
@@ -168,12 +184,6 @@ import { getCompanyContext } from "../company-context.js";
 
   function capitalize(value) {
     return String(value || "").replace(/_/g, " ").replace(/\b\w/g, char => char.toUpperCase());
-  }
-
-  function escapeHtml(value) {
-    const div = document.createElement("div");
-    div.textContent = value == null ? "" : String(value);
-    return div.innerHTML;
   }
 
   function start() {

@@ -19,24 +19,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Restore the exact PNG artwork from the known-good JobPilot version
+      - name: Restore the exact known-good PNG artwork
         run: |
-          # DO NOT rasterise, resize, composite, or redraw the logo.
-          # These are byte-for-byte copies of the PNGs from the version where
-          # the J was correct and the small halo was present.
-          git show 553871338d617a1f60b7db14aaa30208d0316f29:apple-touch-icon.png > jobpilot-apple-touch-icon-v4.png
-          git show 553871338d617a1f60b7db14aaa30208d0316f29:icon-192.png > jobpilot-icon-192-v4.png
-          git show 553871338d617a1f60b7db14aaa30208d0316f29:icon-512.png > jobpilot-icon-512-v4.png
+          # IMPORTANT: exact PNG bytes from the version where the J was correct.
+          # No rasterising, resizing, compositing, redrawing, or other alteration.
+          git show 553871338d617a1f60b7db14aaa30208d0316f29:apple-touch-icon.png > apple-touch-icon.png
+          git show 553871338d617a1f60b7db14aaa30208d0316f29:icon-192.png > icon-192.png
+          git show 553871338d617a1f60b7db14aaa30208d0316f29:icon-512.png > icon-512.png
 
       - name: Commit exact known-good icons
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add jobpilot-apple-touch-icon-v4.png jobpilot-icon-192-v4.png jobpilot-icon-512-v4.png
+          git add apple-touch-icon.png icon-192.png icon-512.png
           if git diff --cached --quiet; then
             echo "Exact known-good icons already exist."
           else
-            git commit -m "Restore exact known-good JobPilot icon artwork v4"
+            git commit -m "Restore exact known-good JobPilot icons"
             git fetch origin main
             git rebase origin/main
             git push

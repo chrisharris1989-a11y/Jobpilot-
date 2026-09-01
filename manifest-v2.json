@@ -1,0 +1,24 @@
+{
+  "name": "JobPilot",
+  "short_name": "JobPilot",
+  "description": "JobPilot - CRM for tradespeople",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/jobpilot-icon-192-v2.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/jobpilot-icon-512-v2.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

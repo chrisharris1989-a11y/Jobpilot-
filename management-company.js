@@ -9,9 +9,90 @@ function getSettings() {
 
 function escapeHtml(value) {
   return String(value ?? "")
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function addCompanyPageStyles() {
+  if (document.getElementById("jobpilot-company-page-styles")) return;
+  const style = document.createElement("style");
+  style.id = "jobpilot-company-page-styles";
+  style.textContent = `
+    .management-company-settings {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .management-company-settings .settings-section {
+      background: var(--surface, #fff);
+      border: 1px solid var(--border, #e5e7eb);
+      border-radius: var(--radius, 12px);
+      box-shadow: var(--shadow, 0 2px 8px rgba(15, 23, 42, 0.04));
+      padding: 24px;
+      margin: 0;
+    }
+    .management-company-settings .settings-section h2 {
+      margin: 0 0 6px;
+    }
+    .management-company-settings .settings-section > p {
+      margin: 0 0 20px;
+    }
+    .management-company-settings .settings-section > label {
+      display: block;
+      margin: 0 0 7px;
+    }
+    .management-company-settings .settings-section > input,
+    .management-company-settings .settings-section > select,
+    .management-company-settings .settings-section > textarea {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      margin: 0 0 16px;
+    }
+    .management-company-settings .settings-section > textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    .management-company-settings .settings-section.company-details-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 20px;
+      align-items: start;
+    }
+    .management-company-settings .settings-section.company-details-grid > h2,
+    .management-company-settings .settings-section.company-details-grid > p {
+      grid-column: 1 / -1;
+    }
+    .management-company-settings .settings-section.company-details-grid > label,
+    .management-company-settings .settings-section.company-details-grid > input {
+      min-width: 0;
+    }
+    .management-company-settings .settings-section.invoice-info .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 12px;
+    }
+    .management-company-settings .settings-section.invoice-info .checkbox-row input {
+      width: auto;
+      margin: 0;
+    }
+    .company-settings-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 15px;
+    }
+    #companySettingsMessage {
+      margin: 0;
+    }
+    @media (max-width: 699px) {
+      .management-company-settings .settings-section.company-details-grid {
+        display: block;
+      }
+    }
+  `;
+  document.head.appendChild(style);
 }
 
 async function loadCompanySettings() {
@@ -62,6 +143,7 @@ function renderManagementCompanyPage() {
   const content = document.getElementById("pageContent");
   if (!content) return;
 
+  addCompanyPageStyles();
   document.querySelectorAll(".nav-item").forEach(item => item.classList.remove("active"));
   document.getElementById("jobpilot-management-button")?.classList.add("active");
   document.getElementById("pageTitle").textContent = "Company";
@@ -75,8 +157,8 @@ function renderManagementCompanyPage() {
         <button id="companyBackButton" class="button secondary" type="button">← Management</button>
       </div>
 
-      <div class="panel settings-panel">
-        <section class="settings-section">
+      <div class="management-company-settings">
+        <section class="settings-section company-details-grid">
           <h2>🏢 Company Details</h2>
           <p class="muted">These details are used throughout JobPilot and on your customer documents.</p>
           <label>Business Name</label><input id="companyBusinessName" type="text" value="${escapeHtml(settings.businessName)}" required>
@@ -120,14 +202,14 @@ function renderManagementCompanyPage() {
           <label>Quote Footer / Notes</label><textarea id="companyQuoteFooter" placeholder="Terms, notes or other information shown on quotes.">${escapeHtml(settings.quoteFooter)}</textarea>
         </section>
 
-        <section class="settings-section">
+        <section class="settings-section invoice-info">
           <h2>👤 Customer Invoice Information</h2>
           <p class="muted">Choose which of your company details appear on customer invoices.</p>
-          <label><input id="companyShowContactName" type="checkbox" ${settings.showContactName ? "checked" : ""}> Show contact name on invoices</label>
-          <label><input id="companyShowPhone" type="checkbox" ${settings.showPhone ? "checked" : ""}> Show phone number on invoices</label>
-          <label><input id="companyShowEmail" type="checkbox" ${settings.showEmail ? "checked" : ""}> Show email address on invoices</label>
-          <label><input id="companyShowWebsite" type="checkbox" ${settings.showWebsite ? "checked" : ""}> Show website on invoices</label>
-          <label><input id="companyShowAddress" type="checkbox" ${settings.showAddress ? "checked" : ""}> Show business address on invoices</label>
+          <label class="checkbox-row"><input id="companyShowContactName" type="checkbox" ${settings.showContactName ? "checked" : ""}> <span>Show contact name on invoices</span></label>
+          <label class="checkbox-row"><input id="companyShowPhone" type="checkbox" ${settings.showPhone ? "checked" : ""}> <span>Show phone number on invoices</span></label>
+          <label class="checkbox-row"><input id="companyShowEmail" type="checkbox" ${settings.showEmail ? "checked" : ""}> <span>Show email address on invoices</span></label>
+          <label class="checkbox-row"><input id="companyShowWebsite" type="checkbox" ${settings.showWebsite ? "checked" : ""}> <span>Show website on invoices</span></label>
+          <label class="checkbox-row"><input id="companyShowAddress" type="checkbox" ${settings.showAddress ? "checked" : ""}> <span>Show business address on invoices</span></label>
           <label>Currency</label>
           <select id="companyCurrency">
             <option value="GBP" ${settings.currency === "GBP" ? "selected" : ""}>GBP (£)</option>
@@ -136,8 +218,10 @@ function renderManagementCompanyPage() {
           </select>
         </section>
 
-        <div id="companySettingsMessage" class="muted" style="margin-top:15px"></div>
-        <div style="display:flex;justify-content:flex-end;margin-top:25px"><button id="saveCompanySettings" class="button primary" type="button">Save Company Settings</button></div>
+        <div class="company-settings-actions">
+          <div id="companySettingsMessage" class="muted"></div>
+          <button id="saveCompanySettings" class="button primary" type="button">Save Company Settings</button>
+        </div>
       </div>`;
 
     document.getElementById("companyBackButton")?.addEventListener("click", () => window.renderManagementPage?.());

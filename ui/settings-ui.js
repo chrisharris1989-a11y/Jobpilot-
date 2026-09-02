@@ -21,7 +21,19 @@
     const card = status?.closest(".connection-card") || button?.closest(".connection-card");
 
     if (card) {
+      const section = card.closest(".settings-section");
       card.remove();
+
+      // sectionizeSettings() may already have turned the old Stripe block
+      // into a card before this cleanup runs. Removing only the inner card
+      // leaves a completely blank settings card behind.
+      if (section && !section.querySelector("#stripeConnectionStatus") && !section.querySelector("#connectStripeButton")) {
+        const hasOtherContent = Array.from(section.children).some((child) => {
+          if (child.tagName === "H2") return true;
+          return child.textContent.trim() !== "";
+        });
+        if (!hasOtherContent) section.remove();
+      }
       return;
     }
 
@@ -71,7 +83,6 @@
         padding-top: 2px;
       }
 
-      /* Business Details: spacious, consistent form layout. */
       .settings-section.settings-business-details {
         padding-bottom: 26px;
       }

@@ -57,10 +57,7 @@ async function renderManagementQuoteRequests() {
 
   content.innerHTML = `
     <div class="page-actions">
-      <div>
-        <h2>Quote Requests</h2>
-        <p>Jobs submitted by team members for management to quote.</p>
-      </div>
+      <div></div>
       <button id="qrRefresh" class="button secondary" type="button">Refresh</button>
     </div>
     <div id="managementQuoteRequestsList" class="panel">

@@ -1903,6 +1903,7 @@ function showJobProfile(jobId) {
               £${Number(
                 job.price || 0
               ).toFixed(2)}
+
             </strong>
 
           </div>
@@ -2256,7 +2257,6 @@ function showAddJobForm() {
       async event => {
 
         event.preventDefault();
-
 
         const recurring =
           recurringCheckbox.checked;
@@ -3603,14 +3603,12 @@ function showAddQuoteForm() {
 
   modal
     .querySelectorAll(".close")
-    .forEach(button => {
-
+    .forEach(button =>
       button.addEventListener(
         "click",
         () => modal.remove()
-      );
-
-    });
+      )
+    );
 
 
   // PRICING
@@ -3692,7 +3690,6 @@ function showAddQuoteForm() {
       async event => {
 
         event.preventDefault();
-
 
         const recurring =
           recurringCheckbox.checked;
@@ -4860,8 +4857,7 @@ function showEditInvoiceForm(invoiceId) {
   const invoice =
     invoices.find(
       item =>
-        String(item.id) ===
-        String(invoiceId)
+        String(item.id) === String(invoiceId)
     );
 
   if (!invoice) return;
@@ -5211,8 +5207,7 @@ async function deleteInvoice(invoiceId) {
   const invoice =
     invoices.find(
       item =>
-        String(item.id) ===
-        String(invoiceId)
+        String(item.id) === String(invoiceId)
     );
 
   if (!invoice) return;
@@ -5250,8 +5245,7 @@ async function convertJobToInvoice(jobId) {
   const job =
     jobs.find(
       item =>
-        String(item.id) ===
-        String(jobId)
+        String(item.id) === String(jobId)
     );
 
   if (!job) {
@@ -5270,8 +5264,7 @@ async function convertJobToInvoice(jobId) {
   const customer =
     customers.find(
       c =>
-        String(c.id) ===
-        String(job.customer_id)
+        String(c.id) === String(job.customer_id)
     );
 
   if (!customer) {
@@ -5732,27 +5725,6 @@ function renderSettings(content) {
       <hr>
 
 
-      <!-- NOTIFICATIONS -->
-      <h2>Notifications</h2>
-
-      <label>
-        <input
-          type="checkbox"
-          id="settingsEmailNotifications"
-          checked
-        >
-        Email notifications
-      </label>
-
-      <label>
-        <input
-          type="checkbox"
-          id="settingsPaymentReminders"
-        >
-        Payment reminders
-      </label>
-
-
       <div
         id="settingsMessage"
         class="muted"
@@ -6150,36 +6122,6 @@ function loadSettings() {
 
 
   // -------------------------------------------------
-  // NOTIFICATIONS
-  // -------------------------------------------------
-
-  const emailNotifications =
-    document.getElementById(
-      "settingsEmailNotifications"
-    );
-
-  if (emailNotifications) {
-
-    emailNotifications.checked =
-      settings.emailNotifications !== false;
-
-  }
-
-
-  const paymentReminders =
-    document.getElementById(
-      "settingsPaymentReminders"
-    );
-
-  if (paymentReminders) {
-
-    paymentReminders.checked =
-      settings.paymentReminders === true;
-
-  }
-
-
-  // -------------------------------------------------
   // PUBLIC INVOICE PRIVACY
   // -------------------------------------------------
 
@@ -6369,16 +6311,6 @@ async function saveSettings() {
       dateFormat:
         getValue("settingsDateFormat"),
 
-      emailNotifications:
-        document.getElementById(
-          "settingsEmailNotifications"
-        )?.checked ?? true,
-
-      paymentReminders:
-  document.getElementById(
-    "settingsPaymentReminders"
-  )?.checked ?? false,
-
 showContactName:
   document.getElementById(
     "settingsShowContactName"
@@ -6534,8 +6466,6 @@ showAddress:
             // -----------------------------------------
 
             // OTHER SETTINGS
-
-            // -----------------------------------------
 
             currency:
 
@@ -6907,6 +6837,7 @@ async function loadStripeStatus() {
         <small>
           Connect Stripe to accept online payments.
         </small>
+
       `;
 
     }

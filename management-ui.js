@@ -56,6 +56,16 @@ function renderManagementPage() {
       window.renderManagementCompanyPage();
     }
   });
+
+  document.querySelector('[data-management-section="billing"]')?.addEventListener("click", () => {
+    const title = document.getElementById("pageTitle");
+    if (title) title.textContent = "Billing";
+    if (typeof window.renderManagementBillingPage === "function") {
+      window.renderManagementBillingPage();
+    } else {
+      console.error("JobPilot: renderManagementBillingPage is not available.");
+    }
+  });
 }
 
 window.renderManagementPage = renderManagementPage;

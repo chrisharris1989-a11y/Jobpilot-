@@ -28,6 +28,24 @@ function setPageHeader() {
   if (subtitle) subtitle.textContent = "Review jobs submitted by your team and generate quotes.";
 }
 
+async function getImageUrls(paths) {
+  const validPaths = Array.isArray(paths) ? paths.filter(Boolean) : [];
+  if (!validPaths.length) return [];
+
+  const results = await Promise.all(validPaths.map(async path => {
+    const { data, error } = await supabase.storage
+      .from("quote-request-images")
+      .createSignedUrl(path, 60 * 60);
+    if (error) {
+      console.error("JobPilot quote request image URL:", error);
+      return null;
+    }
+    return data?.signedUrl || null;
+  }));
+
+  return results.filter(Boolean);
+}
+
 async function renderManagementQuoteRequests() {
   const content = document.getElementById("pageContent");
   if (!content) return;
@@ -72,7 +90,12 @@ async function renderManagementQuoteRequests() {
     return;
   }
 
-  list.innerHTML = requests.map(request => `
+  const rows = await Promise.all(requests.map(async request => ({
+    request,
+    imageUrls: await getImageUrls(request.image_paths)
+  })));
+
+  list.innerHTML = rows.map(({ request, imageUrls }) => `
     <div class="job-row" style="align-items:flex-start;gap:16px;flex-wrap:wrap">
       <div style="flex:1;min-width:240px">
         <strong>${escapeHtml(request.customer_name)}</strong>
@@ -82,6 +105,12 @@ async function renderManagementQuoteRequests() {
           ${request.address ? ` · ${escapeHtml(request.address)}` : ""}
         </div>
         ${request.preferred_date ? `<div class="muted" style="margin-top:4px">Preferred date: ${escapeHtml(request.preferred_date)}</div>` : ""}
+        ${imageUrls.length ? `
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+            ${imageUrls.map(url => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(url)}" alt="Job photo" style="width:88px;height:88px;object-fit:cover;border-radius:8px;border:1px solid var(--border,#e5e7eb)"></a>`).join("")}
+          </div>
+          <div class="muted" style="margin-top:5px">${imageUrls.length} picture${imageUrls.length === 1 ? "" : "s"}</div>
+        ` : ""}
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span class="muted">${escapeHtml(String(request.status || "pending").replace("_", " "))}</span>

@@ -51,6 +51,14 @@ function renderManagementPage() {
       </button>
     </div>`;
 
+  document.querySelector('[data-management-section="users"]')?.addEventListener("click", () => {
+    if (typeof window.renderManagementUsers === "function") {
+      window.renderManagementUsers();
+    } else {
+      console.error("JobPilot: renderManagementUsers is not available.");
+    }
+  });
+
   document.querySelector('[data-management-section="company"]')?.addEventListener("click", () => {
     if (typeof window.renderManagementCompanyPage === "function") {
       window.renderManagementCompanyPage();

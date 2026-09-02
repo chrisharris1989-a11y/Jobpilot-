@@ -1,0 +1,309 @@
+import { supabase } from "../../supabase.js";
+
+const GOOGLE_CLIENT_ID = import.meta.env?.VITE_GOOGLE_CALENDAR_CLIENT_ID || "";
+const MICROSOFT_CLIENT_ID = import.meta.env?.VITE_MICROSOFT_CALENDAR_CLIENT_ID || "";
+const CALENDAR_REDIRECT_URI = `${window.location.origin}/`;
+const GOOGLE_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+const MICROSOFT_SCOPE = "openid profile offline_access Calendars.Read";
+const STORAGE_KEY = "jobpilot_calendar_oauth";
+
+function randomString(length = 64) {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("").slice(0, length);
+}
+
+async function sha256(value) {
+  const data = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function saveOAuthState(value) {
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+}
+
+function loadOAuthState() {
+  try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "null"); } catch { return null; }
+}
+
+function clearOAuthState() {
+  sessionStorage.removeItem(STORAGE_KEY);
+}
+
+function configured(provider) {
+  return provider === "google" ? Boolean(GOOGLE_CLIENT_ID) : Boolean(MICROSOFT_CLIENT_ID);
+}
+
+function providerLabel(provider) {
+  return provider === "google" ? "Google Calendar" : "Outlook Calendar";
+}
+
+async function beginOAuth(provider) {
+  if (!configured(provider)) {
+    throw new Error(`${providerLabel(provider)} is not configured yet. Add the calendar client ID in Vercel environment variables first.`);
+  }
+
+  const verifier = randomString(96);
+  const challenge = await sha256(verifier);
+  const state = randomString(48);
+
+  saveOAuthState({ provider, verifier, state, createdAt: Date.now() });
+
+  const params = new URLSearchParams({
+    client_id: provider === "google" ? GOOGLE_CLIENT_ID : MICROSOFT_CLIENT_ID,
+    response_type: "code",
+    redirect_uri: CALENDAR_REDIRECT_URI,
+    response_mode: provider === "google" ? "query" : "query",
+    scope: provider === "google" ? GOOGLE_SCOPE : MICROSOFT_SCOPE,
+    state,
+    code_challenge: challenge,
+    code_challenge_method: "S256"
+  });
+
+  const authUrl = provider === "google"
+    ? `https://accounts.google.com/o/oauth2/v2/auth?${params}`
+    : `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`;
+
+  window.location.assign(authUrl);
+}
+
+async function exchangeCode(provider, code, verifier) {
+  if (provider === "google") {
+    const body = new URLSearchParams({
+      code,
+      client_id: GOOGLE_CLIENT_ID,
+      redirect_uri: CALENDAR_REDIRECT_URI,
+      grant_type: "authorization_code",
+      code_verifier: verifier
+    });
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error_description || data.error || "Google Calendar authorization failed.");
+    return data;
+  }
+
+  const body = new URLSearchParams({
+    client_id: MICROSOFT_CLIENT_ID,
+    scope: MICROSOFT_SCOPE,
+    code,
+    redirect_uri: CALENDAR_REDIRECT_URI,
+    grant_type: "authorization_code",
+    code_verifier: verifier
+  });
+  const response = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error_description || data.error || "Outlook Calendar authorization failed.");
+  return data;
+}
+
+async function handleOAuthCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  const returnedState = params.get("state");
+  if (!code || !returnedState) return false;
+
+  const saved = loadOAuthState();
+  if (!saved || saved.state !== returnedState || Date.now() - saved.createdAt > 10 * 60 * 1000) {
+    clearOAuthState();
+    throw new Error("Calendar sign-in could not be verified. Please try again.");
+  }
+
+  const tokens = await exchangeCode(saved.provider, code, saved.verifier);
+  const token = tokens.access_token;
+  if (!token) throw new Error("Calendar provider did not return an access token.");
+
+  localStorage.setItem(`jobpilot_${saved.provider}_calendar_token`, JSON.stringify({
+    access_token: token,
+    expires_at: Date.now() + Number(tokens.expires_in || 3600) * 1000,
+    refresh_token: tokens.refresh_token || null
+  }));
+
+  clearOAuthState();
+  window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+  return true;
+}
+
+function getToken(provider) {
+  try {
+    const token = JSON.parse(localStorage.getItem(`jobpilot_${provider}_calendar_token`) || "null");
+    if (!token?.access_token) return null;
+    if (token.expires_at && token.expires_at <= Date.now()) return null;
+    return token.access_token;
+  } catch { return null; }
+}
+
+function disconnect(provider) {
+  localStorage.removeItem(`jobpilot_${provider}_calendar_token`);
+  renderCalendarImportUI();
+}
+
+async function googleEvents(token, timeMin, timeMax) {
+  const params = new URLSearchParams({
+    singleEvents: "true",
+    orderBy: "startTime",
+    timeMin,
+    timeMax,
+    maxResults: "2500"
+  });
+  const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error?.message || "Could not read Google Calendar.");
+  return (data.items || []).map(event => ({
+    id: event.id,
+    title: event.summary || "Calendar appointment",
+    description: event.description || "",
+    start: event.start?.dateTime || event.start?.date,
+    end: event.end?.dateTime || event.end?.date,
+    location: event.location || "",
+    email: event.attendees?.find(a => a.email)?.email || ""
+  }));
+}
+
+async function outlookEvents(token, timeMin, timeMax) {
+  const params = new URLSearchParams({
+    startDateTime: timeMin,
+    endDateTime: timeMax,
+    "$top": "1000",
+    "$orderby": "start/dateTime"
+  });
+  const response = await fetch(`https://graph.microsoft.com/v1.0/me/calendarView?${params}`, {
+    headers: { Authorization: `Bearer ${token}`, Prefer: 'outlook.timezone="UTC"' }
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error?.message || "Could not read Outlook Calendar.");
+  return (data.value || []).map(event => ({
+    id: event.id,
+    title: event.subject || "Calendar appointment",
+    description: event.bodyPreview || "",
+    start: event.start?.dateTime,
+    end: event.end?.dateTime,
+    location: event.location?.displayName || "",
+    email: event.attendees?.find(a => a.emailAddress?.address)?.emailAddress?.address || ""
+  }));
+}
+
+function eventToJob(event) {
+  const date = new Date(event.start);
+  return {
+    title: event.title,
+    description: event.description,
+    scheduled_date: Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10),
+    scheduled_time: Number.isNaN(date.getTime()) ? null : date.toTimeString().slice(0, 8),
+    notes: event.location ? `Calendar location: ${event.location}` : "",
+    status: "scheduled",
+    import_metadata: {
+      source: "calendar",
+      calendar_event_id: event.id,
+      attendee_email: event.email || ""
+    }
+  };
+}
+
+async function importEvents(provider, events, statusElement) {
+  const { data: { user } = {} } = await supabase.auth.getUser();
+  if (!user) throw new Error("You must be signed in to import calendar appointments.");
+
+  let imported = 0;
+  let skipped = 0;
+  for (const event of events) {
+    if (!event.start || !event.title) { skipped++; continue; }
+
+    const job = eventToJob(event);
+    const { data: existing, error: existingError } = await supabase
+      .from("jobs")
+      .select("id")
+      .eq("user_id", user.id)
+      .contains("import_metadata", { source: "calendar", calendar_event_id: event.id })
+      .limit(1);
+
+    if (existingError) throw existingError;
+    if (existing?.length) { skipped++; continue; }
+
+    const { error } = await supabase.from("jobs").insert({ user_id: user.id, ...job });
+    if (error) throw error;
+    imported++;
+    if (statusElement) statusElement.textContent = `Imported ${imported} appointment${imported === 1 ? "" : "s"}...`;
+  }
+
+  if (statusElement) statusElement.textContent = `Done — ${imported} imported, ${skipped} skipped.`;
+}
+
+async function runImport(provider) {
+  const token = getToken(provider);
+  if (!token) {
+    await beginOAuth(provider);
+    return;
+  }
+
+  const from = document.getElementById(`calendar-${provider}-from`)?.value;
+  const to = document.getElementById(`calendar-${provider}-to`)?.value;
+  const status = document.getElementById(`calendar-${provider}-status`);
+  if (!from || !to) return;
+
+  status.textContent = "Reading calendar...";
+  const timeMin = new Date(`${from}T00:00:00`).toISOString();
+  const timeMax = new Date(`${to}T23:59:59`).toISOString();
+  const events = provider === "google"
+    ? await googleEvents(token, timeMin, timeMax)
+    : await outlookEvents(token, timeMin, timeMax);
+
+  await importEvents(provider, events, status);
+}
+
+function card(provider, label) {
+  const connected = Boolean(getToken(provider));
+  const ready = configured(provider);
+  return `
+    <div class="panel" style="margin:0">
+      <div class="panel-header">
+        <div><h3>${label}</h3><p class="muted">${connected ? "Connected" : ready ? "Ready to connect" : "Needs client ID configuration"}</p></div>
+        ${connected ? `<button class="secondary-button" type="button" data-calendar-disconnect="${provider}">Disconnect</button>` : ""}
+      </div>
+      <label style="display:block;margin-top:14px">From <input id="calendar-${provider}-from" type="date"></label>
+      <label style="display:block;margin-top:10px">To <input id="calendar-${provider}-to" type="date"></label>
+      <button class="button primary" type="button" data-calendar-import="${provider}" style="margin-top:14px">${connected ? "Import appointments" : `Connect ${label}`}</button>
+      <p id="calendar-${provider}-status" class="muted" style="margin-top:10px"></p>
+    </div>`;
+}
+
+export function renderCalendarImportUI() {
+  const mount = document.getElementById("managementCalendarImport");
+  if (!mount) return;
+  const today = new Date();
+  const nextMonth = new Date(today);
+  nextMonth.setDate(nextMonth.getDate() + 31);
+  const format = d => d.toISOString().slice(0, 10);
+
+  mount.innerHTML = `<div class="content-grid">${card("google", "Google Calendar")}${card("outlook", "Outlook Calendar")}</div>`;
+  ["google", "outlook"].forEach(provider => {
+    const from = document.getElementById(`calendar-${provider}-from`);
+    const to = document.getElementById(`calendar-${provider}-to`);
+    if (from) from.value = format(today);
+    if (to) to.value = format(nextMonth);
+    document.querySelector(`[data-calendar-import="${provider}"]`)?.addEventListener("click", async () => {
+      try { await runImport(provider); } catch (error) {
+        document.getElementById(`calendar-${provider}-status`).textContent = error.message || String(error);
+      }
+    });
+    document.querySelector(`[data-calendar-disconnect="${provider}"]`)?.addEventListener("click", () => disconnect(provider));
+  });
+}
+
+export async function initCalendarImport() {
+  try { await handleOAuthCallback(); } catch (error) { console.error("JobPilot calendar OAuth:", error); }
+}
+
+window.renderCalendarImportUI = renderCalendarImportUI;
+window.initCalendarImport = initCalendarImport;

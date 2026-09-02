@@ -6,6 +6,13 @@ import { supabase } from "../supabase.js";
   let retryTimer = null;
   let retryCount = 0;
 
+  const PLANS = {
+    solo: { label: "Solo", users: 1, price: 14.99 },
+    team: { label: "Team", users: 10, price: 39.99 },
+    business: { label: "Business", users: 25, price: 74.99 },
+    pro: { label: "Pro", users: 50, price: 119.99 }
+  };
+
   function isSettings() {
     return document.getElementById("pageTitle")?.textContent.trim() === "Settings";
   }
@@ -47,11 +54,13 @@ import { supabase } from "../supabase.js";
     return Boolean(company?.owner_id && company.owner_id === getCurrentSessionUserId());
   }
 
+  function formatPrice(plan) {
+    return `£${plan.price.toFixed(2)}/month`;
+  }
+
   function populateBillingSection(section) {
     if (!section) return;
 
-    // A previous render can leave the card shell behind with its contents
-    // missing. Always repair the contents before attempting to render data.
     if (!section.querySelector("#jobpilot-subscription-content")) {
       section.innerHTML = `
         <h2>Subscription</h2>
@@ -60,9 +69,11 @@ import { supabase } from "../supabase.js";
             <div>
               <strong>JobPilot plan</strong>
               <div id="jobpilot-plan-summary" style="font-size:13px;color:#64748b;margin-top:3px;">Loading plan...</div>
+              <div id="jobpilot-plan-price" style="font-size:13px;color:#64748b;margin-top:2px;"></div>
             </div>
             <div id="jobpilot-upgrade-actions" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
           </div>
+          <div id="jobpilot-upgrade-options" style="display:none;margin-top:12px;"></div>
           <div id="jobpilot-upgrade-message" style="margin-top:10px;font-size:13px;"></div>
         </div>
       `;
@@ -96,12 +107,14 @@ import { supabase } from "../supabase.js";
     if (!content) return null;
 
     const planSummary = content.querySelector("#jobpilot-plan-summary");
+    const planPrice = content.querySelector("#jobpilot-plan-price");
     const actions = content.querySelector("#jobpilot-upgrade-actions");
-    if (!planSummary || !actions) return null;
+    if (!planSummary || !planPrice || !actions) return null;
 
-    const contextPlan = company?.plan || "solo";
-    const contextMaxUsers = Number(company?.max_users) || (contextPlan === "solo" ? 1 : 10);
-    planSummary.textContent = `${capitalize(contextPlan)} · Up to ${contextMaxUsers} user${contextMaxUsers === 1 ? "" : "s"}`;
+    const contextPlan = String(company?.plan || "solo").toLowerCase();
+    const plan = PLANS[contextPlan] || PLANS.solo;
+    planSummary.textContent = `${plan.label} · Up to ${plan.users} user${plan.users === 1 ? "" : "s"}`;
+    planPrice.textContent = formatPrice(plan);
     actions.innerHTML = "";
 
     const allowedPlans = {
@@ -118,7 +131,7 @@ import { supabase } from "../supabase.js";
       actions.appendChild(upgrade);
     }
 
-    return { company, contextPlan, contextMaxUsers };
+    return { company, contextPlan, plan };
   }
 
   async function render() {
@@ -131,11 +144,11 @@ import { supabase } from "../supabase.js";
     try {
       const company = await resolveCompany();
       if (!company) {
-        // Still create a usable visible card. Company data can be filled in
-        // by a later retry without leaving an empty shell on screen.
         const section = findBillingSection(panel);
         const summary = section?.querySelector("#jobpilot-plan-summary");
+        const price = section?.querySelector("#jobpilot-plan-price");
         if (summary) summary.textContent = "Solo · Up to 1 user";
+        if (price) price.textContent = formatPrice(PLANS.solo);
         scheduleRetry();
         return;
       }
@@ -154,12 +167,14 @@ import { supabase } from "../supabase.js";
         const entitlement = data[0];
         const section = findBillingSection(panel);
         const planSummary = section?.querySelector("#jobpilot-plan-summary");
+        const planPrice = section?.querySelector("#jobpilot-plan-price");
         const actions = section?.querySelector("#jobpilot-upgrade-actions");
-        if (!planSummary || !actions) return;
+        if (!planSummary || !planPrice || !actions) return;
 
-        const actualPlan = entitlement.plan || rendered.contextPlan;
-        const actualMaxUsers = Number(entitlement.max_users) || rendered.contextMaxUsers;
-        planSummary.textContent = `${capitalize(actualPlan)} · Up to ${actualMaxUsers} user${actualMaxUsers === 1 ? "" : "s"}`;
+        const actualPlan = String(entitlement.plan || rendered.contextPlan).toLowerCase();
+        const actualPlanDetails = PLANS[actualPlan] || rendered.plan;
+        planSummary.textContent = `${actualPlanDetails.label} · Up to ${actualPlanDetails.users} user${actualPlanDetails.users === 1 ? "" : "s"}`;
+        planPrice.textContent = formatPrice(actualPlanDetails);
 
         if (entitlement.subscription_status && ["active", "trialing", "past_due", "canceled"].includes(entitlement.subscription_status)) {
           if (!actions.querySelector("#jobpilot-manage-billing") && canManageBilling(company)) {
@@ -193,19 +208,20 @@ import { supabase } from "../supabase.js";
   }
 
   function showUpgradeOptions(actions, allowedPlans) {
-    if (actions.parentElement.querySelector("#jobpilot-upgrade-options")) return;
+    const existing = actions.parentElement.querySelector("#jobpilot-upgrade-options");
+    if (!existing) return;
 
-    const options = document.createElement("div");
-    options.id = "jobpilot-upgrade-options";
-    options.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;width:100%;margin-top:8px;";
+    existing.style.display = "flex";
+    existing.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;width:100%;margin-top:12px;";
+    existing.innerHTML = "";
 
-    const labels = { team: "Upgrade to Team", business: "Upgrade to Business", pro: "Upgrade to Pro" };
-    allowedPlans.forEach((plan) => {
-      const option = button(labels[plan], "button");
-      option.addEventListener("click", () => openBilling("checkout", plan));
-      options.appendChild(option);
+    const labels = { team: "Team", business: "Business", pro: "Pro" };
+    allowedPlans.forEach((planName) => {
+      const plan = PLANS[planName];
+      const option = button(`${labels[planName]} · ${formatPrice(plan)}`, "button");
+      option.addEventListener("click", () => openBilling("checkout", planName));
+      existing.appendChild(option);
     });
-    actions.parentElement.appendChild(options);
   }
 
   async function openBilling(action, plan) {
@@ -245,10 +261,6 @@ import { supabase } from "../supabase.js";
     element.className = className;
     element.textContent = text;
     return element;
-  }
-
-  function capitalize(value) {
-    return String(value || "").replace(/_/g, " ").replace(/\b\w/g, char => char.toUpperCase());
   }
 
   async function start() {

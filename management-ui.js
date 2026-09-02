@@ -57,6 +57,14 @@ function renderManagementPage() {
     }
   });
 
+  document.querySelector('[data-management-section="accounting"]')?.addEventListener("click", () => {
+    if (typeof window.renderManagementAccounting === "function") {
+      window.renderManagementAccounting();
+    } else {
+      console.error("JobPilot: renderManagementAccounting is not available.");
+    }
+  });
+
   document.querySelector('[data-management-section="billing"]')?.addEventListener("click", () => {
     const title = document.getElementById("pageTitle");
     if (title) title.textContent = "Billing";
@@ -64,6 +72,14 @@ function renderManagementPage() {
       window.renderManagementBillingPage();
     } else {
       console.error("JobPilot: renderManagementBillingPage is not available.");
+    }
+  });
+
+  document.querySelector('[data-management-section="import"]')?.addEventListener("click", () => {
+    if (typeof window.renderManagementImportExport === "function") {
+      window.renderManagementImportExport();
+    } else {
+      console.error("JobPilot: renderManagementImportExport is not available.");
     }
   });
 }

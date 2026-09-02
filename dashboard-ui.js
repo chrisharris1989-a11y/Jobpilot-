@@ -72,6 +72,18 @@ function hideUpcomingJobs() {
   });
 }
 
+function hideQuickActions() {
+  const elements = document.querySelectorAll("#app *");
+  elements.forEach(element => {
+    if (element.children.length > 0) return;
+    const text = String(element.textContent || "").trim().toLowerCase();
+    if (text !== "quick actions") return;
+    const panel = element.closest(".panel, .card, .dashboard-card, section, article");
+    if (panel) panel.style.display = "none";
+    else element.style.display = "none";
+  });
+}
+
 async function hasManagementAccess() {
   try {
     const { data: { user } = {} } = await supabase.auth.getUser();
@@ -216,7 +228,10 @@ async function applyDashboardRoleVisibility() {
     todayValueCard.setAttribute("aria-hidden", managementUser ? "false" : "true");
   }
 
-  if (!managementUser) showQuoteRequestPanel();
+  if (!managementUser) {
+    hideQuickActions();
+    showQuoteRequestPanel();
+  }
 }
 
 function showQuoteRequestPanel() {

@@ -193,3 +193,101 @@ function showQuoteRequestForm() {
 }
 
 window.showQuoteRequestForm = showQuoteRequestForm;
+
+// =====================================================
+// SEND QUOTE VIA WHATSAPP
+// =====================================================
+
+function installQuoteSendButtons() {
+  document.querySelectorAll(".quote-view[data-quote-id]").forEach(viewButton => {
+    const quoteId = viewButton.dataset.quoteId;
+    if (!quoteId || viewButton.parentElement?.querySelector(`.quote-send[data-quote-id="${quoteId}"]`)) return;
+
+    const sendButton = document.createElement("button");
+    sendButton.type = "button";
+    sendButton.className = "button primary quote-send";
+    sendButton.dataset.quoteId = quoteId;
+    sendButton.textContent = "📤 Send Quote";
+
+    sendButton.addEventListener("click", async event => {
+      event.stopPropagation();
+
+      sendButton.disabled = true;
+      sendButton.textContent = "Sending…";
+
+      try {
+        const { data: quote, error: quoteError } = await supabase
+          .from("quotes")
+          .select("id, customer_id, quote_number, description, subtotal, vat, total, valid_until, status")
+          .eq("id", quoteId)
+          .maybeSingle();
+
+        if (quoteError) throw quoteError;
+        if (!quote) throw new Error("Quote could not be found.");
+
+        if (String(quote.status).toLowerCase() === "converted") {
+          throw new Error("This quote has already been converted to a job.");
+        }
+
+        const { data: customer, error: customerError } = await supabase
+          .from("customers")
+          .select("id, name, phone, email")
+          .eq("id", quote.customer_id)
+          .maybeSingle();
+
+        if (customerError) throw customerError;
+        if (!customer) throw new Error("The customer attached to this quote could not be found.");
+
+        if (!customer.phone) {
+          throw new Error("This customer does not have a phone number saved.");
+        }
+
+        let whatsappNumber = customer.phone.replace(/\D/g, "");
+        if (whatsappNumber.startsWith("0")) {
+          whatsappNumber = "44" + whatsappNumber.substring(1);
+        }
+
+        const settings = JSON.parse(localStorage.getItem("jobpilot_settings") || "{}");
+        const businessName = settings.businessName || "our business";
+
+        const message =
+          `Hi ${customer.name},\n\n` +
+          `Please find your quote from ${businessName}.\n\n` +
+          `Quote #${quote.quote_number || "—"}\n` +
+          `Description: ${quote.description || "Quote for requested work"}\n` +
+          `Amount: £${Number(quote.total || 0).toFixed(2)}\n` +
+          (quote.valid_until ? `Valid until: ${quote.valid_until}\n` : "") +
+          `\nPlease let us know if you would like to go ahead.\n\n` +
+          `Thank you.`;
+
+        const { error: statusError } = await supabase
+          .from("quotes")
+          .update({ status: "sent" })
+          .eq("id", quote.id);
+
+        if (statusError) throw statusError;
+
+        const whatsappUrl =
+          `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+
+        window.location.href = whatsappUrl;
+      } catch (error) {
+        console.error("JobPilot send quote:", error);
+        alert(error.message || "The quote could not be sent.");
+        sendButton.disabled = false;
+        sendButton.textContent = "📤 Send Quote";
+      }
+    });
+
+    viewButton.insertAdjacentElement("afterend", sendButton);
+  });
+}
+
+const quoteSendObserver = new MutationObserver(() => {
+  installQuoteSendButtons();
+});
+
+if (document.body) {
+  quoteSendObserver.observe(document.body, { childList: true, subtree: true });
+  installQuoteSendButtons();
+}

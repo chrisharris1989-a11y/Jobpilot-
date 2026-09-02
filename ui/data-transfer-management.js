@@ -13,12 +13,19 @@ async function checkManagementAccess() {
     .eq("status", "active")
     .limit(1)
     .maybeSingle();
-  if (error) return false;
+  if (error) {
+    console.error("JobPilot data transfer access:", error);
+    return false;
+  }
   return ["owner", "admin"].includes(String(data?.role || "").toLowerCase());
 }
 
+function managementButton() {
+  return document.getElementById("jobpilot-management-button");
+}
+
 function isManagementActive() {
-  return document.getElementById("jobpilot-management-button")?.classList.contains("active");
+  return managementButton()?.classList.contains("active");
 }
 
 function addManagementCard() {
@@ -45,6 +52,7 @@ function openManagementTransfer() {
   const page = document.createElement("div");
   page.setAttribute("data-management-transfer-page", "true");
   page.innerHTML = '<div class="page-actions"><div><h2>Import & Export Data</h2><p>Manage your company data. This area is only available to owners and admins.</p></div></div>';
+  content.appendChild(page);
 
   mountDataTransfer(page);
 
@@ -53,23 +61,47 @@ function openManagementTransfer() {
   back.className = "secondary-button";
   back.style.marginTop = "16px";
   back.textContent = "← Back to Management";
-  back.addEventListener("click", () => document.getElementById("jobpilot-management-button")?.click());
+  back.addEventListener("click", () => managementButton()?.click());
   page.appendChild(back);
-  content.appendChild(page);
 
   document.getElementById("pageTitle")?.replaceChildren(document.createTextNode("Import & Export Data"));
   document.getElementById("pageSubtitle")?.replaceChildren(document.createTextNode("Manage your company data."));
   document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
-  document.getElementById("jobpilot-management-button")?.classList.add("active");
+  managementButton()?.classList.add("active");
+}
+
+function bindManagementButton() {
+  const button = managementButton();
+  if (!button || button.dataset.transferCardBound === "true") return;
+  button.dataset.transferCardBound = "true";
+  button.addEventListener("click", () => {
+    // management-ui.js replaces #pageContent during its click handler.
+    // Wait until that DOM update has completed, then add our card.
+    setTimeout(addManagementCard, 25);
+    setTimeout(addManagementCard, 150);
+  });
 }
 
 async function init() {
   allowed = await checkManagementAccess();
   if (!allowed) return;
 
-  const observer = new MutationObserver(() => addManagementCard());
+  const observer = new MutationObserver(() => {
+    bindManagementButton();
+    addManagementCard();
+  });
   observer.observe(document.body, { childList: true, subtree: true });
+
+  bindManagementButton();
   addManagementCard();
+
+  // The main app can create the Management button after this module loads.
+  [100, 300, 700, 1500, 3000].forEach(delay => {
+    setTimeout(() => {
+      bindManagementButton();
+      addManagementCard();
+    }, delay);
+  });
 }
 
 init();

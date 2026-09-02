@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     for (const member of members || []) {
       const { data: authUser } = await admin.auth.admin.getUserById(member.user_id);
       const meta = authUser?.user?.user_metadata || {};
-      users.push({ membership_id: member.id, user_id: member.user_id, email: authUser?.user?.email || "", name: clean(meta.name || meta.full_name), phone: clean(meta.phone), role: member.role, status: member.status, joined_at: member.joined_at || member.created_at, is_owner: String(company.owner_id) === String(member.user_id) });
+      users.push({ membership_id: member.id, user_id: member.user_id, email: authUser?.user?.email || "", name: clean(meta.name || meta.full_name), phone: clean(meta.phone), role: member.role === "member" ? "user" : member.role, status: member.status, joined_at: member.joined_at || member.created_at, is_owner: String(company.owner_id) === String(member.user_id) });
     }
     return json({ company: { id: company.id, name: company.name, plan: company.plan, max_users: company.max_users }, users });
   }
@@ -53,6 +53,7 @@ Deno.serve(async (req) => {
     if (!email || !email.includes("@")) return json({ error: "A valid email address is required." }, 400);
     if (!name) return json({ error: "Name is required." }, 400);
     if (!["user", "admin"].includes(role)) return json({ error: "Role must be User or Admin." }, 400);
+    const dbRole = role === "user" ? "member" : role;
     const { count: activeCount, error: countError } = await admin.from("company_members").select("id", { count: "exact", head: true }).eq("company_id", companyId).eq("status", "active");
     if (countError) return json({ error: countError.message }, 500);
     const maxUsers = Number(company.max_users || 1);
@@ -69,7 +70,7 @@ Deno.serve(async (req) => {
       const { data: existingMembership } = await admin.from("company_members").select("id, company_id, role, status").eq("user_id", target.id).eq("company_id", companyId).maybeSingle();
       if (existingMembership) {
         if (existingMembership.status === "active") return json({ error: "That user is already a member of this company." }, 409);
-        const { error: reactivateError } = await admin.from("company_members").update({ role, status: "active", joined_at: new Date().toISOString() }).eq("id", existingMembership.id);
+        const { error: reactivateError } = await admin.from("company_members").update({ role: dbRole, status: "active", joined_at: new Date().toISOString() }).eq("id", existingMembership.id);
         if (reactivateError) return json({ error: reactivateError.message }, 500);
         await admin.auth.admin.updateUserById(target.id, { user_metadata: { ...(target.user_metadata || {}), name, phone } });
         return json({ success: true, invited: false, reactivated: true });
@@ -78,7 +79,7 @@ Deno.serve(async (req) => {
       if (otherMembership) return json({ error: "That email already belongs to another active company." }, 409);
       await admin.auth.admin.updateUserById(target.id, { user_metadata: { ...(target.user_metadata || {}), name, phone } });
     }
-    const { error: memberError } = await admin.from("company_members").insert({ company_id: companyId, user_id: target.id, role, status: "active", joined_at: new Date().toISOString() });
+    const { error: memberError } = await admin.from("company_members").insert({ company_id: companyId, user_id: target.id, role: dbRole, status: "active", joined_at: new Date().toISOString() });
     if (memberError) return json({ error: memberError.message }, 500);
     return json({ success: true, invited: true, user_id: target.id });
   }
@@ -87,10 +88,11 @@ Deno.serve(async (req) => {
     const membershipId = clean(body.user_id), role = clean(body.role).toLowerCase();
     if (!membershipId) return json({ error: "User ID is required." }, 400);
     if (!["user", "admin"].includes(role)) return json({ error: "Role must be User or Admin." }, 400);
+    const dbRole = role === "user" ? "member" : role;
     const { data: targetMember, error: targetError } = await admin.from("company_members").select("id, user_id, role").eq("id", membershipId).eq("company_id", companyId).maybeSingle();
     if (targetError || !targetMember) return json({ error: "Company member not found." }, 404);
     if (String(targetMember.user_id) === String(company.owner_id)) return json({ error: "The company owner cannot have their role changed." }, 403);
-    const { error } = await admin.from("company_members").update({ role }).eq("id", targetMember.id);
+    const { error } = await admin.from("company_members").update({ role: dbRole }).eq("id", targetMember.id);
     if (error) return json({ error: error.message }, 500);
     return json({ success: true });
   }

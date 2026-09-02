@@ -24,6 +24,31 @@ function isSettingsPage() {
   return document.getElementById("pageTitle")?.textContent.trim() === "Settings";
 }
 
+async function hasQuoteMessageAccess() {
+  try {
+    const { data: { user } = {} } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const { data, error } = await supabase
+      .from("company_members")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("JobPilot quote message access:", error);
+      return false;
+    }
+
+    return ["owner", "admin"].includes(String(data?.role || "").toLowerCase());
+  } catch (error) {
+    console.error("JobPilot quote message access:", error);
+    return false;
+  }
+}
+
 function preserveDocumentSettings() {
   const panel = document.querySelector(".settings-panel");
   if (!panel) return;
@@ -51,9 +76,15 @@ function preserveDocumentSettings() {
   });
 }
 
-function installQuoteMessageSettings() {
+async function installQuoteMessageSettings() {
   if (!isSettingsPage()) return;
-  if (document.getElementById("jobpilot-quote-message-settings")) return;
+
+  const existing = document.getElementById("jobpilot-quote-message-settings");
+  if (existing) return;
+
+  // Quote message configuration is a management/company setting.
+  // Normal users (members) must not see it.
+  if (!(await hasQuoteMessageAccess())) return;
 
   const panel = document.querySelector(".settings-panel");
   if (!panel) return;

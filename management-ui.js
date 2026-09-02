@@ -39,7 +39,7 @@ function renderManagementPage() {
       </button>
       <button class="panel jobpilot-management-card" type="button" data-management-section="accounting" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)">
         <div class="panel-header"><div><h2>📊 Accounting</h2><p>Manage your accounting and payment connections.</p></div><span aria-hidden="true">→</span></div>
-        <p class="muted" style="margin:16px 0 0">Stripe, GoCardless and FreeAgent connections.</p>
+        <p class="muted" style="margin:16px 0 0">Connect the accounting and payment services you use.</p>
       </button>
       <button class="panel jobpilot-management-card" type="button" data-management-section="billing" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)">
         <div class="panel-header"><div><h2>💳 Billing</h2><p>Manage your JobPilot subscription.</p></div><span aria-hidden="true">→</span></div>

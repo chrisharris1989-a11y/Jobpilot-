@@ -33,6 +33,10 @@ function renderManagementPage() {
         <div class="panel-header"><div><h2>👥 Users &amp; Team</h2><p>Manage company users, roles and access.</p></div><span aria-hidden="true">→</span></div>
         <p class="muted" style="margin:16px 0 0">Manage the people who have access to your company.</p>
       </button>
+      <button class="panel jobpilot-management-card" type="button" data-management-section="quote-requests" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)">
+        <div class="panel-header"><div><h2>💷 Quote Requests</h2><p>Review jobs submitted by your team.</p></div><span aria-hidden="true">→</span></div>
+        <p class="muted" style="margin:16px 0 0">Review a requested job and create a draft quote for the customer.</p>
+      </button>
       <button class="panel jobpilot-management-card" type="button" data-management-section="company" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)">
         <div class="panel-header"><div><h2>🏢 Company</h2><p>Manage your company details.</p></div><span aria-hidden="true">→</span></div>
         <p class="muted" style="margin:16px 0 0">Edit the company information used throughout JobPilot.</p>
@@ -54,6 +58,10 @@ function renderManagementPage() {
   document.querySelector('[data-management-section="users"]')?.addEventListener("click", () => {
     if (typeof window.renderManagementUsers === "function") window.renderManagementUsers();
     else console.error("JobPilot: renderManagementUsers is not available.");
+  });
+  document.querySelector('[data-management-section="quote-requests"]')?.addEventListener("click", () => {
+    if (typeof window.renderManagementQuoteRequests === "function") window.renderManagementQuoteRequests();
+    else console.error("JobPilot: renderManagementQuoteRequests is not available.");
   });
   document.querySelector('[data-management-section="company"]')?.addEventListener("click", () => {
     if (typeof window.renderManagementCompanyPage === "function") window.renderManagementCompanyPage();

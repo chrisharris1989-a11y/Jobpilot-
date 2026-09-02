@@ -1,9 +1,6 @@
 import { supabase } from "./supabase.js";
 
 // Dashboard-only UI enhancements.
-// Keeps the existing app logic intact while making the dashboard cards
-// useful and the navigation less repetitive.
-
 const MANAGEMENT_ROLES = ["owner", "admin"];
 
 function getTodayDate() {
@@ -36,8 +33,6 @@ function balanceTopNavigation() {
   const dashboard = getPageButton("dashboard");
   if (!bottom || !dashboard) return;
 
-  // Put Dashboard in the same navigation group as Feedback, Settings and Logout.
-  // This removes the structural split that was causing a 3/1 layout on mobile.
   if (dashboard.parentElement !== bottom) {
     bottom.insertBefore(dashboard, bottom.firstChild);
   }
@@ -54,7 +49,6 @@ function balanceTopNavigation() {
         width: 100% !important;
         align-items: stretch !important;
       }
-
       .sidebar-bottom .nav-item {
         width: 100% !important;
         min-width: 0 !important;
@@ -68,19 +62,13 @@ function balanceTopNavigation() {
 
 function hideUpcomingJobs() {
   const elements = document.querySelectorAll("#app *");
-
   elements.forEach(element => {
     if (element.children.length > 0) return;
-
     const text = String(element.textContent || "").trim().toLowerCase();
     if (text !== "upcoming jobs") return;
-
     const panel = element.closest(".stat-card, .card, .dashboard-card, .panel, section, article");
-    if (panel) {
-      panel.style.display = "none";
-    } else {
-      element.style.display = "none";
-    }
+    if (panel) panel.style.display = "none";
+    else element.style.display = "none";
   });
 }
 
@@ -88,7 +76,6 @@ async function hasManagementAccess() {
   try {
     const { data: { user } = {} } = await supabase.auth.getUser();
     if (!user) return false;
-
     const { data, error } = await supabase
       .from("company_members")
       .select("role")
@@ -96,12 +83,10 @@ async function hasManagementAccess() {
       .eq("status", "active")
       .limit(1)
       .maybeSingle();
-
     if (error) {
       console.error("JobPilot dashboard management access:", error);
       return false;
     }
-
     return MANAGEMENT_ROLES.includes(String(data?.role || "").toLowerCase());
   } catch (error) {
     console.error("JobPilot dashboard management access:", error);
@@ -112,25 +97,20 @@ async function hasManagementAccess() {
 function makeDashboardCardsClickable() {
   const cards = document.querySelectorAll(".stats .stat-card");
   const pages = ["jobs", "customers", "quotes", "invoices"];
-
   pages.forEach((page, index) => {
     const card = cards[index];
     if (!card) return;
-
     card.style.cursor = "pointer";
     card.style.transition = "transform 0.15s ease, box-shadow 0.15s ease";
     card.setAttribute("role", "button");
     card.setAttribute("tabindex", "0");
     card.setAttribute("aria-label", `Open ${page}`);
-
     if (card.dataset.dashboardEnhanced === "true") return;
     card.dataset.dashboardEnhanced = "true";
-
     const openPage = () => {
       const button = getPageButton(page);
       if (button) button.click();
     };
-
     card.addEventListener("click", openPage);
     card.addEventListener("keydown", event => {
       if (event.key === "Enter" || event.key === " ") {
@@ -138,12 +118,10 @@ function makeDashboardCardsClickable() {
         openPage();
       }
     });
-
     card.addEventListener("mouseenter", () => {
       card.style.transform = "translateY(-2px)";
       card.style.boxShadow = "0 8px 20px rgba(15, 23, 42, 0.10)";
     });
-
     card.addEventListener("mouseleave", () => {
       card.style.transform = "";
       card.style.boxShadow = "";
@@ -155,14 +133,12 @@ function makeTodayJobsClickable() {
   const cards = document.querySelectorAll(".stats .stat-card");
   const card = cards[4];
   if (!card || card.dataset.routePlannerBound === "true") return;
-
   card.dataset.routePlannerBound = "true";
   card.style.cursor = "pointer";
   card.setAttribute("role", "button");
   card.setAttribute("tabindex", "0");
   card.setAttribute("aria-label", "Open Today's Route");
   card.title = "Open Today's Route";
-
   const openRoute = async () => {
     try {
       const module = await import("./route-planner.js");
@@ -172,7 +148,6 @@ function makeTodayJobsClickable() {
       alert("Today's route planner could not be loaded. Please try again.");
     }
   };
-
   card.addEventListener("click", openRoute);
   card.addEventListener("keydown", event => {
     if (event.key === "Enter" || event.key === " ") {
@@ -180,12 +155,10 @@ function makeTodayJobsClickable() {
       openRoute();
     }
   });
-
   card.addEventListener("mouseenter", () => {
     card.style.transform = "translateY(-2px)";
     card.style.boxShadow = "0 8px 20px rgba(15, 23, 42, 0.10)";
   });
-
   card.addEventListener("mouseleave", () => {
     card.style.transform = "";
     card.style.boxShadow = "";
@@ -195,133 +168,114 @@ function makeTodayJobsClickable() {
 async function updateTodaySnapshot() {
   const cards = document.querySelectorAll(".stats .stat-card");
   if (cards.length < 6) return;
-
   const todayJobsCard = cards[4];
   const todayValueCard = cards[5];
-
   if (todayJobsCard.dataset.todaySnapshot === "true") return;
   todayJobsCard.dataset.todaySnapshot = "true";
   todayValueCard.dataset.todaySnapshot = "true";
-
   const today = getTodayDate();
-
   const { data: { user } = {} } = await supabase.auth.getUser();
   if (!user) return;
-
   const { data, error } = await supabase
     .from("jobs")
     .select("id, price, status, scheduled_date")
     .eq("user_id", user.id)
     .eq("scheduled_date", today);
-
   if (error) {
     console.error("Today's dashboard jobs:", error);
     return;
   }
-
-  const activeTodayJobs = (data || []).filter(job =>
-    String(job.status || "").toLowerCase() !== "cancelled"
-  );
-
+  const activeTodayJobs = (data || []).filter(job => String(job.status || "").toLowerCase() !== "cancelled");
   const jobCount = activeTodayJobs.length;
-  const jobValue = activeTodayJobs.reduce(
-    (total, job) => total + Number(job.price || 0),
-    0
-  );
-
+  const jobValue = activeTodayJobs.reduce((total, job) => total + Number(job.price || 0), 0);
   todayJobsCard.innerHTML = `
     <div class="stat-icon">📅</div>
-    <div>
-      <span>Today's Jobs</span>
-      <strong>${jobCount}</strong>
-    </div>
+    <div><span>Today's Jobs</span><strong>${jobCount}</strong></div>
   `;
-
   todayValueCard.innerHTML = `
     <div class="stat-icon">💰</div>
-    <div>
-      <span>Today's Job Value</span>
-      <strong>£${jobValue.toFixed(2)}</strong>
-    </div>
+    <div><span>Today's Job Value</span><strong>£${jobValue.toFixed(2)}</strong></div>
   `;
-
-  [todayJobsCard, todayValueCard].forEach(card => {
-    card.style.gridColumn = "span 2";
-  });
+  [todayJobsCard, todayValueCard].forEach(card => { card.style.gridColumn = "span 2"; });
 }
 
 async function applyDashboardRoleVisibility() {
   const cards = document.querySelectorAll(".stats .stat-card");
-  const todayValueCard = cards[5];
-  if (!todayValueCard) return;
-
+  if (cards.length < 6) return;
   const managementUser = await hasManagementAccess();
-  todayValueCard.style.display = managementUser ? "" : "none";
-  todayValueCard.setAttribute("aria-hidden", managementUser ? "false" : "true");
+
+  // Normal users do not need the business-wide Jobs, Customers, Quotes or Invoices cards.
+  [0, 1, 2, 3].forEach(index => {
+    const card = cards[index];
+    if (card) card.style.display = managementUser ? "" : "none";
+  });
+
+  const todayValueCard = cards[5];
+  if (todayValueCard) {
+    todayValueCard.style.display = managementUser ? "" : "none";
+    todayValueCard.setAttribute("aria-hidden", managementUser ? "false" : "true");
+  }
+
+  if (!managementUser) showQuoteRequestPanel();
+}
+
+function showQuoteRequestPanel() {
+  const content = document.getElementById("pageContent");
+  if (!content || document.getElementById("jobpilot-user-quote-request")) return;
+
+  const panel = document.createElement("div");
+  panel.id = "jobpilot-user-quote-request";
+  panel.className = "panel";
+  panel.style.marginTop = "20px";
+  panel.innerHTML = `
+    <div class="panel-header">
+      <div>
+        <h2>💷 Request a Quote</h2>
+        <p>Send the job details to management and they can prepare the customer quote.</p>
+      </div>
+      <button id="jobpilot-request-quote-button" class="button primary" type="button">Request a Quote</button>
+    </div>
+  `;
+  content.appendChild(panel);
+  document.getElementById("jobpilot-request-quote-button")?.addEventListener("click", () => {
+    if (typeof window.showQuoteRequestForm === "function") window.showQuoteRequestForm();
+    else console.error("JobPilot: quote request form is not available.");
+  });
 }
 
 function enhanceDashboard() {
   const stats = document.querySelector(".stats");
   if (!stats) return;
-
   hideDuplicateNavigation();
   balanceTopNavigation();
   hideUpcomingJobs();
   makeDashboardCardsClickable();
-
   if (stats.dataset.snapshotCardsAdded !== "true") {
     stats.dataset.snapshotCardsAdded = "true";
-
     const todayJobsCard = document.createElement("div");
     todayJobsCard.className = "stat-card";
-    todayJobsCard.innerHTML = `
-      <div class="stat-icon">📅</div>
-      <div>
-        <span>Today's Jobs</span>
-        <strong>—</strong>
-      </div>
-    `;
-
+    todayJobsCard.innerHTML = `<div class="stat-icon">📅</div><div><span>Today's Jobs</span><strong>—</strong></div>`;
     const todayValueCard = document.createElement("div");
     todayValueCard.className = "stat-card";
-    todayValueCard.innerHTML = `
-      <div class="stat-icon">💰</div>
-      <div>
-        <span>Today's Job Value</span>
-        <strong>£0.00</strong>
-      </div>
-    `;
-
+    todayValueCard.innerHTML = `<div class="stat-icon">💰</div><div><span>Today's Job Value</span><strong>£0.00</strong></div>`;
     todayJobsCard.style.gridColumn = "span 2";
     todayValueCard.style.gridColumn = "span 2";
-
     stats.appendChild(todayJobsCard);
     stats.appendChild(todayValueCard);
   }
-
   makeTodayJobsClickable();
   updateTodaySnapshot();
   applyDashboardRoleVisibility();
 }
 
-const observer = new MutationObserver(() => {
-  enhanceDashboard();
-});
+const observer = new MutationObserver(() => enhanceDashboard());
 
 function startDashboardEnhancement() {
   const app = document.getElementById("app");
   if (!app) return;
-
-  observer.observe(app, {
-    childList: true,
-    subtree: true
-  });
-
+  observer.observe(app, { childList: true, subtree: true });
   enhanceDashboard();
 }
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", startDashboardEnhancement);
-} else {
-  startDashboardEnhancement();
-}
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", startDashboardEnhancement);
+else startDashboardEnhancement();

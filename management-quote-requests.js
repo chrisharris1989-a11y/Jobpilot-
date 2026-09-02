@@ -46,6 +46,90 @@ async function getImageUrls(paths) {
   return results.filter(Boolean);
 }
 
+function openQuoteRequestPhotoViewer(imageUrls, startIndex = 0) {
+  const existing = document.getElementById("jobpilotQuotePhotoViewer");
+  if (existing) existing.remove();
+  if (!imageUrls.length) return;
+
+  let currentIndex = Math.max(0, Math.min(startIndex, imageUrls.length - 1));
+
+  const viewer = document.createElement("div");
+  viewer.id = "jobpilotQuotePhotoViewer";
+  viewer.className = "modal show";
+  viewer.style.zIndex = "10000";
+  viewer.innerHTML = `
+    <div class="modal-content" style="max-width:1000px;width:95vw;padding:16px">
+      <div class="modal-header">
+        <div>
+          <h2>Job Pictures</h2>
+          <p id="qrPhotoCounter" class="muted"></p>
+        </div>
+        <button class="close" type="button" aria-label="Close">×</button>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:12px;min-height:60vh">
+        <button id="qrPhotoPrev" class="button secondary" type="button" aria-label="Previous picture">‹</button>
+        <img id="qrPhotoMain" alt="Job photo" style="display:block;max-width:calc(95vw - 150px);max-height:65vh;width:auto;height:auto;object-fit:contain;border-radius:10px">
+        <button id="qrPhotoNext" class="button secondary" type="button" aria-label="Next picture">›</button>
+      </div>
+      <div id="qrPhotoThumbs" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px"></div>
+    </div>
+  `;
+
+  document.body.appendChild(viewer);
+
+  const main = viewer.querySelector("#qrPhotoMain");
+  const counter = viewer.querySelector("#qrPhotoCounter");
+  const prev = viewer.querySelector("#qrPhotoPrev");
+  const next = viewer.querySelector("#qrPhotoNext");
+  const thumbs = viewer.querySelector("#qrPhotoThumbs");
+
+  function render() {
+    main.src = imageUrls[currentIndex];
+    counter.textContent = `Picture ${currentIndex + 1} of ${imageUrls.length}`;
+    prev.disabled = imageUrls.length < 2;
+    next.disabled = imageUrls.length < 2;
+    thumbs.querySelectorAll("button").forEach((button, index) => {
+      button.style.opacity = index === currentIndex ? "1" : "0.6";
+    });
+  }
+
+  imageUrls.forEach((url, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.style.cssText = "padding:0;border:2px solid transparent;background:none;border-radius:8px;cursor:pointer";
+    button.innerHTML = `<img src="${escapeHtml(url)}" alt="Picture ${index + 1}" style="display:block;width:64px;height:64px;object-fit:cover;border-radius:6px">`;
+    button.addEventListener("click", () => {
+      currentIndex = index;
+      render();
+    });
+    thumbs.appendChild(button);
+  });
+
+  prev.addEventListener("click", () => {
+    currentIndex = (currentIndex - 1 + imageUrls.length) % imageUrls.length;
+    render();
+  });
+
+  next.addEventListener("click", () => {
+    currentIndex = (currentIndex + 1) % imageUrls.length;
+    render();
+  });
+
+  viewer.querySelector(".close").addEventListener("click", () => viewer.remove());
+  viewer.addEventListener("click", event => {
+    if (event.target === viewer) viewer.remove();
+  });
+  viewer.addEventListener("keydown", event => {
+    if (event.key === "Escape") viewer.remove();
+    if (event.key === "ArrowLeft") prev.click();
+    if (event.key === "ArrowRight") next.click();
+  });
+
+  viewer.tabIndex = -1;
+  viewer.focus();
+  render();
+}
+
 async function renderManagementQuoteRequests() {
   const content = document.getElementById("pageContent");
   if (!content) return;
@@ -92,7 +176,7 @@ async function renderManagementQuoteRequests() {
     imageUrls: await getImageUrls(request.image_paths)
   })));
 
-  list.innerHTML = rows.map(({ request, imageUrls }) => `
+  list.innerHTML = rows.map(({ request, imageUrls }, rowIndex) => `
     <div class="job-row" style="align-items:flex-start;gap:16px;flex-wrap:wrap">
       <div style="flex:1;min-width:240px">
         <strong>${escapeHtml(request.customer_name)}</strong>
@@ -104,9 +188,9 @@ async function renderManagementQuoteRequests() {
         ${request.preferred_date ? `<div class="muted" style="margin-top:4px">Preferred date: ${escapeHtml(request.preferred_date)}</div>` : ""}
         ${imageUrls.length ? `
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-            ${imageUrls.map(url => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(url)}" alt="Job photo" style="width:88px;height:88px;object-fit:cover;border-radius:8px;border:1px solid var(--border,#e5e7eb)"></a>`).join("")}
+            ${imageUrls.map((url, imageIndex) => `<button type="button" data-quote-photo-row="${rowIndex}" data-quote-photo-index="${imageIndex}" style="padding:0;border:0;background:none;cursor:pointer"><img src="${escapeHtml(url)}" alt="Job photo ${imageIndex + 1}" style="display:block;width:88px;height:88px;object-fit:cover;border-radius:8px;border:1px solid var(--border,#e5e7eb)"></button>`).join("")}
           </div>
-          <div class="muted" style="margin-top:5px">${imageUrls.length} picture${imageUrls.length === 1 ? "" : "s"}</div>
+          <div class="muted" style="margin-top:5px">${imageUrls.length} picture${imageUrls.length === 1 ? "" : "s"} · click a picture to view</div>
         ` : ""}
       </div>
       <div style="display:flex;align-items:center;gap:8px">
@@ -115,6 +199,15 @@ async function renderManagementQuoteRequests() {
       </div>
     </div>
   `).join("");
+
+  list.querySelectorAll("[data-quote-photo-row]").forEach(button => {
+    button.addEventListener("click", () => {
+      const rowIndex = Number(button.dataset.quotePhotoRow);
+      const imageIndex = Number(button.dataset.quotePhotoIndex);
+      const row = rows[rowIndex];
+      if (row) openQuoteRequestPhotoViewer(row.imageUrls, imageIndex);
+    });
+  });
 
   list.querySelectorAll("[data-quote-request-id]").forEach(button => {
     button.addEventListener("click", () => {

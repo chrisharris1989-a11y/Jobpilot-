@@ -195,7 +195,7 @@ async function renderManagementQuoteRequests() {
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span class="muted">${escapeHtml(String(request.status || "pending").replace("_", " "))}</span>
-        ${request.status !== "quoted" ? `<button class="button primary" type="button" data-quote-request-id="${request.id}">Generate Quote</button>` : "<span>✓ Quoted</span>"}
+        ${request.status !== "quoted" ? `<button class="button primary" type="button" data-quote-request-id="${request.id}">View Details</button>` : "<span>✓ Quoted</span>"}
       </div>
     </div>
   `).join("");

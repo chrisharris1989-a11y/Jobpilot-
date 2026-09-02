@@ -1,5 +1,4 @@
 import { supabase } from "../supabase.js";
-import { getCompanyContext } from "../company-context.js";
 
 (function () {
   let started = false;
@@ -9,6 +8,10 @@ import { getCompanyContext } from "../company-context.js";
 
   function isSettings() {
     return document.getElementById("pageTitle")?.textContent.trim() === "Settings";
+  }
+
+  function getCompanyContext() {
+    return window.JobPilotCompany || null;
   }
 
   function getCurrentSessionUserId() {
@@ -38,7 +41,8 @@ import { getCompanyContext } from "../company-context.js";
   }
 
   function canManageBilling(company) {
-    const { membership } = getCompanyContext();
+    const context = getCompanyContext();
+    const membership = context?.membership;
     if (membership?.status === "active" && ["owner", "admin"].includes(membership.role)) return true;
     return Boolean(company?.owner_id && company.owner_id === getCurrentSessionUserId());
   }

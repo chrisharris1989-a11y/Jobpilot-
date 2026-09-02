@@ -13,6 +13,16 @@ async function getManagementRole() {
 
 function getManagementButton() { return document.getElementById("jobpilot-management-button"); }
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>\"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c])); }
+function setManagementHeader(title, subtitle) {
+  const pageTitle = document.getElementById("pageTitle");
+  const pageSubtitle = document.getElementById("pageSubtitle");
+  if (pageTitle) pageTitle.textContent = title;
+  if (pageSubtitle) pageSubtitle.textContent = subtitle;
+}
+function setManagementActive() {
+  document.querySelectorAll(".nav-item").forEach(button => button.classList.remove("active"));
+  getManagementButton()?.classList.add("active");
+}
 
 async function loadTeam() {
   const list = document.getElementById("jobpilot-team-list");
@@ -55,29 +65,45 @@ async function handleTeamAction(event) {
   await loadTeam();
 }
 
+function openSettings() {
+  const settingsButton = document.querySelector('.nav-item[data-page="settings"]');
+  if (settingsButton) settingsButton.click();
+}
+
+function renderUsersTeam() {
+  const content = document.getElementById("pageContent");
+  if (!content) return;
+  setManagementHeader("Users & Team", "Manage your company users, roles and access.");
+  setManagementActive();
+  content.innerHTML = `
+    <div class="page-actions"><div><h2>Users & Team</h2><p>Manage the people who have access to this JobPilot company.</p></div><button id="jobpilot-invite-user" class="primary-button" type="button">+ Invite user</button></div>
+    <div class="panel"><div class="panel-header"><div><h2>Company users</h2><p>Owners and admins can manage roles and access.</p></div><span id="jobpilot-team-count" class="muted"></span></div><div id="jobpilot-team-list"></div></div>
+    <button id="jobpilot-management-back" class="secondary-button" type="button" style="margin-top:16px">← Back to Management</button>`;
+  document.getElementById("jobpilot-team-list")?.addEventListener("click", handleTeamAction);
+  document.getElementById("jobpilot-invite-user")?.addEventListener("click", () => alert("User invitations are the next part of team management."));
+  document.getElementById("jobpilot-management-back")?.addEventListener("click", renderManagementPage);
+  loadTeam();
+}
+
 function renderManagementPage() {
   const content = document.getElementById("pageContent");
-  const title = document.getElementById("pageTitle");
-  const subtitle = document.getElementById("pageSubtitle");
   if (!content) return;
-  document.querySelectorAll(".nav-item").forEach(button => button.classList.remove("active"));
-  getManagementButton()?.classList.add("active");
-  if (title) title.textContent = "Management";
-  if (subtitle) subtitle.textContent = "Manage your JobPilot company.";
+  setManagementHeader("Management", "Manage your JobPilot company.");
+  setManagementActive();
   content.innerHTML = `
     <div class="page-actions"><div><h2>Management</h2><p>Company and team management.</p></div></div>
     <div class="content-grid">
-      <div class="panel">
-        <div class="panel-header"><div><h2>👥 Users & Team</h2><p>Manage your company users, roles and access.</p></div><span id="jobpilot-team-count" class="muted"></span></div>
-        <div id="jobpilot-team-list"></div>
-        <div style="margin-top:16px"><button id="jobpilot-invite-user" class="primary-button" type="button">+ Invite user</button></div>
-      </div>
-      <div class="panel"><div class="panel-header"><div><h2>🏢 Company</h2><p>Manage company-level settings.</p></div></div><p class="muted" style="margin:16px 0 0;">Company settings coming next.</p></div>
-      <div class="panel"><div class="panel-header"><div><h2>💳 Billing</h2><p>Manage your JobPilot plan and billing.</p></div></div><p class="muted" style="margin:16px 0 0;">Billing management is available from Subscription.</p></div>
+      <button class="panel jobpilot-management-card" type="button" data-management-section="users" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb);"><div class="panel-header"><div><h2>👥 Users & Team</h2><p>Manage company users, roles and access.</p></div><span aria-hidden="true">→</span></div><p class="muted" style="margin:16px 0 0;">Add users, change roles, suspend or remove access.</p></button>
+      <button class="panel jobpilot-management-card" type="button" data-management-section="company" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb);"><div class="panel-header"><div><h2>🏢 Company</h2><p>Manage company-level settings.</p></div><span aria-hidden="true">→</span></div><p class="muted" style="margin:16px 0 0;">Open your company details and settings.</p></button>
+      <button class="panel jobpilot-management-card" type="button" data-management-section="billing" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb);"><div class="panel-header"><div><h2>💳 Billing</h2><p>Manage your JobPilot plan and billing.</p></div><span aria-hidden="true">→</span></div><p class="muted" style="margin:16px 0 0;">Open subscription and billing settings.</p></button>
     </div>`;
-  document.getElementById("jobpilot-team-list")?.addEventListener("click", handleTeamAction);
-  document.getElementById("jobpilot-invite-user")?.addEventListener("click", () => alert("User invitations are the next part of team management."));
-  loadTeam();
+  content.querySelectorAll("[data-management-section]").forEach(card => {
+    card.addEventListener("click", () => {
+      const section = card.dataset.managementSection;
+      if (section === "users") renderUsersTeam();
+      if (section === "company" || section === "billing") openSettings();
+    });
+  });
 }
 
 function addManagementButton() {

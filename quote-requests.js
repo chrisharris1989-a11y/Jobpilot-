@@ -58,7 +58,7 @@ function showQuoteRequestForm() {
 
         <label>Pictures</label>
         <input id="qrPictures" type="file" accept="image/*" multiple>
-        <div class="muted" style="margin-top:6px">Add photos of the job to help management prepare the quote. You can select multiple pictures.</div>
+        <div id="qrPictureStatus" class="muted" style="margin-top:6px">Add photos of the job to help management prepare the quote. You can add up to 10 pictures, including taking them one at a time.</div>
 
         <div id="qrMessage" class="muted" style="margin-top:12px"></div>
 
@@ -76,13 +76,44 @@ function showQuoteRequestForm() {
     button.addEventListener("click", () => modal.remove());
   });
 
+  const pictureInput = modal.querySelector("#qrPictures");
+  const pictureStatus = modal.querySelector("#qrPictureStatus");
+  let selectedPictures = [];
+
+  pictureInput.addEventListener("change", () => {
+    const newlySelected = Array.from(pictureInput.files || []);
+
+    for (const file of newlySelected) {
+      const duplicate = selectedPictures.some(existing =>
+        existing.name === file.name &&
+        existing.size === file.size &&
+        existing.lastModified === file.lastModified
+      );
+
+      if (!duplicate && selectedPictures.length < 10) {
+        selectedPictures.push(file);
+      }
+    }
+
+    if (newlySelected.length && selectedPictures.length >= 10) {
+      pictureStatus.textContent = "10 pictures selected (maximum).";
+    } else if (selectedPictures.length) {
+      pictureStatus.textContent = `${selectedPictures.length} picture${selectedPictures.length === 1 ? "" : "s"} selected. Tap the picture button again to add another.`;
+    } else {
+      pictureStatus.textContent = "Add photos of the job to help management prepare the quote. You can add up to 10 pictures, including taking them one at a time.";
+    }
+
+    // A mobile camera/file picker replaces the input's FileList each time it is opened.
+    // Keep our own array so taking a second photo does not replace the first.
+    pictureInput.value = "";
+  });
+
   modal.querySelector("#jobpilotQuoteRequestForm").addEventListener("submit", async event => {
     event.preventDefault();
 
     const message = modal.querySelector("#qrMessage");
     const submit = modal.querySelector("button[type=submit]");
-    const pictureInput = modal.querySelector("#qrPictures");
-    const pictures = Array.from(pictureInput.files || []);
+    const pictures = selectedPictures;
 
     if (pictures.length > 10) {
       message.textContent = "Please select no more than 10 pictures.";

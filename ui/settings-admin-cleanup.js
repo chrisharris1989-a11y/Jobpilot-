@@ -1,5 +1,5 @@
 // Keep Settings focused on personal/app preferences.
-// Company, connections and billing/accounting administration live under Management.
+// Company, connections/accounting and billing administration live under Management.
 
 const REMOVED_SETTINGS_IDS = [
   "jobpilot-subscription-section",
@@ -23,15 +23,12 @@ function removeSettingsAdminSections() {
   if (!isSettingsPage()) return;
 
   REMOVED_SETTINGS_IDS.forEach(id => document.getElementById(id)?.remove());
-  document.querySelectorAll('.nav-item[data-page="connections"]').forEach(button => button.remove());
 
-  // Remove sections/groups regardless of which UI module created them.
-  document.querySelectorAll("h2, h3").forEach(heading => {
-    const text = heading.textContent.trim();
-    if (!REMOVED_SETTINGS_HEADINGS.has(text)) return;
-
-    const section = heading.closest(".settings-section, .settings-group, .settings-card, .connection-group, section");
-    if (section) section.remove();
+  // Connections is a top-level navigation item. It must never be removed here.
+  // Only remove the old Connections content if it is actually inside Settings.
+  document.querySelectorAll(".settings-section, .settings-group, .settings-card, .connection-group, section").forEach(section => {
+    const heading = section.querySelector(":scope > h2, :scope > h3")?.textContent.trim();
+    if (heading && REMOVED_SETTINGS_HEADINGS.has(heading)) section.remove();
   });
 
   // Subscription can be injected after Settings renders, so explicitly remove it again.

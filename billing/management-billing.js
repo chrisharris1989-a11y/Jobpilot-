@@ -10,9 +10,9 @@ import { supabase } from "../supabase.js";
 
   const allowedPlans = {
     solo: ["team", "business", "pro"],
-    team: ["business", "pro"],
-    business: ["pro"],
-    pro: []
+    team: ["solo", "business", "pro"],
+    business: ["solo", "team", "pro"],
+    pro: ["solo", "team", "business"]
   };
 
   function isBillingPage() {
@@ -38,13 +38,13 @@ import { supabase } from "../supabase.js";
     const context = window.JobPilotCompany || null;
     if (context?.company) return context.company;
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } = {} } = await supabase.auth.getSession();
     const userId = session?.user?.id;
     if (!userId) return null;
 
     const { data, error } = await supabase
       .from("companies")
-      .select("id,name,plan,max_users,owner_id,billing_status")
+      .select("id,name,plan,max_users,owner_id,billing_status,test_mode")
       .eq("owner_id", userId)
       .maybeSingle();
 
@@ -57,6 +57,30 @@ import { supabase } from "../supabase.js";
 
   function formatPrice(plan) {
     return `£${plan.price.toFixed(2)}/month`;
+  }
+
+  async function switchTestPlan(plan, message) {
+    if (message) {
+      message.textContent = "Switching test plan...";
+      message.style.color = "#64748b";
+    }
+    try {
+      const { data, error } = await supabase.rpc("set_test_company_plan", { target_plan: plan });
+      if (error) throw error;
+      const result = Array.isArray(data) ? data[0] : data;
+      if (message) {
+        message.textContent = `Test plan changed to ${PLANS[plan].label}. No Stripe payment was made.`;
+        message.style.color = "#166534";
+      }
+      return result;
+    } catch (error) {
+      console.error("JobPilot test billing error:", error);
+      if (message) {
+        message.textContent = error.message || "Could not change test plan.";
+        message.style.color = "#b91c1c";
+      }
+      return null;
+    }
   }
 
   async function openBilling(action, plan, message) {
@@ -116,6 +140,7 @@ import { supabase } from "../supabase.js";
             </div>
             <div id="jobpilot-management-plan-price"></div>
           </div>
+          <div id="jobpilot-management-test-badge" style="display:none;margin-top:10px;"></div>
           <div id="jobpilot-management-billing-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:20px;"></div>
           <div id="jobpilot-management-upgrade-options" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;"></div>
           <div id="jobpilot-management-billing-message" style="margin-top:12px;font-size:13px;"></div>
@@ -129,6 +154,7 @@ import { supabase } from "../supabase.js";
 
     const summary = document.getElementById("jobpilot-management-plan-summary");
     const price = document.getElementById("jobpilot-management-plan-price");
+    const badge = document.getElementById("jobpilot-management-test-badge");
     const actions = document.getElementById("jobpilot-management-billing-actions");
     const options = document.getElementById("jobpilot-management-upgrade-options");
     const message = document.getElementById("jobpilot-management-billing-message");
@@ -136,29 +162,38 @@ import { supabase } from "../supabase.js";
     const company = await resolveCompany();
     const contextPlan = String(company?.plan || "solo").toLowerCase();
     const fallback = PLANS[contextPlan] || PLANS.solo;
+    const isTest = company?.test_mode === true;
 
-    function paint(planName, entitlement = null) {
+    if (isTest && badge) {
+      badge.style.display = "inline-block";
+      badge.innerHTML = '<span style="display:inline-block;padding:4px 9px;border-radius:999px;background:#dcfce7;color:#166534;font-size:12px;font-weight:700;">TEST</span>';
+    }
+
+    async function paint(planName, entitlement = null) {
       const details = PLANS[planName] || fallback;
       summary.textContent = `${details.label} · Up to ${details.users} user${details.users === 1 ? "" : "s"}`;
       price.textContent = formatPrice(details);
       actions.innerHTML = "";
       options.innerHTML = "";
 
-      const planChoices = allowedPlans[planName] || [];
+      const planChoices = isTest ? Object.keys(PLANS).filter(name => name !== planName) : (allowedPlans[planName] || []);
       if (planChoices.length) {
         const changeLabel = document.createElement("div");
         changeLabel.style.width = "100%";
         changeLabel.style.marginBottom = "4px";
         changeLabel.style.fontWeight = "600";
-        changeLabel.textContent = "Change plan";
+        changeLabel.textContent = isTest ? "Change test plan" : "Change plan";
         options.appendChild(changeLabel);
 
         planChoices.forEach(name => {
           const option = button(`${PLANS[name].label} · ${formatPrice(PLANS[name])}`, "button");
-          option.addEventListener("click", () => {
-            const confirmed = window.confirm(
-              `Are you sure you want to change your plan to ${PLANS[name].label} at ${formatPrice(PLANS[name])}?`
-            );
+          option.addEventListener("click", async () => {
+            if (isTest) {
+              const result = await switchTestPlan(name, message);
+              if (result) await paint(String(result.plan || name).toLowerCase(), null);
+              return;
+            }
+            const confirmed = window.confirm(`Are you sure you want to change your plan to ${PLANS[name].label} at ${formatPrice(PLANS[name])}?`);
             if (confirmed) openBilling("checkout", name, message);
           });
           options.appendChild(option);
@@ -172,29 +207,30 @@ import { supabase } from "../supabase.js";
       }
 
       const status = String(entitlement?.subscription_status || "").toLowerCase();
-      if (["active", "trialing", "past_due", "canceled"].includes(status)) {
+      if (!isTest && ["active", "trialing", "past_due", "canceled"].includes(status)) {
         const manage = button("Manage billing", "button");
         manage.addEventListener("click", () => openBilling("portal", null, message));
         actions.appendChild(manage);
       }
-
-      if (entitlement?.cancel_at_period_end && entitlement?.current_period_end) {
-        message.textContent = `Your subscription is scheduled to end on ${new Date(entitlement.current_period_end).toLocaleDateString()}.`;
-        message.style.color = "#92400e";
-      }
     }
 
-    paint(contextPlan);
+    await paint(contextPlan);
 
-    try {
-      const { data, error } = await supabase.rpc("get_my_company_entitlements");
-      if (!error && data?.length) {
-        const entitlement = data[0];
-        const actualPlan = String(entitlement.plan || contextPlan).toLowerCase();
-        paint(actualPlan, entitlement);
+    if (!isTest) {
+      try {
+        const { data, error } = await supabase.rpc("get_my_company_entitlements");
+        if (!error && data?.length) {
+          const entitlement = data[0];
+          const actualPlan = String(entitlement.plan || contextPlan).toLowerCase();
+          await paint(actualPlan, entitlement);
+          if (entitlement.cancel_at_period_end && entitlement.current_period_end) {
+            message.textContent = `Your subscription is scheduled to end on ${new Date(entitlement.current_period_end).toLocaleDateString()}.`;
+            message.style.color = "#92400e";
+          }
+        }
+      } catch (error) {
+        console.error("JobPilot billing entitlement:", error);
       }
-    } catch (error) {
-      console.error("JobPilot billing entitlement:", error);
     }
   }
 

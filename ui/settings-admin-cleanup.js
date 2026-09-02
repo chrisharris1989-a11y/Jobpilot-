@@ -21,6 +21,33 @@ function isSettingsPage() {
   return document.getElementById("pageTitle")?.textContent.trim() === "Settings";
 }
 
+function preserveDocumentSettings() {
+  const panel = document.querySelector(".settings-panel");
+  if (!panel) return;
+
+  const settings = JSON.parse(localStorage.getItem("jobpilot_settings") || "{}");
+  const values = {
+    settingsInvoicePrefix: settings.invoicePrefix || "INV-",
+    settingsNextInvoiceNumber: settings.nextInvoiceNumber || 1,
+    settingsPaymentTerms: settings.paymentTerms || 30,
+    settingsVatRate: settings.vatRate ?? 20,
+    settingsInvoiceFooter: settings.invoiceFooter || "",
+    settingsQuotePrefix: settings.quotePrefix || "QUO-",
+    settingsNextQuoteNumber: settings.nextQuoteNumber || 1,
+    settingsQuoteValidity: settings.quoteValidity || 30,
+    settingsQuoteFooter: settings.quoteFooter || ""
+  };
+
+  Object.entries(values).forEach(([id, value]) => {
+    if (document.getElementById(id)) return;
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.id = id;
+    input.value = value;
+    panel.appendChild(input);
+  });
+}
+
 function removeSettingsAdminSections() {
   if (!isSettingsPage()) return;
 
@@ -55,6 +82,8 @@ function removeSettingsAdminSections() {
 
   // Subscription can be injected after Settings renders, so explicitly remove it again.
   document.getElementById("jobpilot-subscription-section")?.remove();
+
+  preserveDocumentSettings();
 }
 
 const observer = new MutationObserver(removeSettingsAdminSections);

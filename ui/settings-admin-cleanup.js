@@ -14,7 +14,8 @@ const REMOVED_SETTINGS_HEADINGS = new Set([
   "💳 Payments",
   "Subscription",
   "Invoice Settings",
-  "Quote Settings"
+  "Quote Settings",
+  "Customer Invoice Information"
 ]);
 
 function isSettingsPage() {
@@ -60,11 +61,10 @@ function removeSettingsAdminSections() {
     if (heading && REMOVED_SETTINGS_HEADINGS.has(heading)) section.remove();
   });
 
-  // Invoice and Quote settings are rendered as headings directly in the main settings panel,
-  // so remove their complete sections up to the next separator/section heading.
+  // Remove document/invoice sections if they are rendered directly in the Settings panel.
   document.querySelectorAll(".settings-panel h2").forEach(heading => {
     const text = heading.textContent.trim();
-    if (text !== "Invoice Settings" && text !== "Quote Settings") return;
+    if (!REMOVED_SETTINGS_HEADINGS.has(text)) return;
 
     let node = heading;
     while (node) {
@@ -80,9 +80,7 @@ function removeSettingsAdminSections() {
     }
   });
 
-  // Subscription can be injected after Settings renders, so explicitly remove it again.
   document.getElementById("jobpilot-subscription-section")?.remove();
-
   preserveDocumentSettings();
 }
 

@@ -21,10 +21,6 @@ import { supabase } from "../supabase.js";
     return window.JobPilotCompany || null;
   }
 
-  function getCurrentSessionUserId() {
-    return window.__jobpilotBillingUserId || null;
-  }
-
   async function resolveCompany() {
     const context = getCompanyContext();
     if (context?.company) return context.company;
@@ -53,7 +49,6 @@ import { supabase } from "../supabase.js";
 
   function populateBillingSection(section) {
     if (!section) return;
-
     if (!section.querySelector("#jobpilot-subscription-content")) {
       section.innerHTML = `
         <h2>Subscription</h2>
@@ -75,28 +70,23 @@ import { supabase } from "../supabase.js";
 
   function findBillingSection(panel) {
     let section = panel.querySelector("#jobpilot-subscription-section");
-
     if (!section) {
       section = document.createElement("section");
       section.id = "jobpilot-subscription-section";
       section.className = "settings-section";
-
       const businessHeading = Array.from(panel.querySelectorAll("h2"))
         .find((heading) => heading.textContent.trim() === "Business Details");
       const businessSection = businessHeading?.closest(".settings-section");
-
       if (businessSection && businessSection.parentElement === panel) panel.insertBefore(section, businessSection);
       else if (businessHeading && businessHeading.parentElement === panel) panel.insertBefore(section, businessHeading);
       else panel.appendChild(section);
     }
-
     populateBillingSection(section);
     return section;
   }
 
   function addUpgradeButton(actions, allowedPlans) {
     if (!actions || !allowedPlans.length || actions.querySelector("#jobpilot-upgrade-button")) return;
-
     const upgrade = button("Upgrade account", "button primary");
     upgrade.id = "jobpilot-upgrade-button";
     upgrade.addEventListener("click", () => showUpgradeOptions(actions, allowedPlans));
@@ -107,7 +97,6 @@ import { supabase } from "../supabase.js";
     const section = findBillingSection(panel);
     const content = section?.querySelector("#jobpilot-subscription-content");
     if (!content) return null;
-
     const planSummary = content.querySelector("#jobpilot-plan-summary");
     const planPrice = content.querySelector("#jobpilot-plan-price");
     const actions = content.querySelector("#jobpilot-upgrade-actions");
@@ -125,18 +114,14 @@ import { supabase } from "../supabase.js";
       business: ["pro"],
       pro: []
     }[contextPlan] || [];
-
     addUpgradeButton(actions, allowedPlans);
-
     return { company, contextPlan, plan };
   }
 
   async function render() {
     if (rendering || !isSettings()) return;
-
     const panel = document.querySelector(".settings-panel");
     if (!panel) return;
-
     rendering = true;
     try {
       const company = await resolveCompany();
@@ -162,7 +147,6 @@ import { supabase } from "../supabase.js";
           console.error("JobPilot billing entitlement:", error);
           return;
         }
-
         const entitlement = data[0];
         const section = findBillingSection(panel);
         const planSummary = section?.querySelector("#jobpilot-plan-summary");
@@ -181,7 +165,6 @@ import { supabase } from "../supabase.js";
           business: ["pro"],
           pro: []
         }[actualPlan] || [];
-
         addUpgradeButton(actions, allowedPlans);
 
         if (entitlement.subscription_status && ["active", "trialing", "past_due", "canceled"].includes(entitlement.subscription_status)) {
@@ -216,7 +199,10 @@ import { supabase } from "../supabase.js";
   }
 
   function showUpgradeOptions(actions, allowedPlans) {
-    const existing = actions?.parentElement?.querySelector("#jobpilot-upgrade-options");
+    // The options container is a sibling of the actions row, not a child of it.
+    // Look from the subscription content so the click can actually reveal it.
+    const content = actions?.closest("#jobpilot-subscription-content");
+    const existing = content?.querySelector("#jobpilot-upgrade-options");
     if (!existing) return;
 
     existing.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;width:100%;margin-top:12px;";
@@ -238,12 +224,10 @@ import { supabase } from "../supabase.js";
       message.textContent = "Opening Stripe billing...";
       message.style.color = "#64748b";
     }
-
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
       if (!session) throw new Error("You are not logged in.");
-
       const response = await fetch("https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-billing-v1", {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
@@ -273,14 +257,10 @@ import { supabase } from "../supabase.js";
   async function start() {
     if (started) return;
     started = true;
-
     const { data: { session } } = await supabase.auth.getSession();
     window.__jobpilotBillingUserId = session?.user?.id || null;
 
     const observer = new MutationObserver((mutations) => {
-      // The billing UI mutates its own DOM when the user opens the upgrade
-      // menu or starts checkout. Do not immediately re-render it and destroy
-      // the controls the user just clicked.
       const billingSection = document.getElementById("jobpilot-subscription-section");
       const relevantMutation = mutations.some((mutation) => {
         const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;

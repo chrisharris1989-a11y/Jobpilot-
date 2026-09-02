@@ -47,13 +47,6 @@ import { supabase } from "../supabase.js";
     return data || null;
   }
 
-  function canManageBilling(company) {
-    const context = getCompanyContext();
-    const membership = context?.membership;
-    if (membership?.status === "active" && ["owner", "admin"].includes(membership.role)) return true;
-    return Boolean(company?.owner_id && company.owner_id === getCurrentSessionUserId());
-  }
-
   function formatPrice(plan) {
     return `£${plan.price.toFixed(2)}/month`;
   }
@@ -101,6 +94,15 @@ import { supabase } from "../supabase.js";
     return section;
   }
 
+  function addUpgradeButton(actions, allowedPlans) {
+    if (!actions || !allowedPlans.length || actions.querySelector("#jobpilot-upgrade-button")) return;
+
+    const upgrade = button("Upgrade account", "button primary");
+    upgrade.id = "jobpilot-upgrade-button";
+    upgrade.addEventListener("click", () => showUpgradeOptions(actions, allowedPlans));
+    actions.appendChild(upgrade);
+  }
+
   function renderFromCompany(panel, company) {
     const section = findBillingSection(panel);
     const content = section?.querySelector("#jobpilot-subscription-content");
@@ -124,16 +126,11 @@ import { supabase } from "../supabase.js";
       pro: []
     }[contextPlan] || [];
 
-    // The Edge Function performs the authoritative owner/admin check.
-    // Keep the upgrade UI available for authenticated users even when the
-    // company context is not available yet, so valid owners do not lose the
-    // controls simply because the client-side company lookup is delayed/RLS-limited.
-    if (getCurrentSessionUserId() && allowedPlans.length) {
-      const upgrade = button("Upgrade account", "button primary");
-      upgrade.id = "jobpilot-upgrade-button";
-      upgrade.addEventListener("click", () => showUpgradeOptions(actions, allowedPlans));
-      actions.appendChild(upgrade);
-    }
+    // Settings is only rendered for an authenticated app session. Do not
+    // gate the visual control on a separate client-side session/company
+    // bootstrap, because that can lag behind the main app authentication.
+    // The Edge Function remains the authoritative owner/admin check.
+    addUpgradeButton(actions, allowedPlans);
 
     return { company, contextPlan, plan };
   }
@@ -154,12 +151,7 @@ import { supabase } from "../supabase.js";
         const actions = section?.querySelector("#jobpilot-upgrade-actions");
         if (summary) summary.textContent = "Solo · Up to 1 user";
         if (price) price.textContent = formatPrice(PLANS.solo);
-        if (actions && getCurrentSessionUserId() && !actions.querySelector("#jobpilot-upgrade-button")) {
-          const upgrade = button("Upgrade account", "button primary");
-          upgrade.id = "jobpilot-upgrade-button";
-          upgrade.addEventListener("click", () => showUpgradeOptions(actions, ["team", "business", "pro"]));
-          actions.appendChild(upgrade);
-        }
+        addUpgradeButton(actions, ["team", "business", "pro"]);
         scheduleRetry();
         return;
       }
@@ -194,12 +186,7 @@ import { supabase } from "../supabase.js";
           pro: []
         }[actualPlan] || [];
 
-        if (getCurrentSessionUserId() && allowedPlans.length && !actions.querySelector("#jobpilot-upgrade-button")) {
-          const upgrade = button("Upgrade account", "button primary");
-          upgrade.id = "jobpilot-upgrade-button";
-          upgrade.addEventListener("click", () => showUpgradeOptions(actions, allowedPlans));
-          actions.appendChild(upgrade);
-        }
+        addUpgradeButton(actions, allowedPlans);
 
         if (entitlement.subscription_status && ["active", "trialing", "past_due", "canceled"].includes(entitlement.subscription_status)) {
           if (!actions.querySelector("#jobpilot-manage-billing")) {
@@ -233,10 +220,9 @@ import { supabase } from "../supabase.js";
   }
 
   function showUpgradeOptions(actions, allowedPlans) {
-    const existing = actions.parentElement.querySelector("#jobpilot-upgrade-options");
+    const existing = actions?.parentElement?.querySelector("#jobpilot-upgrade-options");
     if (!existing) return;
 
-    existing.style.display = "flex";
     existing.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;width:100%;margin-top:12px;";
     existing.innerHTML = "";
 

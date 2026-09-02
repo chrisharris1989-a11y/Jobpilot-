@@ -6,11 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
-
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
-  status,
-  headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" }
-});
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" } });
 const clean = (v: unknown) => String(v ?? "").trim();
 
 Deno.serve(async (req) => {
@@ -18,7 +14,6 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "Unauthorized" }, 401);
-
   const url = Deno.env.get("SUPABASE_URL")!;
   const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -33,8 +28,9 @@ Deno.serve(async (req) => {
   const { data: membership, error: membershipError } = await admin.from("company_members").select("company_id, role, status").eq("user_id", caller.id).eq("status", "active").limit(1).maybeSingle();
   if (membershipError || !membership || !["owner", "admin"].includes(clean(membership.role).toLowerCase())) return json({ error: "You do not have permission to manage company users." }, 403);
   const companyId = membership.company_id;
-  const { data: company, error: companyError } = await admin.from("companies").select("id, name, plan, max_users, owner_id").eq("id", companyId).maybeSingle();
+  const { data: company, error: companyError } = await admin.from("companies").select("id, name, plan, max_users, owner_id, test_mode").eq("id", companyId).maybeSingle();
   if (companyError || !company) return json({ error: "Company could not be found." }, 404);
+  const isTestMode = company.test_mode === true;
 
   if (action === "list") {
     const { data: members, error } = await admin.from("company_members").select("id, user_id, role, status, joined_at, created_at").eq("company_id", companyId).order("created_at", { ascending: true });
@@ -45,14 +41,16 @@ Deno.serve(async (req) => {
       const meta = authUser?.user?.user_metadata || {};
       users.push({ membership_id: member.id, user_id: member.user_id, email: authUser?.user?.email || "", name: clean(meta.name || meta.full_name), phone: clean(meta.phone), role: member.role === "member" ? "user" : member.role, status: member.status, joined_at: member.joined_at || member.created_at, is_owner: String(company.owner_id) === String(member.user_id) });
     }
-    return json({ company: { id: company.id, name: company.name, plan: company.plan, max_users: company.max_users }, users });
+    return json({ company: { id: company.id, name: company.name, plan: company.plan, max_users: company.max_users, test_mode: isTestMode }, users });
   }
 
   if (action === "invite") {
-    const email = clean(body.email).toLowerCase(), name = clean(body.name), phone = clean(body.phone), role = clean(body.role).toLowerCase();
+    const email = clean(body.email).toLowerCase(), name = clean(body.name), phone = clean(body.phone), role = clean(body.role).toLowerCase(), password = clean(body.password);
     if (!email || !email.includes("@")) return json({ error: "A valid email address is required." }, 400);
     if (!name) return json({ error: "Name is required." }, 400);
     if (!["user", "admin"].includes(role)) return json({ error: "Role must be User or Admin." }, 400);
+    if (isTestMode && (!password || password.length < 8)) return json({ error: "A temporary password of at least 8 characters is required for TEST users." }, 400);
+    if (!isTestMode && password) return json({ error: "Passwords can only be supplied for TEST users." }, 400);
     const dbRole = role === "user" ? "member" : role;
     const { count: activeCount, error: countError } = await admin.from("company_members").select("id", { count: "exact", head: true }).eq("company_id", companyId).eq("status", "active");
     if (countError) return json({ error: countError.message }, 500);
@@ -62,26 +60,33 @@ Deno.serve(async (req) => {
     const { data: allUsers, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     if (listError) return json({ error: listError.message }, 500);
     let target = (allUsers.users || []).find(u => clean(u.email).toLowerCase() === email) || null;
+
     if (!target) {
-      const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, { data: { name, phone }, redirectTo: req.headers.get("origin") || "https://jobpilot-eosin.vercel.app/" });
-      if (inviteError) return json({ error: inviteError.message || "Unable to send invitation." }, 400);
-      target = invited.user;
+      if (isTestMode) {
+        const { data: created, error: createError } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { name, phone } });
+        if (createError) return json({ error: createError.message || "Unable to create TEST user." }, 400);
+        target = created.user;
+      } else {
+        const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, { data: { name, phone }, redirectTo: req.headers.get("origin") || "https://jobpilot-eosin.vercel.app/" });
+        if (inviteError) return json({ error: inviteError.message || "Unable to send invitation." }, 400);
+        target = invited.user;
+      }
     } else {
       const { data: existingMembership } = await admin.from("company_members").select("id, company_id, role, status").eq("user_id", target.id).eq("company_id", companyId).maybeSingle();
       if (existingMembership) {
         if (existingMembership.status === "active") return json({ error: "That user is already a member of this company." }, 409);
         const { error: reactivateError } = await admin.from("company_members").update({ role: dbRole, status: "active", joined_at: new Date().toISOString() }).eq("id", existingMembership.id);
         if (reactivateError) return json({ error: reactivateError.message }, 500);
-        await admin.auth.admin.updateUserById(target.id, { user_metadata: { ...(target.user_metadata || {}), name, phone } });
-        return json({ success: true, invited: false, reactivated: true });
+        await admin.auth.admin.updateUserById(target.id, { user_metadata: { ...(target.user_metadata || {}), name, phone }, ...(isTestMode && password ? { password } : {}) });
+        return json({ success: true, invited: false, reactivated: true, test_user: isTestMode });
       }
       const { data: otherMembership } = await admin.from("company_members").select("company_id, status").eq("user_id", target.id).eq("status", "active").limit(1).maybeSingle();
       if (otherMembership) return json({ error: "That email already belongs to another active company." }, 409);
-      await admin.auth.admin.updateUserById(target.id, { user_metadata: { ...(target.user_metadata || {}), name, phone } });
+      await admin.auth.admin.updateUserById(target.id, { user_metadata: { ...(target.user_metadata || {}), name, phone }, ...(isTestMode && password ? { password } : {}) });
     }
     const { error: memberError } = await admin.from("company_members").insert({ company_id: companyId, user_id: target.id, role: dbRole, status: "active", joined_at: new Date().toISOString() });
     if (memberError) return json({ error: memberError.message }, 500);
-    return json({ success: true, invited: true, user_id: target.id });
+    return json({ success: true, invited: !isTestMode, test_user: isTestMode, user_id: target.id });
   }
 
   if (action === "update") {

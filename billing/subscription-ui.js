@@ -11,10 +11,13 @@ import { getCompanyContext } from "../company-context.js";
     return document.getElementById("pageTitle")?.textContent.trim() === "Settings";
   }
 
-  function manager() {
+  async function manager() {
     const { company, membership } = getCompanyContext();
     if (membership?.status === "active" && ["owner", "admin"].includes(membership.role)) return true;
-    return Boolean(company?.owner_id && window.JobPilotCurrentUserId && company.owner_id === window.JobPilotCurrentUserId);
+    if (!company?.owner_id) return false;
+
+    const { data } = await supabase.auth.getSession();
+    return Boolean(data.session?.user?.id && data.session.user.id === company.owner_id);
   }
 
   function findBillingSection(panel) {
@@ -42,13 +45,9 @@ import { getCompanyContext } from "../company-context.js";
       .find((heading) => heading.textContent.trim() === "Business Details");
     const businessSection = businessHeading?.closest(".settings-section");
 
-    if (businessSection && businessSection.parentElement === panel) {
-      panel.insertBefore(section, businessSection);
-    } else if (businessHeading && businessHeading.parentElement === panel) {
-      panel.insertBefore(section, businessHeading);
-    } else {
-      panel.appendChild(section);
-    }
+    if (businessSection && businessSection.parentElement === panel) panel.insertBefore(section, businessSection);
+    else if (businessHeading && businessHeading.parentElement === panel) panel.insertBefore(section, businessHeading);
+    else panel.appendChild(section);
 
     return section;
   }
@@ -74,7 +73,7 @@ import { getCompanyContext } from "../company-context.js";
     const panel = document.querySelector(".settings-panel");
     if (!panel) return;
 
-    if (!manager()) {
+    if (!(await manager())) {
       scheduleRetry();
       return;
     }
@@ -109,8 +108,6 @@ import { getCompanyContext } from "../company-context.js";
     content.dataset.loaded = "true";
     retryCount = 0;
 
-    // Billing status is supplementary. The visible plan/upgrade controls above
-    // must remain available even if the entitlement RPC is temporarily unavailable.
     rendering = true;
     try {
       const { data, error } = await supabase.rpc("get_my_company_entitlements");
@@ -161,18 +158,12 @@ import { getCompanyContext } from "../company-context.js";
     options.id = "jobpilot-upgrade-options";
     options.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;width:100%;margin-top:8px;";
 
-    const labels = {
-      team: "Upgrade to Team",
-      business: "Upgrade to Business",
-      pro: "Upgrade to Pro"
-    };
-
+    const labels = { team: "Upgrade to Team", business: "Upgrade to Business", pro: "Upgrade to Pro" };
     allowedPlans.forEach((plan) => {
       const option = button(labels[plan], "button");
       option.addEventListener("click", () => openBilling("checkout", plan));
       options.appendChild(option);
     });
-
     actions.parentElement.appendChild(options);
   }
 
@@ -191,10 +182,7 @@ import { getCompanyContext } from "../company-context.js";
 
       const response = await fetch("https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-billing-v1", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json"
-        },
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ action, plan, origin: window.location.origin })
       });
       const result = await response.json();
@@ -227,10 +215,7 @@ import { getCompanyContext } from "../company-context.js";
     started = true;
     const observer = new MutationObserver(() => render());
     observer.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener("jobpilot:company-ready", () => {
-      retryCount = 0;
-      render();
-    });
+    window.addEventListener("jobpilot:company-ready", () => { retryCount = 0; render(); });
     render();
   }
 

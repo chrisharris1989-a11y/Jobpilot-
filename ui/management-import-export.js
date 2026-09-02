@@ -36,30 +36,15 @@ export function renderManagementImportExport() {
           <p>Bring existing appointments into JobPilot from your calendar.</p>
         </div>
       </div>
-      <p class="muted" style="margin-top:10px">Choose a calendar service to import appointments and turn them into JobPilot jobs. Calendar imports will be added here next.</p>
-      <div class="content-grid" style="margin-top:16px">
-        <div class="panel" style="margin:0">
-          <h3>Google Calendar</h3>
-          <p class="muted">Import appointments from Google Calendar.</p>
-          <button class="secondary-button" type="button" disabled>Coming soon</button>
-        </div>
-        <div class="panel" style="margin:0">
-          <h3>Apple Calendar</h3>
-          <p class="muted">Import appointments from Apple Calendar.</p>
-          <button class="secondary-button" type="button" disabled>Coming soon</button>
-        </div>
-        <div class="panel" style="margin:0">
-          <h3>Outlook Calendar</h3>
-          <p class="muted">Import appointments from Microsoft Outlook.</p>
-          <button class="secondary-button" type="button" disabled>Coming soon</button>
-        </div>
-      </div>
+      <p class="muted" style="margin-top:10px">Connect your calendar, choose a date range, and import appointments as JobPilot jobs.</p>
+      <div id="managementCalendarImport" style="margin-top:16px"></div>
     </div>
 
     <button id="managementImportExportBack" class="secondary-button" type="button" style="margin-top:16px">← Back to Management</button>
   `;
 
   mountDataTransfer(document.getElementById("managementDataTransfer"));
+  if (typeof window.renderCalendarImportUI === "function") window.renderCalendarImportUI();
   document.getElementById("managementImportExportBack")?.addEventListener("click", backToManagement);
 }
 

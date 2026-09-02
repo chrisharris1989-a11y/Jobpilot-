@@ -47,35 +47,46 @@ import { supabase } from "../supabase.js";
     return Boolean(company?.owner_id && company.owner_id === getCurrentSessionUserId());
   }
 
-  function findBillingSection(panel) {
-    const existing = panel.querySelector("#jobpilot-subscription-section");
-    if (existing) return existing;
+  function populateBillingSection(section) {
+    if (!section) return;
 
-    const section = document.createElement("section");
-    section.id = "jobpilot-subscription-section";
-    section.className = "settings-section";
-    section.innerHTML = `
-      <h2>Subscription</h2>
-      <div id="jobpilot-subscription-content">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
-          <div>
-            <strong>JobPilot plan</strong>
-            <div id="jobpilot-plan-summary" style="font-size:13px;color:#64748b;margin-top:3px;">Loading plan...</div>
+    // A previous render can leave the card shell behind with its contents
+    // missing. Always repair the contents before attempting to render data.
+    if (!section.querySelector("#jobpilot-subscription-content")) {
+      section.innerHTML = `
+        <h2>Subscription</h2>
+        <div id="jobpilot-subscription-content">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+            <div>
+              <strong>JobPilot plan</strong>
+              <div id="jobpilot-plan-summary" style="font-size:13px;color:#64748b;margin-top:3px;">Loading plan...</div>
+            </div>
+            <div id="jobpilot-upgrade-actions" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
           </div>
-          <div id="jobpilot-upgrade-actions" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+          <div id="jobpilot-upgrade-message" style="margin-top:10px;font-size:13px;"></div>
         </div>
-        <div id="jobpilot-upgrade-message" style="margin-top:10px;font-size:13px;"></div>
-      </div>
-    `;
+      `;
+    }
+  }
 
-    const businessHeading = Array.from(panel.querySelectorAll("h2"))
-      .find((heading) => heading.textContent.trim() === "Business Details");
-    const businessSection = businessHeading?.closest(".settings-section");
+  function findBillingSection(panel) {
+    let section = panel.querySelector("#jobpilot-subscription-section");
 
-    if (businessSection && businessSection.parentElement === panel) panel.insertBefore(section, businessSection);
-    else if (businessHeading && businessHeading.parentElement === panel) panel.insertBefore(section, businessHeading);
-    else panel.appendChild(section);
+    if (!section) {
+      section = document.createElement("section");
+      section.id = "jobpilot-subscription-section";
+      section.className = "settings-section";
 
+      const businessHeading = Array.from(panel.querySelectorAll("h2"))
+        .find((heading) => heading.textContent.trim() === "Business Details");
+      const businessSection = businessHeading?.closest(".settings-section");
+
+      if (businessSection && businessSection.parentElement === panel) panel.insertBefore(section, businessSection);
+      else if (businessHeading && businessHeading.parentElement === panel) panel.insertBefore(section, businessHeading);
+      else panel.appendChild(section);
+    }
+
+    populateBillingSection(section);
     return section;
   }
 
@@ -88,8 +99,8 @@ import { supabase } from "../supabase.js";
     const actions = content.querySelector("#jobpilot-upgrade-actions");
     if (!planSummary || !actions) return null;
 
-    const contextPlan = company.plan || "solo";
-    const contextMaxUsers = Number(company.max_users) || (contextPlan === "solo" ? 1 : 10);
+    const contextPlan = company?.plan || "solo";
+    const contextMaxUsers = Number(company?.max_users) || (contextPlan === "solo" ? 1 : 10);
     planSummary.textContent = `${capitalize(contextPlan)} · Up to ${contextMaxUsers} user${contextMaxUsers === 1 ? "" : "s"}`;
     actions.innerHTML = "";
 
@@ -120,6 +131,11 @@ import { supabase } from "../supabase.js";
     try {
       const company = await resolveCompany();
       if (!company) {
+        // Still create a usable visible card. Company data can be filled in
+        // by a later retry without leaving an empty shell on screen.
+        const section = findBillingSection(panel);
+        const summary = section?.querySelector("#jobpilot-plan-summary");
+        if (summary) summary.textContent = "Solo · Up to 1 user";
         scheduleRetry();
         return;
       }
@@ -136,7 +152,7 @@ import { supabase } from "../supabase.js";
         }
 
         const entitlement = data[0];
-        const section = document.getElementById("jobpilot-subscription-section");
+        const section = findBillingSection(panel);
         const planSummary = section?.querySelector("#jobpilot-plan-summary");
         const actions = section?.querySelector("#jobpilot-upgrade-actions");
         if (!planSummary || !actions) return;

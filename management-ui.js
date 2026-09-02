@@ -55,9 +55,21 @@ function renderManagementPage() {
       </button>
     </div>`;
 
-  document.querySelector('[data-management-section="users"]')?.addEventListener("click", () => {
-    if (typeof window.renderManagementUsers === "function") window.renderManagementUsers();
-    else console.error("JobPilot: renderManagementUsers is not available.");
+  document.querySelector('[data-management-section="users"]')?.addEventListener("click", async () => {
+    try {
+      if (typeof window.renderManagementUsers !== "function") {
+        await import("./ui/management-users.js");
+      }
+      if (typeof window.renderManagementUsers === "function") {
+        window.renderManagementUsers();
+      } else {
+        throw new Error("Users & Team could not be loaded.");
+      }
+    } catch (error) {
+      console.error("JobPilot Users & Team load:", error);
+      const content = document.getElementById("pageContent");
+      if (content) content.innerHTML = `<div class="panel"><h2>Users &amp; Team</h2><p class="muted">${String(error?.message || error).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</p><button class="button secondary" type="button" style="margin-top:16px" onclick="window.renderManagementPage?.()">← Management</button></div>`;
+    }
   });
   document.querySelector('[data-management-section="quote-requests"]')?.addEventListener("click", () => {
     if (typeof window.renderManagementQuoteRequests === "function") window.renderManagementQuoteRequests();

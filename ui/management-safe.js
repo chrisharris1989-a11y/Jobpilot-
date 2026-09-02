@@ -1,7 +1,5 @@
 // Safe Management landing-page guard.
 // Keeps the Management tab independent from the older Management routing code.
-// This intentionally only owns the top-level Management click for now; the
-// existing section handlers remain available for the next step.
 
 function renderSafeManagementLanding() {
   const content = document.getElementById("pageContent");
@@ -44,7 +42,17 @@ function renderSafeManagementLanding() {
         <p class="muted" style="margin:16px 0 0">Import customers and export your data.</p>
       </button>
     </div>`;
+
+  content.querySelector('[data-management-section="billing"]')?.addEventListener("click", () => {
+    const title = document.getElementById("pageTitle");
+    if (title) title.textContent = "Billing";
+    if (typeof window.renderManagementBillingPage === "function") {
+      window.renderManagementBillingPage();
+    }
+  });
 }
+
+window.renderSafeManagementLanding = renderSafeManagementLanding;
 
 function handleManagementNavigation(event) {
   const management = event.target.closest?.("#jobpilot-management-button");
@@ -56,7 +64,6 @@ function handleManagementNavigation(event) {
 
 document.addEventListener("click", handleManagementNavigation, true);
 
-// Also recover cleanly if another module has already selected Management.
 const observer = new MutationObserver(() => {
   const title = document.getElementById("pageTitle");
   const button = document.getElementById("jobpilot-management-button");

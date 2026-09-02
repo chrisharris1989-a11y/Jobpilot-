@@ -11,13 +11,9 @@ import { getCompanyContext } from "../company-context.js";
     return document.getElementById("pageTitle")?.textContent.trim() === "Settings";
   }
 
-  async function manager() {
-    const { company, membership } = getCompanyContext();
-    if (membership?.status === "active" && ["owner", "admin"].includes(membership.role)) return true;
-    if (!company?.owner_id) return false;
-
-    const { data } = await supabase.auth.getSession();
-    return Boolean(data.session?.user?.id && data.session.user.id === company.owner_id);
+  function canManageBilling() {
+    const { membership } = getCompanyContext();
+    return membership?.status === "active" && ["owner", "admin"].includes(membership.role);
   }
 
   function findBillingSection(panel) {
@@ -73,7 +69,10 @@ import { getCompanyContext } from "../company-context.js";
     const panel = document.querySelector(".settings-panel");
     if (!panel) return;
 
-    if (!(await manager())) {
+    // The subscription card is display-only until company context exists.
+    // Do not block rendering on an asynchronous role/session lookup.
+    const { company } = getCompanyContext();
+    if (!company) {
       scheduleRetry();
       return;
     }
@@ -87,27 +86,31 @@ import { getCompanyContext } from "../company-context.js";
     const actions = content.querySelector("#jobpilot-upgrade-actions");
     if (!planSummary || !actions) return;
 
-    const { company } = getCompanyContext();
-    const contextPlan = company?.plan || "solo";
-    const contextMaxUsers = Number(company?.max_users) || (contextPlan === "solo" ? 1 : 10);
+    const contextPlan = company.plan || "solo";
+    const contextMaxUsers = Number(company.max_users) || (contextPlan === "solo" ? 1 : 10);
 
     planSummary.textContent = `${capitalize(contextPlan)} · Up to ${contextMaxUsers} user${contextMaxUsers === 1 ? "" : "s"}`;
+    actions.innerHTML = "";
 
-    let upgradePlans = [];
-    if (contextPlan === "solo") upgradePlans = ["team", "business", "pro"];
-    if (contextPlan === "team") upgradePlans = ["business", "pro"];
-    if (contextPlan === "business") upgradePlans = ["pro"];
+    const allowedPlans = {
+      solo: ["team", "business", "pro"],
+      team: ["business", "pro"],
+      business: ["pro"],
+      pro: []
+    }[contextPlan] || [];
 
-    if (upgradePlans.length && !actions.querySelector("#jobpilot-upgrade-button")) {
+    if (canManageBilling() && allowedPlans.length) {
       const upgrade = button("Upgrade account", "button primary");
       upgrade.id = "jobpilot-upgrade-button";
-      upgrade.addEventListener("click", () => showUpgradeOptions(actions, upgradePlans));
+      upgrade.addEventListener("click", () => showUpgradeOptions(actions, allowedPlans));
       actions.appendChild(upgrade);
     }
 
     content.dataset.loaded = "true";
     retryCount = 0;
 
+    // Stripe entitlement data is supplementary. A failure here must never
+    // blank the already-rendered subscription card or upgrade controls.
     rendering = true;
     try {
       const { data, error } = await supabase.rpc("get_my_company_entitlements");
@@ -122,7 +125,7 @@ import { getCompanyContext } from "../company-context.js";
       planSummary.textContent = `${capitalize(actualPlan)} · Up to ${actualMaxUsers} user${actualMaxUsers === 1 ? "" : "s"}`;
 
       if (entitlement.subscription_status && ["active", "trialing", "past_due", "canceled"].includes(entitlement.subscription_status)) {
-        if (!actions.querySelector("#jobpilot-manage-billing")) {
+        if (!actions.querySelector("#jobpilot-manage-billing") && canManageBilling()) {
           const manage = button("Manage billing", "button");
           manage.id = "jobpilot-manage-billing";
           manage.addEventListener("click", () => openBilling("portal"));
@@ -143,7 +146,7 @@ import { getCompanyContext } from "../company-context.js";
   }
 
   function scheduleRetry() {
-    if (retryTimer || retryCount >= 20) return;
+    if (retryTimer || retryCount >= 40) return;
     retryCount += 1;
     retryTimer = setTimeout(() => {
       retryTimer = null;

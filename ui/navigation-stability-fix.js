@@ -1,29 +1,26 @@
-// Keep top-level navigation items stable when Settings cleanup modules run.
-// Connections is a top-level page and must not disappear when another tab is opened.
+// Keep the original Connections navigation item available.
+// Settings cleanup modules may remove it while switching pages; reinserting the
+// original DOM node preserves the click handler that app.js attached to it.
+
+let originalConnectionsButton = null;
+
+function captureConnectionsButton() {
+  if (!originalConnectionsButton) {
+    originalConnectionsButton = document.querySelector('.sidebar nav .nav-item[data-page="connections"]');
+  }
+}
 
 function restoreConnectionsNavigation() {
   const nav = document.querySelector(".sidebar nav");
   if (!nav) return;
-  if (nav.querySelector('.nav-item[data-page="connections"]')) return;
+
+  captureConnectionsButton();
+  if (!originalConnectionsButton) return;
+  if (nav.contains(originalConnectionsButton)) return;
 
   const management = document.getElementById("jobpilot-management-button");
-  const button = document.createElement("button");
-  button.className = "nav-item";
-  button.type = "button";
-  button.dataset.page = "connections";
-  button.textContent = "🔗 Connections";
-
-  if (management) nav.insertBefore(button, management);
-  else nav.appendChild(button);
-
-  button.addEventListener("click", () => {
-    if (typeof window.JobPilotShowPage === "function") {
-      window.JobPilotShowPage("connections");
-      return;
-    }
-    document.getElementById("pageTitle")?.replaceChildren(document.createTextNode("Connections"));
-    document.getElementById("pageSubtitle")?.replaceChildren(document.createTextNode("Manage your connected services."));
-  });
+  if (management) nav.insertBefore(originalConnectionsButton, management);
+  else nav.appendChild(originalConnectionsButton);
 }
 
 const observer = new MutationObserver(restoreConnectionsNavigation);

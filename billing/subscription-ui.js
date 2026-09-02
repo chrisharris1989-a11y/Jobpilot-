@@ -126,10 +126,6 @@ import { supabase } from "../supabase.js";
       pro: []
     }[contextPlan] || [];
 
-    // Settings is only rendered for an authenticated app session. Do not
-    // gate the visual control on a separate client-side session/company
-    // bootstrap, because that can lag behind the main app authentication.
-    // The Edge Function remains the authoritative owner/admin check.
     addUpgradeButton(actions, allowedPlans);
 
     return { company, contextPlan, plan };
@@ -281,7 +277,17 @@ import { supabase } from "../supabase.js";
     const { data: { session } } = await supabase.auth.getSession();
     window.__jobpilotBillingUserId = session?.user?.id || null;
 
-    const observer = new MutationObserver(() => render());
+    const observer = new MutationObserver((mutations) => {
+      // The billing UI mutates its own DOM when the user opens the upgrade
+      // menu or starts checkout. Do not immediately re-render it and destroy
+      // the controls the user just clicked.
+      const billingSection = document.getElementById("jobpilot-subscription-section");
+      const relevantMutation = mutations.some((mutation) => {
+        const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+        return target && !billingSection?.contains(target);
+      });
+      if (relevantMutation) render();
+    });
     observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("jobpilot:company-ready", () => { retryCount = 0; render(); });
     window.addEventListener("jobpilot:settings-ready", () => { retryCount = 0; render(); });

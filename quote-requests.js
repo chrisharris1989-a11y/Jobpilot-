@@ -41,8 +41,8 @@ function showQuoteRequestForm() {
         <label>Customer name *</label>
         <input id="qrCustomerName" required placeholder="Customer name">
 
-        <label>Phone</label>
-        <input id="qrPhone" type="tel" placeholder="Phone number">
+        <label>Phone number *</label>
+        <input id="qrPhone" type="tel" required placeholder="Phone number">
 
         <label>Email</label>
         <input id="qrEmail" type="email" placeholder="customer@example.com">
@@ -55,6 +55,10 @@ function showQuoteRequestForm() {
 
         <label>Preferred date</label>
         <input id="qrPreferredDate" type="date">
+
+        <label>Pictures</label>
+        <input id="qrPictures" type="file" accept="image/*" multiple>
+        <div class="muted" style="margin-top:6px">Add photos of the job to help management prepare the quote. You can select multiple pictures.</div>
 
         <div id="qrMessage" class="muted" style="margin-top:12px"></div>
 
@@ -77,6 +81,20 @@ function showQuoteRequestForm() {
 
     const message = modal.querySelector("#qrMessage");
     const submit = modal.querySelector("button[type=submit]");
+    const pictureInput = modal.querySelector("#qrPictures");
+    const pictures = Array.from(pictureInput.files || []);
+
+    if (pictures.length > 10) {
+      message.textContent = "Please select no more than 10 pictures.";
+      return;
+    }
+
+    const oversized = pictures.find(file => file.size > 10 * 1024 * 1024);
+    if (oversized) {
+      message.textContent = `"${oversized.name}" is larger than 10MB. Please choose a smaller picture.`;
+      return;
+    }
+
     submit.disabled = true;
     submit.textContent = "Sending...";
     message.textContent = "";
@@ -95,21 +113,55 @@ function showQuoteRequestForm() {
       company_id: membership.company_id,
       requested_by: user.id,
       customer_name: modal.querySelector("#qrCustomerName").value.trim(),
-      phone: modal.querySelector("#qrPhone").value.trim() || null,
+      phone: modal.querySelector("#qrPhone").value.trim(),
       email: modal.querySelector("#qrEmail").value.trim() || null,
       address: modal.querySelector("#qrAddress").value.trim() || null,
       description: modal.querySelector("#qrDescription").value.trim(),
       preferred_date: modal.querySelector("#qrPreferredDate").value || null
     };
 
-    const { error } = await supabase.from("quote_requests").insert(payload);
+    const { data: request, error } = await supabase
+      .from("quote_requests")
+      .insert(payload)
+      .select("id")
+      .single();
 
-    if (error) {
+    if (error || !request?.id) {
       console.error("JobPilot quote request:", error);
-      message.textContent = error.message;
+      message.textContent = error?.message || "The quote request could not be created.";
       submit.disabled = false;
       submit.textContent = "Send to Management";
       return;
+    }
+
+    const imagePaths = [];
+    for (let index = 0; index < pictures.length; index += 1) {
+      const file = pictures[index];
+      const safeName = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || `photo-${index + 1}.jpg`;
+      const path = `${membership.company_id}/${request.id}/${Date.now()}-${index}-${safeName}`;
+      const { error: uploadError } = await supabase.storage
+        .from("quote-request-images")
+        .upload(path, file, { contentType: file.type || "image/jpeg", upsert: false });
+
+      if (uploadError) {
+        console.error("JobPilot quote request image upload:", uploadError);
+        message.textContent = `The quote request was created, but picture ${index + 1} could not be uploaded.`;
+        break;
+      }
+
+      imagePaths.push(path);
+    }
+
+    if (imagePaths.length) {
+      const { error: imageUpdateError } = await supabase
+        .from("quote_requests")
+        .update({ image_paths: imagePaths })
+        .eq("id", request.id)
+        .eq("requested_by", user.id);
+
+      if (imageUpdateError) {
+        console.error("JobPilot quote request image list:", imageUpdateError);
+      }
     }
 
     modal.remove();

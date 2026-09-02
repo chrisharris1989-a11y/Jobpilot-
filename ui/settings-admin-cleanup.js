@@ -63,14 +63,19 @@ function installQuoteMessageSettings() {
     settings = JSON.parse(localStorage.getItem("jobpilot_settings") || "{}");
   } catch {}
 
-  const defaultTemplate =
-    "Hi {customer_name},\\n\\n" +
-    "Please find your quote from {business_name}.\\n\\n" +
-    "Quote #{quote_number}\\n" +
-    "Amount: £{quote_total}\\n" +
-    "Valid until: {valid_until}\\n\\n" +
-    "Please let us know if you would like to go ahead.\\n\\n" +
-    "Thank you.";
+  const defaultTemplate = [
+    "Hi {customer_name},",
+    "",
+    "Please find your quote from {business_name}.",
+    "",
+    "Quote #{quote_number}",
+    "Amount: £{quote_total}",
+    "Valid until: {valid_until}",
+    "",
+    "Please let us know if you would like to go ahead.",
+    "",
+    "Thank you."
+  ].join("\n");
 
   const section = document.createElement("section");
   section.id = "jobpilot-quote-message-settings";
@@ -158,8 +163,21 @@ async function sendCustomQuote(quoteId, button) {
     let settings = {};
     try { settings = JSON.parse(localStorage.getItem("jobpilot_settings") || "{}"); } catch {}
 
-    const template = String(settings.quoteMessageTemplate ||
-      "Hi {customer_name},\\n\\nPlease find your quote from {business_name}.\\n\\nQuote #{quote_number}\\nAmount: £{quote_total}\\nValid until: {valid_until}\\n\\nPlease let us know if you would like to go ahead.\\n\\nThank you.");
+    const defaultTemplate = [
+      "Hi {customer_name},",
+      "",
+      "Please find your quote from {business_name}.",
+      "",
+      "Quote #{quote_number}",
+      "Amount: £{quote_total}",
+      "Valid until: {valid_until}",
+      "",
+      "Please let us know if you would like to go ahead.",
+      "",
+      "Thank you."
+    ].join("\n");
+
+    const template = String(settings.quoteMessageTemplate || defaultTemplate);
 
     const replacements = {
       "{customer_name}": customer.name || "Customer",

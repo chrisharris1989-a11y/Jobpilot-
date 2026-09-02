@@ -4,6 +4,8 @@ import { supabase } from "./supabase.js";
 // Keeps the existing app logic intact while making the dashboard cards
 // useful and the navigation less repetitive.
 
+const MANAGEMENT_ROLES = ["owner", "admin"];
+
 function getTodayDate() {
   const now = new Date();
   const year = now.getFullYear();
@@ -80,6 +82,31 @@ function hideUpcomingJobs() {
       element.style.display = "none";
     }
   });
+}
+
+async function hasManagementAccess() {
+  try {
+    const { data: { user } = {} } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const { data, error } = await supabase
+      .from("company_members")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("JobPilot dashboard management access:", error);
+      return false;
+    }
+
+    return MANAGEMENT_ROLES.includes(String(data?.role || "").toLowerCase());
+  } catch (error) {
+    console.error("JobPilot dashboard management access:", error);
+    return false;
+  }
 }
 
 function makeDashboardCardsClickable() {
@@ -223,6 +250,16 @@ async function updateTodaySnapshot() {
   });
 }
 
+async function applyDashboardRoleVisibility() {
+  const cards = document.querySelectorAll(".stats .stat-card");
+  const todayValueCard = cards[5];
+  if (!todayValueCard) return;
+
+  const managementUser = await hasManagementAccess();
+  todayValueCard.style.display = managementUser ? "" : "none";
+  todayValueCard.setAttribute("aria-hidden", managementUser ? "false" : "true");
+}
+
 function enhanceDashboard() {
   const stats = document.querySelector(".stats");
   if (!stats) return;
@@ -264,6 +301,7 @@ function enhanceDashboard() {
 
   makeTodayJobsClickable();
   updateTodaySnapshot();
+  applyDashboardRoleVisibility();
 }
 
 const observer = new MutationObserver(() => {

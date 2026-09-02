@@ -11,9 +11,37 @@ import { getCompanyContext } from "../company-context.js";
     return document.getElementById("pageTitle")?.textContent.trim() === "Settings";
   }
 
-  function canManageBilling() {
+  async function resolveCompany() {
+    const context = getCompanyContext();
+    if (context?.company) return context.company;
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) return null;
+
+    const { data, error } = await supabase
+      .from("companies")
+      .select("id,name,plan,max_users,owner_id,billing_status")
+      .eq("owner_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("JobPilot company lookup:", error);
+      return null;
+    }
+
+    return data || null;
+  }
+
+  function canManageBilling(company) {
     const { membership } = getCompanyContext();
-    return membership?.status === "active" && ["owner", "admin"].includes(membership.role);
+    if (membership?.status === "active" && ["owner", "admin"].includes(membership.role)) return true;
+
+    return Boolean(company?.owner_id && company.owner_id === getCurrentSessionUserId());
+  }
+
+  function getCurrentSessionUserId() {
+    return window.__jobpilotBillingUserId || null;
   }
 
   function findBillingSection(panel) {
@@ -69,77 +97,74 @@ import { getCompanyContext } from "../company-context.js";
     const panel = document.querySelector(".settings-panel");
     if (!panel) return;
 
-    // The subscription card is display-only until company context exists.
-    // Do not block rendering on an asynchronous role/session lookup.
-    const { company } = getCompanyContext();
-    if (!company) {
-      scheduleRetry();
-      return;
-    }
-
-    const section = findBillingSection(panel);
-    const content = section?.querySelector("#jobpilot-subscription-content");
-    if (!content) return;
-
-    ensureSubscriptionMarkup(content);
-    const planSummary = content.querySelector("#jobpilot-plan-summary");
-    const actions = content.querySelector("#jobpilot-upgrade-actions");
-    if (!planSummary || !actions) return;
-
-    const contextPlan = company.plan || "solo";
-    const contextMaxUsers = Number(company.max_users) || (contextPlan === "solo" ? 1 : 10);
-
-    planSummary.textContent = `${capitalize(contextPlan)} · Up to ${contextMaxUsers} user${contextMaxUsers === 1 ? "" : "s"}`;
-    actions.innerHTML = "";
-
-    const allowedPlans = {
-      solo: ["team", "business", "pro"],
-      team: ["business", "pro"],
-      business: ["pro"],
-      pro: []
-    }[contextPlan] || [];
-
-    if (canManageBilling() && allowedPlans.length) {
-      const upgrade = button("Upgrade account", "button primary");
-      upgrade.id = "jobpilot-upgrade-button";
-      upgrade.addEventListener("click", () => showUpgradeOptions(actions, allowedPlans));
-      actions.appendChild(upgrade);
-    }
-
-    content.dataset.loaded = "true";
-    retryCount = 0;
-
-    // Stripe entitlement data is supplementary. A failure here must never
-    // blank the already-rendered subscription card or upgrade controls.
     rendering = true;
     try {
-      const { data, error } = await supabase.rpc("get_my_company_entitlements");
-      if (error || !data?.length) {
-        console.error("JobPilot billing entitlement:", error);
+      const company = await resolveCompany();
+      if (!company) {
+        scheduleRetry();
         return;
       }
 
-      const entitlement = data[0];
-      const actualPlan = entitlement.plan || contextPlan;
-      const actualMaxUsers = Number(entitlement.max_users) || contextMaxUsers;
-      planSummary.textContent = `${capitalize(actualPlan)} · Up to ${actualMaxUsers} user${actualMaxUsers === 1 ? "" : "s"}`;
+      const section = findBillingSection(panel);
+      const content = section?.querySelector("#jobpilot-subscription-content");
+      if (!content) return;
 
-      if (entitlement.subscription_status && ["active", "trialing", "past_due", "canceled"].includes(entitlement.subscription_status)) {
-        if (!actions.querySelector("#jobpilot-manage-billing") && canManageBilling()) {
-          const manage = button("Manage billing", "button");
-          manage.id = "jobpilot-manage-billing";
-          manage.addEventListener("click", () => openBilling("portal"));
-          actions.insertBefore(manage, actions.firstChild);
+      ensureSubscriptionMarkup(content);
+      const planSummary = content.querySelector("#jobpilot-plan-summary");
+      const actions = content.querySelector("#jobpilot-upgrade-actions");
+      if (!planSummary || !actions) return;
+
+      const contextPlan = company.plan || "solo";
+      const contextMaxUsers = Number(company.max_users) || (contextPlan === "solo" ? 1 : 10);
+      planSummary.textContent = `${capitalize(contextPlan)} · Up to ${contextMaxUsers} user${contextMaxUsers === 1 ? "" : "s"}`;
+      actions.innerHTML = "";
+
+      const allowedPlans = {
+        solo: ["team", "business", "pro"],
+        team: ["business", "pro"],
+        business: ["pro"],
+        pro: []
+      }[contextPlan] || [];
+
+      if (canManageBilling(company) && allowedPlans.length) {
+        const upgrade = button("Upgrade account", "button primary");
+        upgrade.id = "jobpilot-upgrade-button";
+        upgrade.addEventListener("click", () => showUpgradeOptions(actions, allowedPlans));
+        actions.appendChild(upgrade);
+      }
+
+      content.dataset.loaded = "true";
+      retryCount = 0;
+
+      try {
+        const { data, error } = await supabase.rpc("get_my_company_entitlements");
+        if (error || !data?.length) {
+          console.error("JobPilot billing entitlement:", error);
+          return;
         }
-      }
 
-      if (entitlement.cancel_at_period_end && entitlement.current_period_end) {
-        const message = content.querySelector("#jobpilot-upgrade-message");
-        message.textContent = `Your subscription is scheduled to end on ${new Date(entitlement.current_period_end).toLocaleDateString()}.`;
-        message.style.color = "#92400e";
+        const entitlement = data[0];
+        const actualPlan = entitlement.plan || contextPlan;
+        const actualMaxUsers = Number(entitlement.max_users) || contextMaxUsers;
+        planSummary.textContent = `${capitalize(actualPlan)} · Up to ${actualMaxUsers} user${actualMaxUsers === 1 ? "" : "s"}`;
+
+        if (entitlement.subscription_status && ["active", "trialing", "past_due", "canceled"].includes(entitlement.subscription_status)) {
+          if (!actions.querySelector("#jobpilot-manage-billing") && canManageBilling(company)) {
+            const manage = button("Manage billing", "button");
+            manage.id = "jobpilot-manage-billing";
+            manage.addEventListener("click", () => openBilling("portal"));
+            actions.insertBefore(manage, actions.firstChild);
+          }
+        }
+
+        if (entitlement.cancel_at_period_end && entitlement.current_period_end) {
+          const message = content.querySelector("#jobpilot-upgrade-message");
+          message.textContent = `Your subscription is scheduled to end on ${new Date(entitlement.current_period_end).toLocaleDateString()}.`;
+          message.style.color = "#92400e";
+        }
+      } catch (error) {
+        console.error("JobPilot billing entitlement:", error);
       }
-    } catch (error) {
-      console.error("JobPilot billing entitlement:", error);
     } finally {
       rendering = false;
     }
@@ -213,9 +238,13 @@ import { getCompanyContext } from "../company-context.js";
     return String(value || "").replace(/_/g, " ").replace(/\b\w/g, char => char.toUpperCase());
   }
 
-  function start() {
+  async function start() {
     if (started) return;
     started = true;
+
+    const { data: { session } } = await supabase.auth.getSession();
+    window.__jobpilotBillingUserId = session?.user?.id || null;
+
     const observer = new MutationObserver(() => render());
     observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("jobpilot:company-ready", () => { retryCount = 0; render(); });

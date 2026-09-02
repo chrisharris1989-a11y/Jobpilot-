@@ -124,7 +124,11 @@ import { supabase } from "../supabase.js";
       pro: []
     }[contextPlan] || [];
 
-    if (canManageBilling(company) && allowedPlans.length) {
+    // The Edge Function performs the authoritative owner/admin check.
+    // Keep the upgrade UI available for authenticated users even when the
+    // company context is not available yet, so valid owners do not lose the
+    // controls simply because the client-side company lookup is delayed/RLS-limited.
+    if (getCurrentSessionUserId() && allowedPlans.length) {
       const upgrade = button("Upgrade account", "button primary");
       upgrade.id = "jobpilot-upgrade-button";
       upgrade.addEventListener("click", () => showUpgradeOptions(actions, allowedPlans));
@@ -147,8 +151,15 @@ import { supabase } from "../supabase.js";
         const section = findBillingSection(panel);
         const summary = section?.querySelector("#jobpilot-plan-summary");
         const price = section?.querySelector("#jobpilot-plan-price");
+        const actions = section?.querySelector("#jobpilot-upgrade-actions");
         if (summary) summary.textContent = "Solo · Up to 1 user";
         if (price) price.textContent = formatPrice(PLANS.solo);
+        if (actions && getCurrentSessionUserId() && !actions.querySelector("#jobpilot-upgrade-button")) {
+          const upgrade = button("Upgrade account", "button primary");
+          upgrade.id = "jobpilot-upgrade-button";
+          upgrade.addEventListener("click", () => showUpgradeOptions(actions, ["team", "business", "pro"]));
+          actions.appendChild(upgrade);
+        }
         scheduleRetry();
         return;
       }
@@ -176,8 +187,22 @@ import { supabase } from "../supabase.js";
         planSummary.textContent = `${actualPlanDetails.label} · Up to ${actualPlanDetails.users} user${actualPlanDetails.users === 1 ? "" : "s"}`;
         planPrice.textContent = formatPrice(actualPlanDetails);
 
+        const allowedPlans = {
+          solo: ["team", "business", "pro"],
+          team: ["business", "pro"],
+          business: ["pro"],
+          pro: []
+        }[actualPlan] || [];
+
+        if (getCurrentSessionUserId() && allowedPlans.length && !actions.querySelector("#jobpilot-upgrade-button")) {
+          const upgrade = button("Upgrade account", "button primary");
+          upgrade.id = "jobpilot-upgrade-button";
+          upgrade.addEventListener("click", () => showUpgradeOptions(actions, allowedPlans));
+          actions.appendChild(upgrade);
+        }
+
         if (entitlement.subscription_status && ["active", "trialing", "past_due", "canceled"].includes(entitlement.subscription_status)) {
-          if (!actions.querySelector("#jobpilot-manage-billing") && canManageBilling(company)) {
+          if (!actions.querySelector("#jobpilot-manage-billing")) {
             const manage = button("Manage billing", "button");
             manage.id = "jobpilot-manage-billing";
             manage.addEventListener("click", () => openBilling("portal"));

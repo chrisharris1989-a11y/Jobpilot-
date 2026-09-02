@@ -4,14 +4,17 @@ import { getCompanyContext } from "../company-context.js";
 (function () {
   let started = false;
   let rendering = false;
+  let retryTimer = null;
+  let retryCount = 0;
 
   function isSettings() {
     return document.getElementById("pageTitle")?.textContent.trim() === "Settings";
   }
 
   function manager() {
-    const { membership } = getCompanyContext();
-    return membership?.status === "active" && ["owner", "admin"].includes(membership.role);
+    const { company, membership } = getCompanyContext();
+    if (membership?.status === "active" && ["owner", "admin"].includes(membership.role)) return true;
+    return Boolean(company?.owner_id && window.JobPilotCurrentUserId && company.owner_id === window.JobPilotCurrentUserId);
   }
 
   function findBillingSection(panel) {
@@ -50,27 +53,45 @@ import { getCompanyContext } from "../company-context.js";
     return section;
   }
 
+  function ensureSubscriptionMarkup(content) {
+    if (!content.querySelector("#jobpilot-plan-summary") || !content.querySelector("#jobpilot-upgrade-actions")) {
+      content.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+          <div>
+            <strong>JobPilot plan</strong>
+            <div id="jobpilot-plan-summary" style="font-size:13px;color:#64748b;margin-top:3px;">Loading plan...</div>
+          </div>
+          <div id="jobpilot-upgrade-actions" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+        </div>
+        <div id="jobpilot-upgrade-message" style="margin-top:10px;font-size:13px;"></div>
+      `;
+    }
+  }
+
   async function render() {
-    if (rendering || !isSettings() || !manager()) return;
+    if (rendering || !isSettings()) return;
 
     const panel = document.querySelector(".settings-panel");
     if (!panel) return;
 
+    if (!manager()) {
+      scheduleRetry();
+      return;
+    }
+
     const section = findBillingSection(panel);
     const content = section?.querySelector("#jobpilot-subscription-content");
-    if (!content || content.dataset.loaded === "true") return;
+    if (!content) return;
 
-    rendering = true;
+    ensureSubscriptionMarkup(content);
+    const planSummary = content.querySelector("#jobpilot-plan-summary");
+    const actions = content.querySelector("#jobpilot-upgrade-actions");
+    if (!planSummary || !actions) return;
 
     const { company } = getCompanyContext();
     const contextPlan = company?.plan || "solo";
     const contextMaxUsers = Number(company?.max_users) || (contextPlan === "solo" ? 1 : 10);
-    const planSummary = content.querySelector("#jobpilot-plan-summary");
-    const actions = content.querySelector("#jobpilot-upgrade-actions");
 
-    // Render the visible plan and upgrade action from the already-loaded
-    // company context first. The card must never depend on the billing RPC
-    // before showing useful UI.
     planSummary.textContent = `${capitalize(contextPlan)} · Up to ${contextMaxUsers} user${contextMaxUsers === 1 ? "" : "s"}`;
 
     let upgradePlans = [];
@@ -86,10 +107,11 @@ import { getCompanyContext } from "../company-context.js";
     }
 
     content.dataset.loaded = "true";
-    rendering = false;
+    retryCount = 0;
 
-    // Billing status is supplementary. If the RPC is unavailable, keep the
-    // plan and Upgrade account UI visible rather than leaving a blank card.
+    // Billing status is supplementary. The visible plan/upgrade controls above
+    // must remain available even if the entitlement RPC is temporarily unavailable.
+    rendering = true;
     try {
       const { data, error } = await supabase.rpc("get_my_company_entitlements");
       if (error || !data?.length) {
@@ -103,9 +125,12 @@ import { getCompanyContext } from "../company-context.js";
       planSummary.textContent = `${capitalize(actualPlan)} · Up to ${actualMaxUsers} user${actualMaxUsers === 1 ? "" : "s"}`;
 
       if (entitlement.subscription_status && ["active", "trialing", "past_due", "canceled"].includes(entitlement.subscription_status)) {
-        const manage = button("Manage billing", "button");
-        manage.addEventListener("click", () => openBilling("portal"));
-        actions.insertBefore(manage, actions.firstChild);
+        if (!actions.querySelector("#jobpilot-manage-billing")) {
+          const manage = button("Manage billing", "button");
+          manage.id = "jobpilot-manage-billing";
+          manage.addEventListener("click", () => openBilling("portal"));
+          actions.insertBefore(manage, actions.firstChild);
+        }
       }
 
       if (entitlement.cancel_at_period_end && entitlement.current_period_end) {
@@ -115,7 +140,18 @@ import { getCompanyContext } from "../company-context.js";
       }
     } catch (error) {
       console.error("JobPilot billing entitlement:", error);
+    } finally {
+      rendering = false;
     }
+  }
+
+  function scheduleRetry() {
+    if (retryTimer || retryCount >= 20) return;
+    retryCount += 1;
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      render();
+    }, 250);
   }
 
   function showUpgradeOptions(actions, allowedPlans) {
@@ -191,7 +227,10 @@ import { getCompanyContext } from "../company-context.js";
     started = true;
     const observer = new MutationObserver(() => render());
     observer.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener("jobpilot:company-ready", render);
+    window.addEventListener("jobpilot:company-ready", () => {
+      retryCount = 0;
+      render();
+    });
     render();
   }
 

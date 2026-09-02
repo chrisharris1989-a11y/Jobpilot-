@@ -1,6 +1,6 @@
-// Keep the original Connections navigation item available.
-// Settings cleanup modules may remove it while switching pages; reinserting the
-// original DOM node preserves the click handler that app.js attached to it.
+// Keep exactly one top-level Connections navigation item.
+// app.js owns the original button and its click handler. Other UI modules may
+// try to add or restore another Connections button; remove those duplicates.
 
 let originalConnectionsButton = null;
 
@@ -16,11 +16,17 @@ function restoreConnectionsNavigation() {
 
   captureConnectionsButton();
   if (!originalConnectionsButton) return;
-  if (nav.contains(originalConnectionsButton)) return;
 
-  const management = document.getElementById("jobpilot-management-button");
-  if (management) nav.insertBefore(originalConnectionsButton, management);
-  else nav.appendChild(originalConnectionsButton);
+  if (!nav.contains(originalConnectionsButton)) {
+    const management = document.getElementById("jobpilot-management-button");
+    if (management) nav.insertBefore(originalConnectionsButton, management);
+    else nav.appendChild(originalConnectionsButton);
+  }
+
+  const connections = [...nav.querySelectorAll('.nav-item[data-page="connections"]')];
+  connections.forEach(button => {
+    if (button !== originalConnectionsButton) button.remove();
+  });
 }
 
 const observer = new MutationObserver(restoreConnectionsNavigation);

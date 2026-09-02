@@ -52,43 +52,25 @@ function renderManagementPage() {
     </div>`;
 
   document.querySelector('[data-management-section="users"]')?.addEventListener("click", () => {
-    if (typeof window.renderManagementUsers === "function") {
-      window.renderManagementUsers();
-    } else {
-      console.error("JobPilot: renderManagementUsers is not available.");
-    }
+    if (typeof window.renderManagementUsers === "function") window.renderManagementUsers();
+    else console.error("JobPilot: renderManagementUsers is not available.");
   });
-
   document.querySelector('[data-management-section="company"]')?.addEventListener("click", () => {
-    if (typeof window.renderManagementCompanyPage === "function") {
-      window.renderManagementCompanyPage();
-    }
+    if (typeof window.renderManagementCompanyPage === "function") window.renderManagementCompanyPage();
   });
-
   document.querySelector('[data-management-section="accounting"]')?.addEventListener("click", () => {
-    if (typeof window.renderManagementAccounting === "function") {
-      window.renderManagementAccounting();
-    } else {
-      console.error("JobPilot: renderManagementAccounting is not available.");
-    }
+    if (typeof window.renderManagementAccounting === "function") window.renderManagementAccounting();
+    else console.error("JobPilot: renderManagementAccounting is not available.");
   });
-
   document.querySelector('[data-management-section="billing"]')?.addEventListener("click", () => {
     const title = document.getElementById("pageTitle");
     if (title) title.textContent = "Billing";
-    if (typeof window.renderManagementBillingPage === "function") {
-      window.renderManagementBillingPage();
-    } else {
-      console.error("JobPilot: renderManagementBillingPage is not available.");
-    }
+    if (typeof window.renderManagementBillingPage === "function") window.renderManagementBillingPage();
+    else console.error("JobPilot: renderManagementBillingPage is not available.");
   });
-
   document.querySelector('[data-management-section="import"]')?.addEventListener("click", () => {
-    if (typeof window.renderManagementImportExport === "function") {
-      window.renderManagementImportExport();
-    } else {
-      console.error("JobPilot: renderManagementImportExport is not available.");
-    }
+    if (typeof window.renderManagementImportExport === "function") window.renderManagementImportExport();
+    else console.error("JobPilot: renderManagementImportExport is not available.");
   });
 }
 
@@ -119,6 +101,17 @@ async function hasManagementAccess() {
   }
 }
 
+async function syncManagementButton() {
+  const allowed = await hasManagementAccess();
+  const existing = getManagementButton();
+
+  if (allowed) {
+    if (!existing) addManagementButton();
+  } else if (existing) {
+    existing.remove();
+  }
+}
+
 function addManagementButton() {
   const nav = document.querySelector(".sidebar nav");
   if (!nav || getManagementButton()) return;
@@ -132,14 +125,9 @@ function addManagementButton() {
   nav.appendChild(button);
 }
 
-async function initManagement() {
-  if (!(await hasManagementAccess())) return;
-  addManagementButton();
-}
+syncManagementButton();
 
 const navObserver = new MutationObserver(() => {
-  if (!getManagementButton()) addManagementButton();
+  if (!getManagementButton()) syncManagementButton();
 });
 navObserver.observe(document.body, { childList: true, subtree: true });
-
-initManagement();

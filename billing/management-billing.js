@@ -117,7 +117,7 @@ import { supabase } from "../supabase.js";
             <div id="jobpilot-management-plan-price"></div>
           </div>
           <div id="jobpilot-management-billing-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:20px;"></div>
-          <div id="jobpilot-management-upgrade-options" style="display:none;gap:8px;flex-wrap:wrap;margin-top:12px;"></div>
+          <div id="jobpilot-management-upgrade-options" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;"></div>
           <div id="jobpilot-management-billing-message" style="margin-top:12px;font-size:13px;"></div>
         </div>
       </div>`;
@@ -143,26 +143,39 @@ import { supabase } from "../supabase.js";
       price.textContent = formatPrice(details);
       actions.innerHTML = "";
       options.innerHTML = "";
-      options.style.display = "none";
 
-      if ((allowedPlans[planName] || []).length) {
-        const upgrade = button("Upgrade account", "button primary");
-        upgrade.addEventListener("click", () => {
-          options.style.display = "flex";
-          (allowedPlans[planName] || []).forEach(name => {
-            const option = button(`${PLANS[name].label} · ${formatPrice(PLANS[name])}`, "button");
-            option.addEventListener("click", () => openBilling("checkout", name, message));
-            options.appendChild(option);
+      const planChoices = allowedPlans[planName] || [];
+      if (planChoices.length) {
+        const changeLabel = document.createElement("div");
+        changeLabel.style.width = "100%";
+        changeLabel.style.marginBottom = "4px";
+        changeLabel.style.fontWeight = "600";
+        changeLabel.textContent = "Change plan";
+        options.appendChild(changeLabel);
+
+        planChoices.forEach(name => {
+          const option = button(`${PLANS[name].label} · ${formatPrice(PLANS[name])}`, "button");
+          option.addEventListener("click", () => {
+            const confirmed = window.confirm(
+              `Are you sure you want to change your plan to ${PLANS[name].label} at ${formatPrice(PLANS[name])}?`
+            );
+            if (confirmed) openBilling("checkout", name, message);
           });
+          options.appendChild(option);
         });
-        actions.appendChild(upgrade);
+      } else {
+        const current = document.createElement("div");
+        current.style.marginTop = "12px";
+        current.style.fontSize = "13px";
+        current.textContent = "You are on the highest available plan.";
+        options.appendChild(current);
       }
 
       const status = String(entitlement?.subscription_status || "").toLowerCase();
       if (["active", "trialing", "past_due", "canceled"].includes(status)) {
         const manage = button("Manage billing", "button");
         manage.addEventListener("click", () => openBilling("portal", null, message));
-        actions.insertBefore(manage, actions.firstChild);
+        actions.appendChild(manage);
       }
 
       if (entitlement?.cancel_at_period_end && entitlement?.current_period_end) {

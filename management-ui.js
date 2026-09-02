@@ -50,7 +50,15 @@ function renderManagementPage() {
         <p class="muted" style="margin:16px 0 0">Import and export your JobPilot data.</p>
       </button>
     </div>`;
+
+  document.querySelector('[data-management-section="company"]')?.addEventListener("click", () => {
+    if (typeof window.renderManagementCompanyPage === "function") {
+      window.renderManagementCompanyPage();
+    }
+  });
 }
+
+window.renderManagementPage = renderManagementPage;
 
 async function hasManagementAccess() {
   try {

@@ -31,7 +31,7 @@ import { supabase } from "../supabase.js";
 
     const { data, error } = await supabase
       .from("companies")
-      .select("id,name,plan,max_users,owner_id,billing_status")
+      .select("id,name,plan,max_users,owner_id,billing_status,test_mode")
       .eq("owner_id", userId)
       .maybeSingle();
 
@@ -61,6 +61,7 @@ import { supabase } from "../supabase.js";
             </div>
             <div id="jobpilot-upgrade-actions" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
           </div>
+          <div id="jobpilot-test-badge" style="display:none;margin-top:10px;"></div>
           <div id="jobpilot-upgrade-options" style="display:none;margin-top:12px;"></div>
           <div id="jobpilot-upgrade-message" style="margin-top:10px;font-size:13px;"></div>
         </div>
@@ -85,11 +86,11 @@ import { supabase } from "../supabase.js";
     return section;
   }
 
-  function addUpgradeButton(actions, allowedPlans) {
+  function addUpgradeButton(actions, allowedPlans, isTest) {
     if (!actions || !allowedPlans.length || actions.querySelector("#jobpilot-upgrade-button")) return;
-    const upgrade = button("Upgrade account", "button primary");
+    const upgrade = button(isTest ? "Change test plan" : "Upgrade account", "button primary");
     upgrade.id = "jobpilot-upgrade-button";
-    upgrade.addEventListener("click", () => showUpgradeOptions(actions, allowedPlans));
+    upgrade.addEventListener("click", () => showUpgradeOptions(actions, allowedPlans, isTest));
     actions.appendChild(upgrade);
   }
 
@@ -100,22 +101,31 @@ import { supabase } from "../supabase.js";
     const planSummary = content.querySelector("#jobpilot-plan-summary");
     const planPrice = content.querySelector("#jobpilot-plan-price");
     const actions = content.querySelector("#jobpilot-upgrade-actions");
+    const badge = content.querySelector("#jobpilot-test-badge");
     if (!planSummary || !planPrice || !actions) return null;
 
     const contextPlan = String(company?.plan || "solo").toLowerCase();
     const plan = PLANS[contextPlan] || PLANS.solo;
+    const isTest = company?.test_mode === true;
     planSummary.textContent = `${plan.label} · Up to ${plan.users} user${plan.users === 1 ? "" : "s"}`;
     planPrice.textContent = formatPrice(plan);
     actions.innerHTML = "";
 
-    const allowedPlans = {
-      solo: ["team", "business", "pro"],
-      team: ["business", "pro"],
-      business: ["pro"],
-      pro: []
-    }[contextPlan] || [];
-    addUpgradeButton(actions, allowedPlans);
-    return { company, contextPlan, plan };
+    if (badge) {
+      badge.style.display = isTest ? "inline-block" : "none";
+      if (isTest) badge.innerHTML = '<span style="display:inline-block;padding:4px 9px;border-radius:999px;background:#dcfce7;color:#166534;font-size:12px;font-weight:700;">TEST</span>';
+    }
+
+    const allowedPlans = isTest
+      ? Object.keys(PLANS).filter(name => name !== contextPlan)
+      : ({
+          solo: ["team", "business", "pro"],
+          team: ["business", "pro"],
+          business: ["pro"],
+          pro: []
+        }[contextPlan] || []);
+    addUpgradeButton(actions, allowedPlans, isTest);
+    return { company, contextPlan, plan, isTest };
   }
 
   async function render() {
@@ -132,7 +142,7 @@ import { supabase } from "../supabase.js";
         const actions = section?.querySelector("#jobpilot-upgrade-actions");
         if (summary) summary.textContent = "Solo · Up to 1 user";
         if (price) price.textContent = formatPrice(PLANS.solo);
-        addUpgradeButton(actions, ["team", "business", "pro"]);
+        addUpgradeButton(actions, ["team", "business", "pro"], false);
         scheduleRetry();
         return;
       }
@@ -140,6 +150,8 @@ import { supabase } from "../supabase.js";
       const rendered = renderFromCompany(panel, company);
       if (!rendered) return;
       retryCount = 0;
+
+      if (rendered.isTest) return;
 
       try {
         const { data, error } = await supabase.rpc("get_my_company_entitlements");
@@ -165,7 +177,7 @@ import { supabase } from "../supabase.js";
           business: ["pro"],
           pro: []
         }[actualPlan] || [];
-        addUpgradeButton(actions, allowedPlans);
+        addUpgradeButton(actions, allowedPlans, false);
 
         if (entitlement.subscription_status && ["active", "trialing", "past_due", "canceled"].includes(entitlement.subscription_status)) {
           if (!actions.querySelector("#jobpilot-manage-billing")) {
@@ -198,9 +210,7 @@ import { supabase } from "../supabase.js";
     }, 250);
   }
 
-  function showUpgradeOptions(actions, allowedPlans) {
-    // The options container is a sibling of the actions row, not a child of it.
-    // Look from the subscription content so the click can actually reveal it.
+  function showUpgradeOptions(actions, allowedPlans, isTest) {
     const content = actions?.closest("#jobpilot-subscription-content");
     const existing = content?.querySelector("#jobpilot-upgrade-options");
     if (!existing) return;
@@ -208,11 +218,36 @@ import { supabase } from "../supabase.js";
     existing.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;width:100%;margin-top:12px;";
     existing.innerHTML = "";
 
-    const labels = { team: "Team", business: "Business", pro: "Pro" };
+    const labels = { team: "Team", business: "Business", pro: "Pro", solo: "Solo" };
     allowedPlans.forEach((planName) => {
       const plan = PLANS[planName];
       const option = button(`${labels[planName]} · ${formatPrice(plan)}`, "button");
-      option.addEventListener("click", () => openBilling("checkout", planName));
+      option.addEventListener("click", async () => {
+        if (isTest) {
+          const message = content.querySelector("#jobpilot-upgrade-message");
+          if (message) {
+            message.textContent = "Switching test plan...";
+            message.style.color = "#64748b";
+          }
+          const { data, error } = await supabase.rpc("set_test_company_plan", { target_plan: planName });
+          if (error) {
+            console.error("JobPilot test billing error:", error);
+            if (message) {
+              message.textContent = error.message || "Could not change test plan.";
+              message.style.color = "#b91c1c";
+            }
+            return;
+          }
+          if (message) {
+            message.textContent = `Test plan changed to ${plan.label}. No Stripe payment was made.`;
+            message.style.color = "#166534";
+          }
+          retryCount = 0;
+          render();
+          return;
+        }
+        openBilling("checkout", planName);
+      });
       existing.appendChild(option);
     });
   }

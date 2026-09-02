@@ -109,7 +109,30 @@ function showQuoteRequestForm() {
       return;
     }
 
+    const requestId = crypto.randomUUID();
+    const imagePaths = [];
+
+    for (let index = 0; index < pictures.length; index += 1) {
+      const file = pictures[index];
+      const safeName = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || `photo-${index + 1}.jpg`;
+      const path = `${membership.company_id}/${requestId}/${Date.now()}-${index}-${safeName}`;
+      const { error: uploadError } = await supabase.storage
+        .from("quote-request-images")
+        .upload(path, file, { contentType: file.type || "image/jpeg", upsert: false });
+
+      if (uploadError) {
+        console.error("JobPilot quote request image upload:", uploadError);
+        message.textContent = `Picture ${index + 1} could not be uploaded. Please try again.`;
+        submit.disabled = false;
+        submit.textContent = "Send to Management";
+        return;
+      }
+
+      imagePaths.push(path);
+    }
+
     const payload = {
+      id: requestId,
       company_id: membership.company_id,
       requested_by: user.id,
       customer_name: modal.querySelector("#qrCustomerName").value.trim(),
@@ -117,51 +140,20 @@ function showQuoteRequestForm() {
       email: modal.querySelector("#qrEmail").value.trim() || null,
       address: modal.querySelector("#qrAddress").value.trim() || null,
       description: modal.querySelector("#qrDescription").value.trim(),
-      preferred_date: modal.querySelector("#qrPreferredDate").value || null
+      preferred_date: modal.querySelector("#qrPreferredDate").value || null,
+      image_paths: imagePaths
     };
 
-    const { data: request, error } = await supabase
+    const { error } = await supabase
       .from("quote_requests")
-      .insert(payload)
-      .select("id")
-      .single();
+      .insert(payload);
 
-    if (error || !request?.id) {
+    if (error) {
       console.error("JobPilot quote request:", error);
-      message.textContent = error?.message || "The quote request could not be created.";
+      message.textContent = error.message || "The quote request could not be created.";
       submit.disabled = false;
       submit.textContent = "Send to Management";
       return;
-    }
-
-    const imagePaths = [];
-    for (let index = 0; index < pictures.length; index += 1) {
-      const file = pictures[index];
-      const safeName = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || `photo-${index + 1}.jpg`;
-      const path = `${membership.company_id}/${request.id}/${Date.now()}-${index}-${safeName}`;
-      const { error: uploadError } = await supabase.storage
-        .from("quote-request-images")
-        .upload(path, file, { contentType: file.type || "image/jpeg", upsert: false });
-
-      if (uploadError) {
-        console.error("JobPilot quote request image upload:", uploadError);
-        message.textContent = `The quote request was created, but picture ${index + 1} could not be uploaded.`;
-        break;
-      }
-
-      imagePaths.push(path);
-    }
-
-    if (imagePaths.length) {
-      const { error: imageUpdateError } = await supabase
-        .from("quote_requests")
-        .update({ image_paths: imagePaths })
-        .eq("id", request.id)
-        .eq("requested_by", user.id);
-
-      if (imageUpdateError) {
-        console.error("JobPilot quote request image list:", imageUpdateError);
-      }
     }
 
     modal.remove();

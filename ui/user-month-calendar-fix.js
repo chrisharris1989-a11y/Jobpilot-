@@ -45,7 +45,7 @@ async function loadAssignedJobs(year, month, context) {
 }
 
 async function openAssignedMonthCalendar() {
-  document.getElementById("jobpilot-month-calendar-overlay")?.remove();
+  if (document.getElementById("jobpilot-month-calendar-overlay")) return;
 
   const context = await getUserContext();
   if (!context || MANAGEMENT_ROLES.includes(String(context.membership.role || "").toLowerCase())) return;
@@ -134,35 +134,48 @@ async function openAssignedMonthCalendar() {
   await render();
 }
 
+function normaliseText(value) {
+  return String(value || "")
+    .replace(/[’‘]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 function isMonthCard(element) {
   if (!(element instanceof HTMLElement)) return false;
-  const text = String(element.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+  const text = normaliseText(element.textContent);
   return text.includes("this month's jobs");
 }
 
-function bind() {
-  document.querySelectorAll(".stats .stat-card").forEach(card => {
-    if (!isMonthCard(card) || card.dataset.assignedMonthFixBound === "true") return;
-    card.dataset.assignedMonthFixBound = "true";
-    card.style.cursor = "pointer";
-    card.addEventListener("click", event => {
-      event.preventDefault();
-      event.stopPropagation();
-      openAssignedMonthCalendar().catch(error => console.error("JobPilot monthly calendar:", error));
-    }, true);
-    card.addEventListener("keydown", event => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      event.stopPropagation();
-      openAssignedMonthCalendar().catch(error => console.error("JobPilot monthly calendar:", error));
-    }, true);
-  });
+function findMonthCardFromTarget(target) {
+  if (!(target instanceof Element)) return null;
+  const direct = target.closest(".stats .stat-card");
+  if (direct && isMonthCard(direct)) return direct;
+  return null;
 }
 
-const observer = new MutationObserver(bind);
-const start = () => {
-  bind();
-  observer.observe(document.body, { childList: true, subtree: true });
-};
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+function handleMonthCardClick(event) {
+  const card = findMonthCardFromTarget(event.target);
+  if (!card) return;
+  event.preventDefault();
+  event.stopPropagation();
+  openAssignedMonthCalendar().catch(error => console.error("JobPilot monthly calendar:", error));
+}
+
+function handleMonthCardKeydown(event) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const card = findMonthCardFromTarget(event.target);
+  if (!card) return;
+  event.preventDefault();
+  event.stopPropagation();
+  openAssignedMonthCalendar().catch(error => console.error("JobPilot monthly calendar:", error));
+}
+
+function start() {
+  document.addEventListener("click", handleMonthCardClick, true);
+  document.addEventListener("keydown", handleMonthCardKeydown, true);
+}
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
 else start();

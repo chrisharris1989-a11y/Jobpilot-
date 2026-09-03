@@ -114,10 +114,10 @@ async function wireAddJobForm(form) {
   if (!customer || form.querySelector("#jobpilotAssignedUser")) return;
 
   addStyles();
-  customer.closest("label")?.after(buildAssignmentField());
+  customer.insertAdjacentElement("afterend", buildAssignmentField());
 
-  // app.js owns the actual insert. We only remember the selected user and
-  // attach it to the newly-created job after the normal save completes.
+  // app.js owns the normal insert. We remember the selected user and attach
+  // it to the newly-created job after the normal save has completed.
   form.addEventListener("submit", () => {
     const selectedUserId = form.querySelector("#jobpilotAssignedUser")?.value || null;
     if (!selectedUserId) return;
@@ -126,8 +126,7 @@ async function wireAddJobForm(form) {
       selectedUserId,
       customerId: form.querySelector("#jobCustomer")?.value || "",
       title: form.querySelector("#jobTitle")?.value.trim() || "",
-      scheduledDate: form.querySelector("#jobDate")?.value || null,
-      before: Date.now()
+      scheduledDate: form.querySelector("#jobDate")?.value || null
     };
 
     setTimeout(() => finishAddAssignment(snapshot), 600);
@@ -165,7 +164,7 @@ async function finishAddAssignment(snapshot, attempt = 0) {
     }
   }
 
-  if (attempt < 6) {
+  if (attempt < 8) {
     setTimeout(() => finishAddAssignment(snapshot, attempt + 1), 500);
   }
 }

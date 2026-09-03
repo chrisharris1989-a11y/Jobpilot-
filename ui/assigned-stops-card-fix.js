@@ -2,6 +2,7 @@ import { supabase } from "../supabase.js";
 
 const POSTCODE_API = "https://api.postcodes.io/postcodes";
 const OSRM_TABLE_API = "https://router.project-osrm.org/table/v1/driving";
+const MANAGEMENT_ROLES = ["owner", "admin"];
 
 const normalisePostcode = value => String(value || "").trim().replace(/\s+/g, " ").toUpperCase();
 const today = () => {
@@ -83,6 +84,33 @@ async function openAssignedRoute() {
     page.querySelector("[data-stops-back]")?.addEventListener("click", () => location.reload());
   }
 }
+
+async function isManagementUser() {
+  try {
+    const { data: { user } = {} } = await supabase.auth.getUser();
+    if (!user) return false;
+    const { data, error } = await supabase.from("company_members").select("role").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
+    if (error) return false;
+    return MANAGEMENT_ROLES.includes(String(data?.role || "").toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+// The dashboard's Today’s Jobs card normally opens route-planner.js. For
+// management accounts we intercept that click and use the same assigned-job
+// route used by normal Users. This prevents company-wide jobs appearing.
+document.addEventListener("click", async event => {
+  const card = event.target?.closest?.(".stats .stat-card");
+  if (!card) return;
+  const cards = [...document.querySelectorAll(".stats .stat-card")];
+  if (cards.indexOf(card) !== 4) return;
+  if (!(await isManagementUser())) return;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  await openAssignedRoute();
+}, true);
 
 function ensureAssignedStopsCard() {
   if (!window.__jobPilotNormalUser) return;

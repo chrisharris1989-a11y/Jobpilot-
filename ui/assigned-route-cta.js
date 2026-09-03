@@ -2,9 +2,24 @@ import { supabase } from "../supabase.js";
 
 const POSTCODES = "https://api.postcodes.io/postcodes";
 const OSRM = "https://router.project-osrm.org/table/v1/driving";
+const MANAGEMENT_ROLES = ["owner", "admin"];
 const pc = value => String(value || "").trim().replace(/\s+/g, " ").toUpperCase();
 const esc = value => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#039;");
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+
+let normalUserPromise;
+async function isNormalUser() {
+  if (!normalUserPromise) {
+    normalUserPromise = (async () => {
+      const { data: { user } = {} } = await supabase.auth.getUser();
+      if (!user) return false;
+      const { data: member, error } = await supabase.from("company_members").select("company_id,role").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
+      if (error) throw error;
+      return !!member && !MANAGEMENT_ROLES.includes(String(member.role || "").toLowerCase());
+    })().catch(error => { console.error("JobPilot Stops role check:", error); return false; });
+  }
+  return normalUserPromise;
+}
 
 async function assignedJobs() {
   const { data: { user } = {} } = await supabase.auth.getUser();
@@ -16,7 +31,8 @@ async function assignedJobs() {
     supabase.from("jobs").select("id,customer_id,title,scheduled_date,scheduled_time,status,notes,assigned_user_id").eq("company_id", member.company_id).eq("assigned_user_id", user.id).eq("scheduled_date", today()),
     supabase.from("customers").select("id,name,address_line1,address_line2,city,postcode").eq("company_id", member.company_id)
   ]);
-  if (je) throw je; if (ce) throw ce;
+  if (je) throw je;
+  if (ce) throw ce;
   const map = new Map((customers || []).map(c => [String(c.id), c]));
   return (jobs || []).filter(j => String(j.status || "").toLowerCase() !== "cancelled").map(j => ({ ...j, customer: map.get(String(j.customer_id)) || null }));
 }
@@ -38,10 +54,13 @@ async function orderJobs(jobs) {
   const remaining = new Set(points.map((_,i)=>i));
   const ordered = [];
   let current = [...remaining].sort((a,b)=>String(points[a].job.scheduled_time||"").localeCompare(String(points[b].job.scheduled_time||"")))[0];
-  ordered.push(points[current].job); remaining.delete(current);
+  ordered.push(points[current].job);
+  remaining.delete(current);
   while (remaining.size) {
     const next = [...remaining].sort((a,b)=>Number(table.distances[current]?.[a]??Infinity)-Number(table.distances[current]?.[b]??Infinity))[0];
-    ordered.push(points[next].job); remaining.delete(next); current=next;
+    ordered.push(points[next].job);
+    remaining.delete(next);
+    current=next;
   }
   const seen = new Set(ordered.map(j=>j.id));
   return [...ordered, ...jobs.filter(j=>!seen.has(j.id))];
@@ -65,31 +84,44 @@ async function openRoutePlanner() {
   }
 }
 
-function addAssignedRouteCta() {
-  if (!window.__jobPilotNormalUser) return;
+async function addAssignedRouteCta() {
+  if (!(await isNormalUser())) return;
   const page = document.getElementById("pageContent");
-  if (!page) return;
+  if (!page || page.querySelector("[data-assigned-route-cta]")) return;
   const heading = [...page.querySelectorAll("h1,h2,h3")].find(el => String(el.textContent||"").toLowerCase().includes("today's jobs"));
-  if (!heading || page.querySelector("[data-assigned-route-cta]")) return;
-  const rows = [...page.querySelectorAll("[data-assigned-job-id]")];
-  if (!rows.length) return;
+  if (!heading) return;
+
   const stats = document.createElement("div");
   stats.className = "stats";
   stats.style.marginBottom = "20px";
-  stats.innerHTML = `<div class="stat-card" data-assigned-route-cta style="cursor:pointer" role="button" tabindex="0" aria-label="Open route planner for your assigned jobs"><div class="stat-icon">📍</div><div><span>Stops</span><strong>${rows.length}</strong></div></div>`;
-  const panel = rows[0].closest(".panel");
+  stats.innerHTML = `<div class="stat-card" data-assigned-route-cta style="cursor:pointer" role="button" tabindex="0" aria-label="Open route planner for your assigned jobs"><div class="stat-icon">📍</div><div><span>Stops</span><strong data-assigned-stop-count>…</strong></div></div>`;
+  const panel = page.querySelector(".panel");
   if (panel) page.insertBefore(stats,panel); else page.appendChild(stats);
+
   const card = stats.querySelector("[data-assigned-route-cta]");
-  const open = () => void openRoutePlanner();
-  card.addEventListener("click",open);
-  card.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open();}});
+  const count = stats.querySelector("[data-assigned-stop-count]");
+  card.addEventListener("click", () => void openRoutePlanner());
+  card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void openRoutePlanner(); } });
+  try {
+    const jobs = await assignedJobs();
+    if (count && document.body.contains(count)) count.textContent = String(jobs.length);
+  } catch (error) {
+    console.error("JobPilot assigned Stops count:", error);
+    if (count && document.body.contains(count)) count.textContent = "0";
+  }
 }
 
 function start() {
-  addAssignedRouteCta();
+  void addAssignedRouteCta();
   const page = document.getElementById("pageContent");
   if (!page || page.dataset.routeCtaObserver === "true") return;
   page.dataset.routeCtaObserver = "true";
-  new MutationObserver(() => addAssignedRouteCta()).observe(page,{childList:true,subtree:true});
+  let queued = false;
+  new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    queueMicrotask(() => { queued = false; void addAssignedRouteCta(); });
+  }).observe(page,{childList:true,subtree:true});
 }
+
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded",start); else start();

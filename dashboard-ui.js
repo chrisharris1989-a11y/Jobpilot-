@@ -279,8 +279,25 @@ async function updateUserMonthSnapshot(managementUser) {
     try {
       const { data: { user } = {} } = await supabase.auth.getUser();
       if (!user) return;
+
+      const { data: membership, error: membershipError } = await supabase
+        .from("company_members")
+        .select("company_id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .limit(1)
+        .maybeSingle();
+      if (membershipError) throw membershipError;
+      if (!membership?.company_id) throw new Error("No active company membership found for this user.");
+
       const { start, end } = getMonthRange();
-      const { data, error } = await supabase.from("jobs").select("id, customer_id, title, scheduled_date, scheduled_time, status, notes").eq("user_id", user.id).gte("scheduled_date", start).lte("scheduled_date", end);
+      const { data, error } = await supabase
+        .from("jobs")
+        .select("id, customer_id, title, scheduled_date, scheduled_time, status, notes")
+        .eq("company_id", membership.company_id)
+        .eq("assigned_user_id", user.id)
+        .gte("scheduled_date", start)
+        .lte("scheduled_date", end);
       if (error) throw error;
       const activeJobs = (data || []).filter(job => String(job.status || "").toLowerCase() !== "cancelled");
       monthCard.querySelector("strong").textContent = String(activeJobs.length);

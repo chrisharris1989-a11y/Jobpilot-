@@ -52,13 +52,20 @@ async function isNormalUser() {
   }
 }
 
-function findTodayJobsCard() {
+function hideRedundantTodayCards() {
+  document.querySelectorAll(".stats .stat-card").forEach(card => {
+    const text = String(card.textContent || "").trim().toLowerCase();
+    if (text === "today's jobs" || text.startsWith("today's jobs ")) {
+      card.style.display = "none";
+    }
+  });
+}
+
+function findYourJobsTodayCard() {
   return [...document.querySelectorAll(".stats .stat-card")].find(card => {
     const text = String(card.textContent || "").trim().toLowerCase();
-    return text.includes("today's jobs") && !text.includes("today's job value");
-  }) || [...document.querySelectorAll(".stats .stat-card")].find(card =>
-    String(card.textContent || "").trim().toLowerCase().includes("your jobs today")
-  );
+    return text.includes("your jobs today");
+  });
 }
 
 function hidePanelContainingText(texts) {
@@ -169,7 +176,7 @@ async function getAssignedTodayJobs() {
       .eq("scheduled_date", date),
     supabase
       .from("customers")
-      .select("id,name,address_line1,address_line2,city,postcode")
+      .select("id,name,address_line1,address_line2,city,postcode,phone,email")
       .eq("company_id", membership.company_id)
   ]);
 
@@ -180,6 +187,61 @@ async function getAssignedTodayJobs() {
   return (jobs || [])
     .filter(job => String(job.status || "").toLowerCase() !== "cancelled")
     .map(job => ({ ...job, customer: customerMap.get(String(job.customer_id)) || null }));
+}
+
+function jobCardHtml(job) {
+  const customer = job.customer;
+  const address = [customer?.address_line1, customer?.address_line2, customer?.city, customer?.postcode].filter(Boolean).join(", ");
+  return `
+    <div class="panel" style="max-width:760px">
+      <div class="panel-header">
+        <div>
+          <h2>${esc(customer?.name || job.title || "Job")}</h2>
+          <p>${esc(job.title || "Job")}${job.scheduled_time ? ` · ${esc(String(job.scheduled_time).slice(0, 5))}` : ""}</p>
+        </div>
+        <span class="muted">${esc(job.status || "Scheduled")}</span>
+      </div>
+      <div style="display:grid;gap:12px">
+        <div><strong>Date</strong><div class="muted">${esc(job.scheduled_date || "")}${job.scheduled_time ? ` at ${esc(String(job.scheduled_time).slice(0, 5))}` : ""}</div></div>
+        <div><strong>Address</strong><div class="muted">${esc(address || "No address")}</div></div>
+        ${customer?.phone ? `<div><strong>Phone</strong><div class="muted">${esc(customer.phone)}</div></div>` : ""}
+        ${customer?.email ? `<div><strong>Email</strong><div class="muted">${esc(customer.email)}</div></div>` : ""}
+        ${job.notes ? `<div><strong>Job notes</strong><div class="muted">${esc(job.notes)}</div></div>` : ""}
+        ${customer?.postcode ? `<div><a class="button primary" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customer.postcode)}&travelmode=driving" target="_blank" rel="noopener noreferrer" style="text-decoration:none">🧭 Navigate to job</a></div>` : ""}
+      </div>
+    </div>`;
+}
+
+function openJobCard(job) {
+  const content = document.getElementById("pageContent");
+  if (!content) return;
+  content.innerHTML = `
+    <div class="page-actions">
+      <div><h2>📋 Job</h2><p>Your assigned job</p></div>
+      <button class="button secondary" data-route-back>← Back to today's jobs</button>
+    </div>
+    ${jobCardHtml(job)}`;
+  content.querySelector("[data-route-back]")?.addEventListener("click", () => void openAssignedTodayJobs());
+}
+
+function bindJobRows(content, jobs) {
+  content.querySelectorAll("[data-assigned-job-id]").forEach(row => {
+    if (row.dataset.jobBound === "true") return;
+    row.dataset.jobBound = "true";
+    const job = jobs.find(item => String(item.id) === String(row.dataset.assignedJobId));
+    if (!job) return;
+    const open = () => openJobCard(job);
+    row.addEventListener("click", event => {
+      if (event.target.closest("a")) return;
+      open();
+    });
+    row.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  });
 }
 
 async function openAssignedTodayJobs() {
@@ -211,11 +273,11 @@ async function openAssignedTodayJobs() {
         </div>
       </div>
       <div class="panel">
-        <div class="panel-header"><div><h2>Your jobs today</h2><p>Only jobs assigned to you are shown here.</p></div></div>
+        <div class="panel-header"><div><h2>Your jobs today</h2><p>Click a job to open its job card.</p></div></div>
         ${active.map((job, index) => {
           const customer = job.customer;
           const address = [customer?.address_line1, customer?.address_line2, customer?.city, customer?.postcode].filter(Boolean).join(", ");
-          return `<div class="job-row" style="align-items:flex-start">
+          return `<div class="job-row" data-assigned-job-id="${esc(job.id)}" tabindex="0" role="button" style="align-items:flex-start;cursor:pointer">
             <div style="display:flex;gap:12px;min-width:0">
               <div style="width:34px;height:34px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0">${index + 1}</div>
               <div>
@@ -226,7 +288,7 @@ async function openAssignedTodayJobs() {
               </div>
             </div>
             <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
-              ${customer?.postcode ? `<a class="button secondary" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customer.postcode)}&travelmode=driving" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Navigate</a>` : ""}
+              <span class="button secondary" style="pointer-events:none">View job</span>
             </div>
           </div>`;
         }).join("")}
@@ -234,6 +296,7 @@ async function openAssignedTodayJobs() {
 
     bindBack(content);
     bindStops(content);
+    bindJobRows(content, active);
   } catch (error) {
     console.error("JobPilot assigned jobs:", error);
     content.innerHTML = `
@@ -255,6 +318,29 @@ function bindStops(content) {
       open();
     }
   });
+}
+
+function bindYourJobsTodayCard() {
+  const card = findYourJobsTodayCard();
+  if (!card || card.dataset.assignedJobsBound === "true") return;
+  card.dataset.assignedJobsBound = "true";
+  card.style.cursor = "pointer";
+  card.setAttribute("role", "button");
+  card.setAttribute("tabindex", "0");
+  card.setAttribute("aria-label", "Open your jobs today");
+  const open = () => void openAssignedTodayJobs();
+  card.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    open();
+  }, true);
+  card.addEventListener("keydown", event => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      open();
+    }
+  }, true);
 }
 
 async function openAssignedRoutePlanner() {
@@ -295,7 +381,7 @@ async function openAssignedRoutePlanner() {
         ${ordered.map((job, index) => {
           const customer = job.customer;
           const address = [customer?.address_line1, customer?.address_line2, customer?.city, customer?.postcode].filter(Boolean).join(", ");
-          return `<div class="job-row" style="align-items:flex-start">
+          return `<div class="job-row" data-assigned-job-id="${esc(job.id)}" tabindex="0" role="button" style="align-items:flex-start;cursor:pointer">
             <div style="display:flex;gap:12px;min-width:0">
               <div style="width:34px;height:34px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0">${index + 1}</div>
               <div>
@@ -304,11 +390,12 @@ async function openAssignedRoutePlanner() {
                 <div class="muted" style="margin-top:4px">📍 ${esc(address || "No address")}</div>
               </div>
             </div>
-            <div>${customer?.postcode ? `<a class="button secondary" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customer.postcode)}&travelmode=driving" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Navigate</a>` : ""}</div>
+            <div>${customer?.postcode ? `<a class="button secondary" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customer.postcode)}&travelmode=driving" target="_blank" rel="noopener noreferrer" style="text-decoration:none" onclick="event.stopPropagation()">Navigate</a>` : ""}</div>
           </div>`;
         }).join("")}
       </div>`;
     bindBack(content);
+    bindJobRows(content, ordered);
   } catch (error) {
     console.error("JobPilot assigned route planner:", error);
     content.innerHTML = `
@@ -319,27 +406,30 @@ async function openAssignedRoutePlanner() {
 }
 
 function interceptTodayJobs(event) {
+  if (!window.__jobPilotNormalUser) return;
   const card = event.target?.closest?.(".stats .stat-card");
-  if (!card || !window.__jobPilotNormalUser) return;
+  if (!card) return;
   const text = String(card.textContent || "").trim().toLowerCase();
   if (text.includes("job value")) return;
-  if (!(text.includes("today's jobs") || text.includes("your jobs today"))) return;
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  void openAssignedTodayJobs();
+  if (text.includes("your jobs today")) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    void openAssignedTodayJobs();
+    return;
+  }
+  if (text.includes("today's jobs")) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    void openAssignedTodayJobs();
+  }
 }
 
 function applyUserIsolation() {
   if (!window.__jobPilotNormalUser) return;
   hideUserNavigation();
+  hideRedundantTodayCards();
   hidePanelContainingText(["Today's Job Value", "Job Value"]);
-  const card = findTodayJobsCard();
-  if (card) {
-    card.style.cursor = "pointer";
-    card.setAttribute("role", "button");
-    card.setAttribute("tabindex", "0");
-    card.setAttribute("aria-label", "Open your assigned jobs today");
-  }
+  bindYourJobsTodayCard();
 }
 
 async function initialise() {

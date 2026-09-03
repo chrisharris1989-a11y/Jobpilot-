@@ -3,6 +3,7 @@ import { supabase } from "./supabase.js";
 const POSTCODE_API = "https://api.postcodes.io/postcodes";
 const OSRM_TABLE_API = "https://router.project-osrm.org/table/v1/driving";
 const MAX_EXACT_STOPS = 9;
+const MANAGEMENT_ROLES = ["owner", "admin"];
 
 function getTodayDate() {
   const now = new Date();
@@ -265,20 +266,49 @@ export async function openTodayRoute() {
 
     const today = getTodayDate();
 
+    // Management plans the company's full working day; normal Users only
+    // plan jobs assigned to themselves. Resolve the active company first so
+    // the manager is not accidentally filtered by their own user_id.
+    const { data: membership, error: membershipError } = await supabase
+      .from("company_members")
+      .select("company_id, role")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .limit(1)
+      .maybeSingle();
+
+    if (membershipError) throw membershipError;
+
+    const isManagement = MANAGEMENT_ROLES.includes(
+      String(membership?.role || "").toLowerCase()
+    );
+    const companyId = membership?.company_id || null;
+
+    if (isManagement && !companyId) {
+      throw new Error("Your management account is not linked to a company.");
+    }
+
+    let jobsQuery = supabase
+      .from("jobs")
+      .select("id, customer_id, title, scheduled_date, scheduled_time, status, price, notes")
+      .eq("scheduled_date", today);
+
+    let customersQuery = supabase
+      .from("customers")
+      .select("id, name, address_line1, address_line2, city, postcode");
+
+    if (isManagement) {
+      jobsQuery = jobsQuery.eq("company_id", companyId);
+      customersQuery = customersQuery.eq("company_id", companyId);
+    } else {
+      jobsQuery = jobsQuery.eq("user_id", user.id);
+      customersQuery = customersQuery.eq("user_id", user.id);
+    }
+
     const [
       { data: jobs, error: jobsError },
       { data: customers, error: customersError }
-    ] = await Promise.all([
-      supabase
-        .from("jobs")
-        .select("id, customer_id, title, scheduled_date, scheduled_time, status, price, notes")
-        .eq("user_id", user.id)
-        .eq("scheduled_date", today),
-      supabase
-        .from("customers")
-        .select("id, name, address_line1, address_line2, city, postcode")
-        .eq("user_id", user.id)
-    ]);
+    ] = await Promise.all([jobsQuery, customersQuery]);
 
     if (jobsError) throw jobsError;
     if (customersError) throw customersError;

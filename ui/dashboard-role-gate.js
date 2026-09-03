@@ -1,8 +1,8 @@
 import { supabase } from "../supabase.js";
 
-// Gate the dashboard until the logged-in user's role is known. The important
-// part is that the gate is NOT released until the dashboard has been rendered
-// and the User-specific restrictions have been applied.
+// Keep the dashboard gated while the normal dashboard is being transformed
+// into the role-specific User dashboard. This prevents the base/company
+// dashboard from ever being painted to a normal User.
 const MANAGEMENT_ROLES = ["owner", "admin"];
 let resolving = false;
 
@@ -57,6 +57,44 @@ async function isManagementUser() {
   }
 }
 
+function userDashboardIsReady() {
+  const content = document.getElementById("pageContent");
+  if (!content) return false;
+
+  // dashboard-ui.js creates these only after the User-specific dashboard
+  // restrictions and User dashboard panels have been applied.
+  return Boolean(
+    content.querySelector("#jobpilot-user-month-jobs") &&
+    content.querySelector("#jobpilot-user-quote-request")
+  );
+}
+
+function releaseGate() {
+  const currentContent = document.getElementById("pageContent");
+  if (currentContent) currentContent.classList.remove("jobpilot-role-gated");
+}
+
+async function waitForUserDashboard() {
+  const started = Date.now();
+  const timeout = 6000;
+
+  while (Date.now() - started < timeout) {
+    hideUserDashboardContent();
+
+    if (userDashboardIsReady()) {
+      releaseGate();
+      return;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+
+  // Safety fallback: if an optional User panel failed to initialise, the
+  // company-wide cards and panels have still been removed before revealing it.
+  hideUserDashboardContent();
+  releaseGate();
+}
+
 async function resolveDashboardRole() {
   if (resolving) return;
   const content = gateContent();
@@ -65,13 +103,19 @@ async function resolveDashboardRole() {
   resolving = true;
   try {
     const managementUser = await isManagementUser();
-    if (!managementUser) hideUserDashboardContent();
-  } finally {
-    // Release exactly once, after the role decision. Never release from the
-    // initial module load, which was the source of the original half-second
-    // manager-dashboard flash.
-    const currentContent = document.getElementById("pageContent");
-    if (currentContent) currentContent.classList.remove("jobpilot-role-gated");
+
+    if (managementUser) {
+      releaseGate();
+      return;
+    }
+
+    await waitForUserDashboard();
+  } catch (error) {
+    console.error("JobPilot role gate:", error);
+    // Fail closed for the dashboard content: remove the company-wide cards
+    // before allowing anything to become visible.
+    hideUserDashboardContent();
+    releaseGate();
   }
 }
 

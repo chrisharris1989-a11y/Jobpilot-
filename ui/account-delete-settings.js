@@ -2,6 +2,25 @@ import { supabase } from "../supabase.js";
 
 const ADMIN_ID = "9a89bdf0-1f17-48ec-a622-db59545e8ada";
 
+async function getFunctionErrorMessage(error) {
+  try {
+    const context = error?.context;
+    if (context?.json) {
+      const body = await context.json();
+      if (body?.error) return body.error;
+    }
+    if (context?.text) {
+      const text = await context.text();
+      try {
+        const body = JSON.parse(text);
+        if (body?.error) return body.error;
+      } catch {}
+      if (text) return text;
+    }
+  } catch {}
+  return error?.message || "Unknown error";
+}
+
 function addDeleteAccountCard() {
   const content = document.getElementById("pageContent");
   if (!content || document.getElementById("deleteAccountCard")) return;
@@ -35,12 +54,31 @@ function addDeleteAccountCard() {
       return;
     }
 
+    // Give the user the actual reason before asking for a destructive confirmation.
+    const { data: owned, error: ownedError } = await supabase
+      .from("companies")
+      .select("id,name,test_mode")
+      .eq("owner_id", user.id);
+    if (ownedError) {
+      alert(`Could not check account deletion eligibility: ${ownedError.message}`);
+      return;
+    }
+    if (!owned?.length) {
+      alert("Only a company owner can delete their JobPilot account.");
+      return;
+    }
+    const liveCompany = owned.find(company => company.test_mode !== true);
+    if (liveCompany) {
+      alert("Your account owns a live company. Please transfer company ownership before deleting your account.");
+      return;
+    }
+
     const first = window.confirm(
       "Delete your JobPilot account?\n\nThis is permanent and cannot be undone."
     );
     if (!first) return;
 
-    const typed = window.prompt('Type DELETE to confirm account deletion.');
+    const typed = window.prompt("Type DELETE to confirm account deletion.");
     if (typed !== "DELETE") return;
 
     button.disabled = true;
@@ -50,7 +88,7 @@ function addDeleteAccountCard() {
     if (error) {
       button.disabled = false;
       button.textContent = "Delete my account";
-      alert(`Could not delete account: ${error.message || "Unknown error"}`);
+      alert(`Could not delete account: ${await getFunctionErrorMessage(error)}`);
       return;
     }
     if (!data?.success) {

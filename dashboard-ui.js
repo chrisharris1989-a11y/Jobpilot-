@@ -211,6 +211,86 @@ async function updateTodaySnapshot() {
   [todayJobsCard, todayValueCard].forEach(card => { card.style.gridColumn = "span 2"; });
 }
 
+function getWorkloadDateRanges() {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const day = today.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() + mondayOffset);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const format = date => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const dayNumber = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${dayNumber}`;
+  };
+  return {
+    weekStart: format(weekStart),
+    weekEnd: format(weekEnd),
+    monthStart: format(monthStart),
+    monthEnd: format(monthEnd)
+  };
+}
+
+function makeUserWorkloadCard(id, label, icon) {
+  const card = document.createElement("div");
+  card.id = id;
+  card.className = "stat-card";
+  card.style.gridColumn = "span 2";
+  card.innerHTML = `<div class="stat-icon">${icon}</div><div><span>${label}</span><strong>—</strong></div>`;
+  return card;
+}
+
+async function updateUserWorkloadSnapshots(managementUser) {
+  if (managementUser) return;
+
+  const stats = document.querySelector(".stats");
+  if (!stats) return;
+
+  let weekCard = document.getElementById("jobpilot-user-week-jobs");
+  let monthCard = document.getElementById("jobpilot-user-month-jobs");
+
+  if (!weekCard) {
+    weekCard = makeUserWorkloadCard("jobpilot-user-week-jobs", "This Week's Jobs", "📆");
+    stats.appendChild(weekCard);
+  }
+  if (!monthCard) {
+    monthCard = makeUserWorkloadCard("jobpilot-user-month-jobs", "This Month's Jobs", "🗓️");
+    stats.appendChild(monthCard);
+  }
+
+  if (stats.dataset.userWorkloadLoaded === "true") return;
+  stats.dataset.userWorkloadLoaded = "true";
+
+  try {
+    const { data: { user } = {} } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { weekStart, weekEnd, monthStart, monthEnd } = getWorkloadDateRanges();
+    const { data, error } = await supabase
+      .from("jobs")
+      .select("id, status, scheduled_date")
+      .eq("user_id", user.id)
+      .gte("scheduled_date", monthStart)
+      .lte("scheduled_date", monthEnd);
+
+    if (error) throw error;
+
+    const activeJobs = (data || []).filter(job => String(job.status || "").toLowerCase() !== "cancelled");
+    const weekJobs = activeJobs.filter(job => job.scheduled_date >= weekStart && job.scheduled_date <= weekEnd);
+    const monthJobs = activeJobs.filter(job => job.scheduled_date >= monthStart && job.scheduled_date <= monthEnd);
+
+    weekCard.querySelector("strong").textContent = String(weekJobs.length);
+    monthCard.querySelector("strong").textContent = String(monthJobs.length);
+  } catch (error) {
+    console.error("JobPilot user workload snapshots:", error);
+  }
+}
+
 async function applyDashboardRoleVisibility() {
   const cards = document.querySelectorAll(".stats .stat-card");
   if (cards.length < 6) return;
@@ -232,6 +312,8 @@ async function applyDashboardRoleVisibility() {
     hideQuickActions();
     showQuoteRequestPanel();
   }
+
+  await updateUserWorkloadSnapshots(managementUser);
 }
 
 function showQuoteRequestPanel() {

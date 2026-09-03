@@ -1,10 +1,16 @@
 import { supabase } from "../supabase.js";
 
-// Keep the dashboard gated while the normal dashboard is being transformed
-// into the role-specific User dashboard. This prevents the base/company
-// dashboard from ever being painted to a normal User.
+// Gate the entire app before app.js renders anything. The previous version
+// gated only #pageContent, which still allowed the base dashboard to briefly
+// appear while the User-specific dashboard was being prepared.
 const MANAGEMENT_ROLES = ["owner", "admin"];
 let resolving = false;
+
+function gateApp() {
+  const app = document.getElementById("app");
+  if (app) app.classList.add("jobpilot-app-gated");
+  return app;
+}
 
 function gateContent() {
   const content = document.getElementById("pageContent");
@@ -61,17 +67,31 @@ function userDashboardIsReady() {
   const content = document.getElementById("pageContent");
   if (!content) return false;
 
-  // dashboard-ui.js creates these only after the User-specific dashboard
-  // restrictions and User dashboard panels have been applied.
-  return Boolean(
-    content.querySelector("#jobpilot-user-month-jobs") &&
-    content.querySelector("#jobpilot-user-quote-request")
+  // Wait for the User-specific dashboard elements created by dashboard-ui.js.
+  // At this point the base company dashboard has already been transformed.
+  const monthCard = content.querySelector("#jobpilot-user-month-jobs");
+  const quotePanel = content.querySelector("#jobpilot-user-quote-request");
+  const stats = content.querySelector(".stats");
+  const cards = stats?.querySelectorAll(":scope > .stat-card") || [];
+
+  if (!monthCard || !quotePanel || cards.length < 6) return false;
+
+  const companyCardsHidden = [0, 1, 2, 3].every(index =>
+    cards[index] && getComputedStyle(cards[index]).display === "none"
   );
+
+  const todayJobsVisible = cards[4] && getComputedStyle(cards[4]).display !== "none";
+  const todayValueHidden = cards[5] && getComputedStyle(cards[5]).display === "none";
+
+  return companyCardsHidden && todayJobsVisible && todayValueHidden;
 }
 
 function releaseGate() {
-  const currentContent = document.getElementById("pageContent");
-  if (currentContent) currentContent.classList.remove("jobpilot-role-gated");
+  const content = document.getElementById("pageContent");
+  if (content) content.classList.remove("jobpilot-role-gated");
+
+  const app = document.getElementById("app");
+  if (app) app.classList.remove("jobpilot-app-gated");
 }
 
 async function waitForUserDashboard() {
@@ -89,8 +109,7 @@ async function waitForUserDashboard() {
     await new Promise(resolve => setTimeout(resolve, 50));
   }
 
-  // Safety fallback: if an optional User panel failed to initialise, the
-  // company-wide cards and panels have still been removed before revealing it.
+  // Safety fallback: never expose the company-wide dashboard to a normal User.
   hideUserDashboardContent();
   releaseGate();
 }
@@ -112,19 +131,25 @@ async function resolveDashboardRole() {
     await waitForUserDashboard();
   } catch (error) {
     console.error("JobPilot role gate:", error);
-    // Fail closed for the dashboard content: remove the company-wide cards
-    // before allowing anything to become visible.
     hideUserDashboardContent();
     releaseGate();
   }
 }
 
+// This style is installed before app.js runs, and the app element itself is
+// gated immediately. That makes the transition atomic from the user's point
+// of view: there is no intermediate dashboard frame to paint.
 const style = document.createElement("style");
 style.id = "jobpilot-role-gate-style";
-style.textContent = `#pageContent.jobpilot-role-gated{visibility:hidden!important}`;
+style.textContent = `
+  #app.jobpilot-app-gated{visibility:hidden!important}
+  #pageContent.jobpilot-role-gated{visibility:hidden!important}
+`;
 document.head.appendChild(style);
+gateApp();
 
 const observer = new MutationObserver(() => {
+  gateApp();
   gateContent();
   if (document.querySelector("#pageContent .stats")) {
     observer.disconnect();
@@ -136,6 +161,7 @@ function start() {
   const app = document.getElementById("app");
   if (!app) return;
 
+  gateApp();
   gateContent();
   observer.observe(app, { childList: true, subtree: true });
 

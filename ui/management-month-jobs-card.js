@@ -74,7 +74,7 @@ function addCalendarStyles() {
 function openManagementMonthCalendar(jobs) {
   document.getElementById("jobpilot-management-month-calendar")?.remove();
   addCalendarStyles();
-  const { date } = getMonthRange();
+  const date = new Date();
   let year = date.getFullYear();
   let month = date.getMonth();
   const overlay = document.createElement("div");

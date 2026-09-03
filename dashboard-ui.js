@@ -127,32 +127,63 @@ function makeTodayJobsClickable() {
   });
 }
 
-async function updateTodaySnapshot() {
-  const cards = document.querySelectorAll(".stats .stat-card");
-  if (cards.length < 6) return;
-  const todayJobsCard = cards[4];
-  const todayValueCard = cards[5];
-  if (todayJobsCard.dataset.todaySnapshot === "true") return;
-  todayJobsCard.dataset.todaySnapshot = "true";
-  todayValueCard.dataset.todaySnapshot = "true";
-  const today = getTodayDate();
-  const { data: { user } = {} } = await supabase.auth.getUser();
-  if (!user) return;
-  const { data, error } = await supabase.from("jobs").select("id, price, status, scheduled_date").eq("user_id", user.id).eq("scheduled_date", today);
-  if (error) { console.error("Today's dashboard jobs:", error); return; }
-  const activeTodayJobs = (data || []).filter(job => String(job.status || "").toLowerCase() !== "cancelled");
-  const jobValue = activeTodayJobs.reduce((total, job) => total + Number(job.price || 0), 0);
-  todayJobsCard.innerHTML = `<div class="stat-icon">📅</div><div><span>Today's Jobs</span><strong>${activeTodayJobs.length}</strong></div>`;
-  todayValueCard.innerHTML = `<div class="stat-icon">💰</div><div><span>Today's Job Value</span><strong>£${jobValue.toFixed(2)}</strong></div>`;
-  [todayJobsCard, todayValueCard].forEach(card => { card.style.gridColumn = "span 2"; });
-}
-
 function getMonthRange() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   const format = date => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
   return { start: format(start), end: format(end), date: now };
+}
+
+async function updateTodaySnapshot() {
+  const cards = document.querySelectorAll(".stats .stat-card");
+  if (cards.length < 6) return;
+  const todayJobsCard = cards[4];
+  const monthJobsCard = cards[5];
+  if (monthJobsCard.dataset.monthSnapshot === "true") return;
+  monthJobsCard.dataset.monthSnapshot = "true";
+
+  // Replace the existing Today's Job Value card immediately, so the old
+  // financial card is never intentionally left in the management UI.
+  monthJobsCard.innerHTML = `<div class="stat-icon">🗓️</div><div><span>This Month's Jobs</span><strong>—</strong></div>`;
+  [todayJobsCard, monthJobsCard].forEach(card => { card.style.gridColumn = "span 2"; });
+
+  const { data: { user } = {} } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const managementUser = await hasManagementAccess();
+  const { data: membership, error: membershipError } = await supabase
+    .from("company_members")
+    .select("company_id")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+  if (membershipError || !membership?.company_id) {
+    if (membershipError) console.error("JobPilot dashboard company membership:", membershipError);
+    return;
+  }
+
+  const { start, end } = getMonthRange();
+  let query = supabase
+    .from("jobs")
+    .select("id, status, scheduled_date")
+    .eq("company_id", membership.company_id)
+    .gte("scheduled_date", start)
+    .lte("scheduled_date", end);
+
+  // Management sees the whole company's workload. A normal User keeps the
+  // existing user-specific monthly snapshot behaviour.
+  if (!managementUser) query = query.eq("assigned_user_id", user.id);
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("This month's dashboard jobs:", error);
+    return;
+  }
+
+  const activeJobs = (data || []).filter(job => String(job.status || "").toLowerCase() !== "cancelled");
+  monthJobsCard.querySelector("strong").textContent = String(activeJobs.length);
 }
 
 function makeUserMonthCard() {
@@ -348,7 +379,7 @@ function enhanceDashboard() {
     todayJobsCard.innerHTML = `<div class="stat-icon">📅</div><div><span>Today's Jobs</span><strong>—</strong></div>`;
     const todayValueCard = document.createElement("div");
     todayValueCard.className = "stat-card";
-    todayValueCard.innerHTML = `<div class="stat-icon">💰</div><div><span>Today's Job Value</span><strong>£0.00</strong></div>`;
+    todayValueCard.innerHTML = `<div class="stat-icon">🗓️</div><div><span>This Month's Jobs</span><strong>—</strong></div>`;
     todayJobsCard.style.gridColumn = "span 2";
     todayValueCard.style.gridColumn = "span 2";
     stats.appendChild(todayJobsCard);

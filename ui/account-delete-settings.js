@@ -1,6 +1,6 @@
 import { supabase } from "../supabase.js";
 
-const ADMIN_ID = "9a89bdf0-1f17-48ec-a622-db59545eeada";
+const ADMIN_ID = "9a89bdf0-1f17-48ec-a622-db59545e8ada";
 
 async function getFunctionErrorMessage(error) {
   try {

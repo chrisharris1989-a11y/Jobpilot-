@@ -266,9 +266,9 @@ export async function openTodayRoute() {
 
     const today = getTodayDate();
 
-    // Management plans the company's full working day; normal Users only
-    // plan jobs assigned to themselves. Resolve the active company first so
-    // the manager is not accidentally filtered by their own user_id.
+    // Resolve the active membership so management roles continue to use the
+    // same route-planner path as normal Users. The route itself is always
+    // restricted to the signed-in user's assigned jobs.
     const { data: membership, error: membershipError } = await supabase
       .from("company_members")
       .select("company_id, role")
@@ -282,25 +282,21 @@ export async function openTodayRoute() {
     const isManagement = MANAGEMENT_ROLES.includes(
       String(membership?.role || "").toLowerCase()
     );
-    const companyId = membership?.company_id || null;
-
-    if (isManagement && !companyId) {
-      throw new Error("Your management account is not linked to a company.");
-    }
 
     let jobsQuery = supabase
       .from("jobs")
       .select("id, customer_id, title, scheduled_date, scheduled_time, status, price, notes")
-      .eq("scheduled_date", today);
+      .eq("scheduled_date", today)
+      .eq("user_id", user.id);
 
     let customersQuery = supabase
       .from("customers")
-      .select("id, name, address_line1, address_line2, city, postcode");
+      .select("id, name, address_line1, address_line2, city, postcode")
+      .eq("user_id", user.id);
 
+    // Both management and normal Users are intentionally restricted to the
+    // signed-in user's own jobs. No company-wide route is permitted here.
     if (isManagement) {
-      jobsQuery = jobsQuery.eq("company_id", companyId);
-      customersQuery = customersQuery.eq("company_id", companyId);
-    } else {
       jobsQuery = jobsQuery.eq("user_id", user.id);
       customersQuery = customersQuery.eq("user_id", user.id);
     }

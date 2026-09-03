@@ -31,14 +31,6 @@ async function getCurrentMembership() {
   return { user, membership: data };
 }
 
-function relevantJobs(rows, userId) {
-  return (rows || []).filter(job => {
-    if (String(job.status || "").toLowerCase() === "cancelled") return false;
-    if (job.assigned_user_id) return String(job.assigned_user_id) === String(userId);
-    return String(job.user_id) === String(userId);
-  });
-}
-
 async function refreshAssignedDashboard() {
   if (refreshing) return;
   const stats = document.querySelector(".stats");
@@ -53,8 +45,9 @@ async function refreshAssignedDashboard() {
     const { start, end } = monthRange();
     const { data, error } = await supabase
       .from("jobs")
-      .select("id,user_id,assigned_user_id,price,status,scheduled_date,scheduled_time,title,notes,customer_id")
+      .select("id,assigned_user_id,status,scheduled_date,scheduled_time,title,notes,customer_id")
       .eq("company_id", membership.company_id)
+      .eq("assigned_user_id", user.id)
       .gte("scheduled_date", start)
       .lte("scheduled_date", end);
 
@@ -63,9 +56,8 @@ async function refreshAssignedDashboard() {
       return;
     }
 
-    const jobs = relevantJobs(data, user.id);
+    const jobs = (data || []).filter(job => String(job.status || "").toLowerCase() !== "cancelled");
     const todayJobs = jobs.filter(job => job.scheduled_date === todayIso());
-    const todayValue = todayJobs.reduce((total, job) => total + Number(job.price || 0), 0);
     const cards = document.querySelectorAll(".stats .stat-card");
     const todayCard = cards[4];
     const todayValueCard = cards[5];
@@ -75,7 +67,8 @@ async function refreshAssignedDashboard() {
       todayCard.style.gridColumn = "span 2";
     }
     if (todayValueCard) {
-      todayValueCard.innerHTML = `<div class="stat-icon">💰</div><div><span>Today's Job Value</span><strong>£${todayValue.toFixed(2)}</strong></div>`;
+      todayValueCard.style.display = "none";
+      todayValueCard.setAttribute("aria-hidden", "true");
     }
 
     const monthCard = document.getElementById("jobpilot-user-month-jobs");

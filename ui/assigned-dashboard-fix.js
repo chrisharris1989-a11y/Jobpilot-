@@ -31,6 +31,17 @@ async function getCurrentMembership() {
   return { user, membership: data };
 }
 
+function findTodayJobsCard(cards) {
+  return [...cards].find(card => {
+    const text = String(card.textContent || "").trim().toLowerCase();
+    return text.includes("today's jobs") && !text.includes("today's job value");
+  }) || [...cards].find(card => String(card.textContent || "").trim().toLowerCase().includes("your jobs today"));
+}
+
+function findTodayValueCard(cards) {
+  return [...cards].find(card => String(card.textContent || "").trim().toLowerCase().includes("today's job value"));
+}
+
 async function refreshAssignedDashboard() {
   if (refreshing) return;
   const stats = document.querySelector(".stats");
@@ -59,13 +70,23 @@ async function refreshAssignedDashboard() {
     const jobs = (data || []).filter(job => String(job.status || "").toLowerCase() !== "cancelled");
     const todayJobs = jobs.filter(job => job.scheduled_date === todayIso());
     const cards = document.querySelectorAll(".stats .stat-card");
-    const todayCard = cards[4];
-    const todayValueCard = cards[5];
+    const todayCard = findTodayJobsCard(cards);
+    const todayValueCard = findTodayValueCard(cards);
 
+    // Never rely on card indexes: other dashboard cards can be inserted/removed.
+    // Keep the assigned-jobs card visible and update only the matching card.
     if (todayCard) {
+      todayCard.style.display = "";
+      todayCard.style.visibility = "visible";
+      todayCard.removeAttribute("aria-hidden");
       todayCard.innerHTML = `<div class="stat-icon">📅</div><div><span>Today's Jobs</span><strong>${todayJobs.length}</strong></div>`;
       todayCard.style.gridColumn = "span 2";
+      todayCard.style.cursor = "pointer";
+      todayCard.setAttribute("role", "button");
+      todayCard.setAttribute("tabindex", "0");
+      todayCard.setAttribute("aria-label", "Open your assigned jobs today");
     }
+
     if (todayValueCard) {
       todayValueCard.style.display = "none";
       todayValueCard.setAttribute("aria-hidden", "true");

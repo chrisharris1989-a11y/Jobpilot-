@@ -3,6 +3,7 @@ import { supabase } from "../supabase.js";
 const MANAGER_ROLES = ["owner", "admin"];
 let refreshTimer = null;
 let refreshing = false;
+let assignedJobQueryPatchInstalled = false;
 
 function todayIso() {
   const now = new Date();
@@ -31,6 +32,30 @@ async function getCurrentMembership() {
   return { user, membership: data };
 }
 
+function installAssignedJobQueryPatch(userId) {
+  if (assignedJobQueryPatchInstalled || !userId) return;
+  assignedJobQueryPatchInstalled = true;
+
+  const originalFrom = supabase.from.bind(supabase);
+  supabase.from = table => {
+    const builder = originalFrom(table);
+    if (table !== "jobs") return builder;
+
+    return new Proxy(builder, {
+      get(target, property, receiver) {
+        if (property !== "eq") return Reflect.get(target, property, receiver);
+        const originalEq = target.eq;
+        return (column, value) => {
+          if (column === "user_id" && value === userId) {
+            return originalEq.call(target, "assigned_user_id", value);
+          }
+          return originalEq.call(target, column, value);
+        };
+      }
+    });
+  };
+}
+
 function findTodayJobsCard(cards) {
   return [...cards].find(card => {
     const text = String(card.textContent || "").trim().toLowerCase();
@@ -49,6 +74,8 @@ async function refreshAssignedDashboard() {
   const context = await getCurrentMembership();
   if (!context) return;
   if (MANAGER_ROLES.includes(String(context.membership.role || "").toLowerCase())) return;
+
+  installAssignedJobQueryPatch(context.user.id);
 
   refreshing = true;
   try {
@@ -73,8 +100,6 @@ async function refreshAssignedDashboard() {
     const todayCard = findTodayJobsCard(cards);
     const todayValueCard = findTodayValueCard(cards);
 
-    // Never rely on card indexes: other dashboard cards can be inserted/removed.
-    // Keep the assigned-jobs card visible and update only the matching card.
     if (todayCard) {
       todayCard.style.display = "";
       todayCard.style.visibility = "visible";

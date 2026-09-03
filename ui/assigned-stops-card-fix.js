@@ -104,7 +104,7 @@ function ensureAssignedStopsCard() {
   if (!page) return;
   const heading = String(page.querySelector("h2")?.textContent || "").toLowerCase();
   if (!heading.includes("today's jobs")) return;
-  if (page.querySelector("[data-forced-assigned-route]")) return;
+  if (page.querySelector("[data-open-assigned-route], [data-forced-assigned-route]")) return;
   const rows = [...page.querySelectorAll("[data-assigned-job-id]")];
   if (!rows.length) return;
   const card = document.createElement("div");

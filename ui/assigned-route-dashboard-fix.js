@@ -406,22 +406,26 @@ async function openAssignedRoutePlanner() {
 }
 
 function interceptTodayJobs(event) {
-  if (!window.__jobPilotNormalUser) return;
   const card = event.target?.closest?.(".stats .stat-card");
   if (!card) return;
   const text = String(card.textContent || "").trim().toLowerCase();
   if (text.includes("job value")) return;
-  if (text.includes("your jobs today")) {
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    void openAssignedTodayJobs();
-    return;
-  }
-  if (text.includes("today's jobs")) {
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    void openAssignedTodayJobs();
-  }
+  if (!(text.includes("today's jobs") || text.includes("your jobs today"))) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  void openAssignedTodayJobs();
+}
+
+function interceptTodayJobsKeydown(event) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const card = event.target?.closest?.(".stats .stat-card");
+  if (!card) return;
+  const text = String(card.textContent || "").trim().toLowerCase();
+  if (text.includes("job value")) return;
+  if (!(text.includes("today's jobs") || text.includes("your jobs today"))) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  void openAssignedTodayJobs();
 }
 
 function applyUserIsolation() {
@@ -435,23 +439,18 @@ function applyUserIsolation() {
 async function initialise() {
   try {
     window.__jobPilotNormalUser = await isNormalUser();
+
+    if (!window.__jobPilotTodayJobsNavigationBound) {
+      window.__jobPilotTodayJobsNavigationBound = true;
+      document.addEventListener("click", interceptTodayJobs, true);
+      document.addEventListener("keydown", interceptTodayJobsKeydown, true);
+    }
+
     if (!window.__jobPilotNormalUser) return;
 
     if (!window.__jobPilotUserIsolationBound) {
       window.__jobPilotUserIsolationBound = true;
       document.addEventListener("click", blockNonUserNavigation, true);
-      document.addEventListener("click", interceptTodayJobs, true);
-      document.addEventListener("keydown", event => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        const card = event.target?.closest?.(".stats .stat-card");
-        if (!card || !window.__jobPilotNormalUser) return;
-        const text = String(card.textContent || "").trim().toLowerCase();
-        if (text.includes("job value")) return;
-        if (!(text.includes("today's jobs") || text.includes("your jobs today"))) return;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        void openAssignedTodayJobs();
-      }, true);
     }
     applyUserIsolation();
   } catch (error) {

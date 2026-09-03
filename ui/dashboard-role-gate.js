@@ -1,9 +1,9 @@
 import { supabase } from "../supabase.js";
 
-// Prevent the company dashboard from painting for normal Users, but never
-// keep the entire application hidden while waiting for optional dashboard
-// enhancements. The previous gate waited for six specific dashboard cards;
-// if those enhancements were delayed or failed, #app stayed invisible.
+// Prevent the company dashboard from painting before the user's role is known.
+// The gate must NEVER wait for a particular dashboard element to appear: if
+// app.js changes its initial markup or rendering is delayed, waiting for
+// .stats would leave the entire application permanently invisible.
 const MANAGEMENT_ROLES = ["owner", "admin"];
 let resolving = false;
 
@@ -74,11 +74,11 @@ function releaseGate() {
 
 async function resolveDashboardRole() {
   if (resolving) return;
-  const content = gateContent();
-  if (!content || !content.querySelector(".stats")) return;
-
   resolving = true;
+
   try {
+    // Role resolution is the only thing this gate waits for. It does not
+    // depend on .stats, dashboard-ui.js, Today's Jobs, or any other module.
     const managementUser = await isManagementUser();
 
     if (managementUser) {
@@ -86,22 +86,21 @@ async function resolveDashboardRole() {
       return;
     }
 
-    // Do not wait for dashboard-ui.js to finish adding optional User cards.
-    // Hide the company-wide cards immediately, then release the app. The
-    // User dashboard enhancements can continue rendering normally.
+    // Normal User: remove company-wide dashboard content that already exists,
+    // then release the application. User-specific dashboard modules continue
+    // rendering after this point.
     hideUserDashboardContent();
     releaseGate();
   } catch (error) {
     console.error("JobPilot role gate:", error);
-    // Fail safe for a normal User: hide company-wide dashboard content but
-    // never leave the whole application permanently invisible.
-    hideUserDashboardContent();
+    // Fail open rather than leaving the whole application as a white screen.
+    // The separate User dashboard guard continues enforcing User restrictions.
     releaseGate();
   }
 }
 
-// This style is installed before app.js runs so the initial company
-// dashboard cannot paint before the role is known.
+// Installed before app.js runs so the initial company dashboard cannot paint
+// before the role is known.
 const style = document.createElement("style");
 style.id = "jobpilot-role-gate-style";
 style.textContent = `
@@ -111,27 +110,13 @@ style.textContent = `
 document.head.appendChild(style);
 gateApp();
 
-const observer = new MutationObserver(() => {
-  gateApp();
-  gateContent();
-  if (document.querySelector("#pageContent .stats")) {
-    observer.disconnect();
-    void resolveDashboardRole();
-  }
-});
-
 function start() {
   const app = document.getElementById("app");
   if (!app) return;
 
   gateApp();
   gateContent();
-  observer.observe(app, { childList: true, subtree: true });
-
-  if (document.querySelector("#pageContent .stats")) {
-    observer.disconnect();
-    void resolveDashboardRole();
-  }
+  void resolveDashboardRole();
 }
 
 if (document.readyState === "loading") {

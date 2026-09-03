@@ -86,7 +86,6 @@ async function openAssignedMonthCalendar() {
       jobs = await loadAssignedJobs(year, month, context);
       title.textContent = new Date(year, month, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
       grid.innerHTML = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(day => `<div class="jobpilot-calendar-weekday">${day}</div>`).join("");
-
       const first = new Date(year, month, 1);
       const firstDay = (first.getDay() + 6) % 7;
       const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -116,8 +115,7 @@ async function openAssignedMonthCalendar() {
         grid.appendChild(cellEl);
       }
 
-      const todayInViewedMonth = new Date(year, month, new Date().getDate());
-      const initialIso = (year === todayInViewedMonth.getFullYear() && month === todayInViewedMonth.getMonth()) ? today : selectedDate;
+      const initialIso = (year === now.getFullYear() && month === now.getMonth()) ? today : selectedDate;
       const initialJobs = jobs.filter(job => job.scheduled_date === initialIso);
       const displayDate = new Date(`${initialIso}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
       details.innerHTML = initialJobs.length
@@ -136,15 +134,29 @@ async function openAssignedMonthCalendar() {
   await render();
 }
 
+function isMonthCard(element) {
+  if (!(element instanceof HTMLElement)) return false;
+  const text = String(element.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+  return text.includes("this month's jobs");
+}
+
 function bind() {
-  const card = document.getElementById("jobpilot-user-month-jobs");
-  if (!card || card.dataset.assignedMonthFixBound === "true") return;
-  card.dataset.assignedMonthFixBound = "true";
-  card.addEventListener("click", event => {
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    openAssignedMonthCalendar().catch(error => console.error("JobPilot monthly calendar:", error));
-  }, true);
+  document.querySelectorAll(".stats .stat-card").forEach(card => {
+    if (!isMonthCard(card) || card.dataset.assignedMonthFixBound === "true") return;
+    card.dataset.assignedMonthFixBound = "true";
+    card.style.cursor = "pointer";
+    card.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      openAssignedMonthCalendar().catch(error => console.error("JobPilot monthly calendar:", error));
+    }, true);
+    card.addEventListener("keydown", event => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      event.stopPropagation();
+      openAssignedMonthCalendar().catch(error => console.error("JobPilot monthly calendar:", error));
+    }, true);
+  });
 }
 
 const observer = new MutationObserver(bind);

@@ -2,17 +2,52 @@ import { supabase } from "../supabase.js";
 
 const MANAGEMENT_ROLES = ["owner", "admin"];
 
-function esc(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+const esc = value => String(value ?? "")
+  .replace(/&/g, "&amp;")
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;")
+  .replace(/\"/g, "&quot;")
+  .replace(/'/g, "&#039;");
+
+const isoDate = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+function normaliseText(value) {
+  return String(value || "").replace(/[’‘]/g, "'").replace(/\s+/g, " ").trim().toLowerCase();
 }
 
-function isoDate(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+function isMonthCard(element) {
+  return element instanceof HTMLElement && normaliseText(element.textContent).includes("this month's jobs");
+}
+
+function findMonthCard(target) {
+  if (!(target instanceof Element)) return null;
+  const card = target.closest(".stats .stat-card");
+  return card && isMonthCard(card) ? card : null;
+}
+
+function createCalendarShell() {
+  document.getElementById("jobpilot-month-calendar-overlay")?.remove();
+  const overlay = document.createElement("div");
+  overlay.id = "jobpilot-month-calendar-overlay";
+  overlay.innerHTML = `
+    <div class="jobpilot-calendar-backdrop"></div>
+    <div class="jobpilot-calendar-modal" role="dialog" aria-modal="true" aria-label="Your planned work calendar">
+      <div class="jobpilot-calendar-header">
+        <div><h2 id="jobpilot-calendar-title">Your planned work</h2><p>Your assigned planned work for this month</p></div>
+        <button type="button" class="jobpilot-calendar-close" aria-label="Close">×</button>
+      </div>
+      <div class="jobpilot-calendar-nav">
+        <button type="button" id="jobpilot-calendar-prev">‹</button>
+        <button type="button" id="jobpilot-calendar-today">Today</button>
+        <button type="button" id="jobpilot-calendar-next">›</button>
+      </div>
+      <div class="jobpilot-calendar-grid" id="jobpilot-calendar-grid"><p>Loading your jobs…</p></div>
+      <div id="jobpilot-calendar-details" class="jobpilot-calendar-details"><p>Loading your jobs…</p></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector(".jobpilot-calendar-close").addEventListener("click", () => overlay.remove());
+  overlay.querySelector(".jobpilot-calendar-backdrop").addEventListener("click", () => overlay.remove());
+  return overlay;
 }
 
 async function getUserContext() {
@@ -45,41 +80,22 @@ async function loadAssignedJobs(year, month, context) {
 }
 
 async function openAssignedMonthCalendar() {
-  if (document.getElementById("jobpilot-month-calendar-overlay")) return;
-
+  const overlay = createCalendarShell();
+  const title = overlay.querySelector("#jobpilot-calendar-title");
+  const grid = overlay.querySelector("#jobpilot-calendar-grid");
+  const details = overlay.querySelector("#jobpilot-calendar-details");
   const context = await getUserContext();
-  if (!context || MANAGEMENT_ROLES.includes(String(context.membership.role || "").toLowerCase())) return;
+
+  if (!context || MANAGEMENT_ROLES.includes(String(context.membership.role || "").toLowerCase())) {
+    grid.innerHTML = "<p>This calendar is available for assigned users only.</p>";
+    details.innerHTML = "";
+    return;
+  }
 
   const now = new Date();
   let year = now.getFullYear();
   let month = now.getMonth();
   let jobs = [];
-
-  const overlay = document.createElement("div");
-  overlay.id = "jobpilot-month-calendar-overlay";
-  overlay.innerHTML = `
-    <div class="jobpilot-calendar-backdrop"></div>
-    <div class="jobpilot-calendar-modal" role="dialog" aria-modal="true" aria-label="Your planned work calendar">
-      <div class="jobpilot-calendar-header">
-        <div><h2 id="jobpilot-calendar-title"></h2><p>Your assigned planned work for this month</p></div>
-        <button type="button" class="jobpilot-calendar-close" aria-label="Close">×</button>
-      </div>
-      <div class="jobpilot-calendar-nav">
-        <button type="button" id="jobpilot-calendar-prev">‹</button>
-        <button type="button" id="jobpilot-calendar-today">Today</button>
-        <button type="button" id="jobpilot-calendar-next">›</button>
-      </div>
-      <div class="jobpilot-calendar-grid" id="jobpilot-calendar-grid"></div>
-      <div id="jobpilot-calendar-details" class="jobpilot-calendar-details"><p>Loading your jobs…</p></div>
-    </div>`;
-  document.body.appendChild(overlay);
-
-  const title = overlay.querySelector("#jobpilot-calendar-title");
-  const grid = overlay.querySelector("#jobpilot-calendar-grid");
-  const details = overlay.querySelector("#jobpilot-calendar-details");
-  const close = () => overlay.remove();
-  overlay.querySelector(".jobpilot-calendar-close").addEventListener("click", close);
-  overlay.querySelector(".jobpilot-calendar-backdrop").addEventListener("click", close);
 
   async function render(selectedDate = isoDate(new Date())) {
     try {
@@ -115,7 +131,7 @@ async function openAssignedMonthCalendar() {
         grid.appendChild(cellEl);
       }
 
-      const initialIso = (year === now.getFullYear() && month === now.getMonth()) ? today : selectedDate;
+      const initialIso = year === now.getFullYear() && month === now.getMonth() ? today : selectedDate;
       const initialJobs = jobs.filter(job => job.scheduled_date === initialIso);
       const displayDate = new Date(`${initialIso}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
       details.innerHTML = initialJobs.length
@@ -123,7 +139,7 @@ async function openAssignedMonthCalendar() {
         : `<p>No planned work on ${esc(displayDate)}.</p>`;
     } catch (error) {
       console.error("JobPilot assigned monthly calendar:", error);
-      details.innerHTML = `<p>Unable to load your planned work.</p>`;
+      details.innerHTML = "<p>Unable to load your planned work.</p>";
     }
   }
 
@@ -134,30 +150,8 @@ async function openAssignedMonthCalendar() {
   await render();
 }
 
-function normaliseText(value) {
-  return String(value || "")
-    .replace(/[’‘]/g, "'")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
-function isMonthCard(element) {
-  if (!(element instanceof HTMLElement)) return false;
-  const text = normaliseText(element.textContent);
-  return text.includes("this month's jobs");
-}
-
-function findMonthCardFromTarget(target) {
-  if (!(target instanceof Element)) return null;
-  const direct = target.closest(".stats .stat-card");
-  if (direct && isMonthCard(direct)) return direct;
-  return null;
-}
-
 function handleMonthCardClick(event) {
-  const card = findMonthCardFromTarget(event.target);
-  if (!card) return;
+  if (!findMonthCard(event.target)) return;
   event.preventDefault();
   event.stopPropagation();
   openAssignedMonthCalendar().catch(error => console.error("JobPilot monthly calendar:", error));
@@ -165,17 +159,11 @@ function handleMonthCardClick(event) {
 
 function handleMonthCardKeydown(event) {
   if (event.key !== "Enter" && event.key !== " ") return;
-  const card = findMonthCardFromTarget(event.target);
-  if (!card) return;
+  if (!findMonthCard(event.target)) return;
   event.preventDefault();
   event.stopPropagation();
   openAssignedMonthCalendar().catch(error => console.error("JobPilot monthly calendar:", error));
 }
 
-function start() {
-  document.addEventListener("click", handleMonthCardClick, true);
-  document.addEventListener("keydown", handleMonthCardKeydown, true);
-}
-
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
-else start();
+document.addEventListener("click", handleMonthCardClick, true);
+document.addEventListener("keydown", handleMonthCardKeydown, true);

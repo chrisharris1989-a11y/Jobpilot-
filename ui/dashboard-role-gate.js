@@ -1,8 +1,9 @@
 import { supabase } from "../supabase.js";
 
-// Gate the entire app before app.js renders anything. The previous version
-// gated only #pageContent, which still allowed the base dashboard to briefly
-// appear while the User-specific dashboard was being prepared.
+// Prevent the company dashboard from painting for normal Users, but never
+// keep the entire application hidden while waiting for optional dashboard
+// enhancements. The previous gate waited for six specific dashboard cards;
+// if those enhancements were delayed or failed, #app stayed invisible.
 const MANAGEMENT_ROLES = ["owner", "admin"];
 let resolving = false;
 
@@ -63,55 +64,12 @@ async function isManagementUser() {
   }
 }
 
-function userDashboardIsReady() {
-  const content = document.getElementById("pageContent");
-  if (!content) return false;
-
-  // Wait for the User-specific dashboard elements created by dashboard-ui.js.
-  // At this point the base company dashboard has already been transformed.
-  const monthCard = content.querySelector("#jobpilot-user-month-jobs");
-  const quotePanel = content.querySelector("#jobpilot-user-quote-request");
-  const stats = content.querySelector(".stats");
-  const cards = stats?.querySelectorAll(":scope > .stat-card") || [];
-
-  if (!monthCard || !quotePanel || cards.length < 6) return false;
-
-  const companyCardsHidden = [0, 1, 2, 3].every(index =>
-    cards[index] && getComputedStyle(cards[index]).display === "none"
-  );
-
-  const todayJobsVisible = cards[4] && getComputedStyle(cards[4]).display !== "none";
-  const todayValueHidden = cards[5] && getComputedStyle(cards[5]).display === "none";
-
-  return companyCardsHidden && todayJobsVisible && todayValueHidden;
-}
-
 function releaseGate() {
   const content = document.getElementById("pageContent");
   if (content) content.classList.remove("jobpilot-role-gated");
 
   const app = document.getElementById("app");
   if (app) app.classList.remove("jobpilot-app-gated");
-}
-
-async function waitForUserDashboard() {
-  const started = Date.now();
-  const timeout = 6000;
-
-  while (Date.now() - started < timeout) {
-    hideUserDashboardContent();
-
-    if (userDashboardIsReady()) {
-      releaseGate();
-      return;
-    }
-
-    await new Promise(resolve => setTimeout(resolve, 50));
-  }
-
-  // Safety fallback: never expose the company-wide dashboard to a normal User.
-  hideUserDashboardContent();
-  releaseGate();
 }
 
 async function resolveDashboardRole() {
@@ -128,17 +86,22 @@ async function resolveDashboardRole() {
       return;
     }
 
-    await waitForUserDashboard();
+    // Do not wait for dashboard-ui.js to finish adding optional User cards.
+    // Hide the company-wide cards immediately, then release the app. The
+    // User dashboard enhancements can continue rendering normally.
+    hideUserDashboardContent();
+    releaseGate();
   } catch (error) {
     console.error("JobPilot role gate:", error);
+    // Fail safe for a normal User: hide company-wide dashboard content but
+    // never leave the whole application permanently invisible.
     hideUserDashboardContent();
     releaseGate();
   }
 }
 
-// This style is installed before app.js runs, and the app element itself is
-// gated immediately. That makes the transition atomic from the user's point
-// of view: there is no intermediate dashboard frame to paint.
+// This style is installed before app.js runs so the initial company
+// dashboard cannot paint before the role is known.
 const style = document.createElement("style");
 style.id = "jobpilot-role-gate-style";
 style.textContent = `

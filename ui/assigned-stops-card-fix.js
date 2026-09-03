@@ -37,7 +37,8 @@ function mapUrls(postcodes){
   if(!postcodes.length)return {google:"",apple:""};
   const origin=postcodes[0], destination=postcodes[postcodes.length-1], waypoints=postcodes.slice(1,-1);
   const google=`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving${waypoints.length?`&waypoints=${encodeURIComponent(waypoints.join("|"))}`:""}`;
-  const apple=`https://maps.apple.com/?dirflg=d&saddr=${encodeURIComponent(origin)}&daddr=${encodeURIComponent(destination)}${waypoints.length?`&waypoints=${encodeURIComponent(waypoints.join(","))}`:""}`;
+  const appleBase=`https://maps.apple.com/directions?source=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&mode=driving`;
+  const apple=waypoints.reduce((url,point)=>`${url}&waypoint=${encodeURIComponent(point)}`,appleBase);
   return {google,apple};
 }
 async function openAssignedRoute(){

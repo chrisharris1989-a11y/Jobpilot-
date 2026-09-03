@@ -32,6 +32,44 @@ async function getCurrentMembership() {
   return { user, membership: data };
 }
 
+// The dashboard's monthly calendar is already wired to the correct click handler.
+// Its legacy query uses user_id, while assigned jobs use assigned_user_id. Install
+// this narrowly-scoped rewrite immediately so the click cannot race the patch.
+function installMonthlyCalendarQueryPatch() {
+  const originalFrom = supabase.from.bind(supabase);
+  supabase.from = table => {
+    const builder = originalFrom(table);
+    if (table !== "jobs") return builder;
+
+    let monthlyCalendarQuery = false;
+    return new Proxy(builder, {
+      get(target, property, receiver) {
+        if (property === "select") {
+          return (columns, ...args) => {
+            monthlyCalendarQuery = typeof columns === "string"
+              && columns.includes("scheduled_date")
+              && columns.includes("scheduled_time")
+              && columns.includes("notes")
+              && !columns.includes("price");
+            const result = Reflect.get(target, property, receiver).call(target, columns, ...args);
+            return result === target ? receiver : result;
+          };
+        }
+        if (property === "eq") {
+          return (column, value) => {
+            const actualColumn = monthlyCalendarQuery && column === "user_id"
+              ? "assigned_user_id"
+              : column;
+            const result = Reflect.get(target, property, receiver).call(target, actualColumn, value);
+            return result === target ? receiver : result;
+          };
+        }
+        return Reflect.get(target, property, receiver);
+      }
+    });
+  };
+}
+
 function installAssignedJobQueryPatch(userId) {
   if (assignedJobQueryPatchInstalled || !userId) return;
   assignedJobQueryPatchInstalled = true;
@@ -55,6 +93,9 @@ function installAssignedJobQueryPatch(userId) {
     });
   };
 }
+
+// Install before any dashboard interaction or asynchronous membership lookup.
+installMonthlyCalendarQueryPatch();
 
 function findTodayJobsCard(cards) {
   return [...cards].find(card => {

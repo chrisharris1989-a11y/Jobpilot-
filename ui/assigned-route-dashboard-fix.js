@@ -311,10 +311,15 @@ function bindStops(content) {
   if (!card || card.dataset.bound === "true") return;
   card.dataset.bound = "true";
   const open = () => void openAssignedRoutePlanner();
-  card.addEventListener("click", open);
+  card.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    open();
+  });
   card.addEventListener("keydown", event => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
+      event.stopImmediatePropagation();
       open();
     }
   });

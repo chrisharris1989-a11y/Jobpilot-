@@ -8,26 +8,15 @@ const GOOGLE_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
 const MICROSOFT_SCOPE = "openid profile offline_access Calendars.Read";
 const STORAGE_KEY = "jobpilot_calendar_oauth";
 
-function randomString(length = 64) {
-  const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("").slice(0, length);
-}
-
-async function sha256(value) {
-  const data = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
+function randomString(length = 64) { const bytes = new Uint8Array(length); crypto.getRandomValues(bytes); return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("").slice(0, length); }
+async function sha256(value) { const data = new TextEncoder().encode(value); const digest = await crypto.subtle.digest("SHA-256", data); return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
 function saveOAuthState(value) { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(value)); }
 function loadOAuthState() { try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "null"); } catch { return null; } }
 function clearOAuthState() { sessionStorage.removeItem(STORAGE_KEY); }
-function providerLabel(provider) { return provider === "google" ? "Google Calendar" : "Outlook Calendar"; }
 
 async function beginGoogleOAuth() {
   if (!GOOGLE_CLIENT_ID) throw new Error("Google Calendar is not configured yet. Add VITE_GOOGLE_CALENDAR_CLIENT_ID in Vercel environment variables.");
-  const { data, error } = await supabase.functions.invoke(GOOGLE_FUNCTION, { body: { action: "start" } });
+  const { data, error } = await supabase.functions.invoke(GOOGLE_FUNCTION, { body: { action: "start", client_id: GOOGLE_CLIENT_ID } });
   if (error) throw error;
   if (!data?.auth_url) throw new Error(data?.error || "Could not start Google Calendar sign-in.");
   window.location.assign(data.auth_url);
@@ -35,9 +24,7 @@ async function beginGoogleOAuth() {
 
 async function beginMicrosoftOAuth() {
   if (!MICROSOFT_CLIENT_ID) throw new Error("Outlook Calendar is not configured yet. Add the Microsoft calendar client ID in Vercel environment variables first.");
-  const verifier = randomString(96);
-  const challenge = await sha256(verifier);
-  const state = randomString(48);
+  const verifier = randomString(96); const challenge = await sha256(verifier); const state = randomString(48);
   saveOAuthState({ provider: "outlook", verifier, state, createdAt: Date.now() });
   const params = new URLSearchParams({ client_id: MICROSOFT_CLIENT_ID, response_type: "code", redirect_uri: CALENDAR_REDIRECT_URI, response_mode: "query", scope: MICROSOFT_SCOPE, state, code_challenge: challenge, code_challenge_method: "S256" });
   window.location.assign(`https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`);
@@ -46,163 +33,29 @@ async function beginMicrosoftOAuth() {
 async function exchangeMicrosoftCode(code, verifier) {
   const body = new URLSearchParams({ client_id: MICROSOFT_CLIENT_ID, code, redirect_uri: CALENDAR_REDIRECT_URI, grant_type: "authorization_code", code_verifier: verifier, scope: MICROSOFT_SCOPE });
   const response = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error_description || data.error || "Outlook Calendar authorization failed.");
-  return data;
+  const data = await response.json(); if (!response.ok) throw new Error(data.error_description || data.error || "Outlook Calendar authorization failed."); return data;
 }
 
 async function handleOAuthCallback() {
-  const params = new URLSearchParams(window.location.search);
-  const connected = params.get("calendar_connected");
-  const oauthError = params.get("calendar_error") || params.get("error");
-  const code = params.get("code");
-  const returnedState = params.get("state");
-
-  if (connected === "google") {
-    sessionStorage.setItem("jobpilot_calendar_oauth_success", "Google Calendar connected successfully.");
-    window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
-    return true;
-  }
-
-  if (oauthError && !code) {
-    clearOAuthState();
-    sessionStorage.setItem("jobpilot_calendar_oauth_error", decodeURIComponent(oauthError));
-    window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
-    return false;
-  }
-
+  const params = new URLSearchParams(window.location.search); const connected = params.get("calendar_connected"); const oauthError = params.get("calendar_error") || params.get("error"); const code = params.get("code"); const returnedState = params.get("state");
+  if (connected === "google") { sessionStorage.setItem("jobpilot_calendar_oauth_success", "Google Calendar connected successfully."); window.history.replaceState({}, document.title, window.location.pathname + window.location.hash); return true; }
+  if (oauthError && !code) { clearOAuthState(); sessionStorage.setItem("jobpilot_calendar_oauth_error", decodeURIComponent(oauthError)); window.history.replaceState({}, document.title, window.location.pathname + window.location.hash); return false; }
   if (!code || !returnedState) return false;
   const saved = loadOAuthState();
-  if (!saved || saved.state !== returnedState || Date.now() - saved.createdAt > 10 * 60 * 1000) {
-    clearOAuthState();
-    throw new Error("Calendar sign-in could not be verified. Please try again.");
-  }
-  if (saved.provider === "outlook") {
-    const tokens = await exchangeMicrosoftCode(code, saved.verifier);
-    if (!tokens.access_token) throw new Error("Outlook Calendar did not return an access token.");
-    localStorage.setItem("jobpilot_outlook_calendar_token", JSON.stringify({ access_token: tokens.access_token, expires_at: Date.now() + Number(tokens.expires_in || 3600) * 1000, refresh_token: tokens.refresh_token || null }));
-    clearOAuthState();
-    sessionStorage.setItem("jobpilot_calendar_oauth_success", "Outlook Calendar connected successfully.");
-    window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
-    return true;
-  }
-  clearOAuthState();
-  throw new Error("Unsupported calendar provider.");
+  if (!saved || saved.state !== returnedState || Date.now() - saved.createdAt > 10 * 60 * 1000) { clearOAuthState(); throw new Error("Calendar sign-in could not be verified. Please try again."); }
+  if (saved.provider === "outlook") { const tokens = await exchangeMicrosoftCode(code, saved.verifier); if (!tokens.access_token) throw new Error("Outlook Calendar did not return an access token."); localStorage.setItem("jobpilot_outlook_calendar_token", JSON.stringify({ access_token: tokens.access_token, expires_at: Date.now() + Number(tokens.expires_in || 3600) * 1000, refresh_token: tokens.refresh_token || null })); clearOAuthState(); sessionStorage.setItem("jobpilot_calendar_oauth_success", "Outlook Calendar connected successfully."); window.history.replaceState({}, document.title, window.location.pathname + window.location.hash); return true; }
+  clearOAuthState(); throw new Error("Unsupported calendar provider.");
 }
 
-function getMicrosoftToken() {
-  try {
-    const token = JSON.parse(localStorage.getItem("jobpilot_outlook_calendar_token") || "null");
-    if (!token?.access_token || (token.expires_at && token.expires_at <= Date.now())) return null;
-    return token.access_token;
-  } catch { return null; }
-}
+function getMicrosoftToken() { try { const token = JSON.parse(localStorage.getItem("jobpilot_outlook_calendar_token") || "null"); if (!token?.access_token || (token.expires_at && token.expires_at <= Date.now())) return null; return token.access_token; } catch { return null; } }
+async function googleStatus() { const { data, error } = await supabase.functions.invoke(GOOGLE_FUNCTION, { body: { action: "status" } }); if (error) throw error; return data || { connected: false }; }
+async function googleImport(from, to) { const { data, error } = await supabase.functions.invoke(GOOGLE_FUNCTION, { body: { action: "import", from, to } }); if (error) throw error; if (data?.error) throw new Error(data.error); return data; }
+async function googleDisconnect() { const { data, error } = await supabase.functions.invoke(GOOGLE_FUNCTION, { body: { action: "disconnect" } }); if (error) throw error; if (data?.error) throw new Error(data.error); }
 
-async function googleStatus() {
-  const { data, error } = await supabase.functions.invoke(GOOGLE_FUNCTION, { body: { action: "status" } });
-  if (error) throw error;
-  return data || { connected: false };
-}
-
-async function googleImport(from, to) {
-  const { data, error } = await supabase.functions.invoke(GOOGLE_FUNCTION, { body: { action: "import", from, to } });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.error);
-  return data;
-}
-
-async function googleDisconnect() {
-  const { data, error } = await supabase.functions.invoke(GOOGLE_FUNCTION, { body: { action: "disconnect" } });
-  if (error) throw error;
-  if (data?.error) throw new Error(data.error);
-}
-
-async function microsoftEvents(token, timeMin, timeMax) {
-  const params = new URLSearchParams({ startDateTime: timeMin, endDateTime: timeMax, "$top": "1000", "$orderby": "start/dateTime" });
-  const response = await fetch(`https://graph.microsoft.com/v1.0/me/calendarView?${params}`, { headers: { Authorization: `Bearer ${token}`, Prefer: 'outlook.timezone="UTC"' } });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error?.message || "Could not read Outlook Calendar.");
-  return (data.value || []).map(event => ({ id: event.id, title: event.subject || "Calendar appointment", description: event.bodyPreview || "", start: event.start?.dateTime, end: event.end?.dateTime, location: event.location?.displayName || "", email: event.attendees?.find(a => a.emailAddress?.address)?.emailAddress?.address || "" }));
-}
-
-function eventToJob(event) {
-  const date = new Date(event.start);
-  return { title: event.title, description: event.description, scheduled_date: Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10), scheduled_time: Number.isNaN(date.getTime()) ? null : date.toTimeString().slice(0, 8), notes: event.location ? `Calendar location: ${event.location}` : "", status: "scheduled", import_metadata: { source: "calendar", calendar_event_id: event.id, attendee_email: event.email || "" } };
-}
-
-async function importMicrosoftEvents(events, statusElement) {
-  const { data: { user } = {} } = await supabase.auth.getUser();
-  if (!user) throw new Error("You must be signed in to import calendar appointments.");
-  let imported = 0, skipped = 0;
-  for (const event of events) {
-    if (!event.start || !event.title) { skipped++; continue; }
-    const job = eventToJob(event);
-    const { data: existing, error: existingError } = await supabase.from("jobs").select("id").eq("user_id", user.id).contains("import_metadata", { source: "calendar", calendar_event_id: event.id }).limit(1);
-    if (existingError) throw existingError;
-    if (existing?.length) { skipped++; continue; }
-    const { error } = await supabase.from("jobs").insert({ user_id: user.id, ...job });
-    if (error) throw error;
-    imported++;
-    if (statusElement) statusElement.textContent = `Imported ${imported} appointment${imported === 1 ? "" : "s"}...`;
-  }
-  if (statusElement) statusElement.textContent = `Done — ${imported} imported, ${skipped} skipped.`;
-}
-
-function card(provider, label, connected) {
-  const ready = provider === "google" ? Boolean(GOOGLE_CLIENT_ID) : Boolean(MICROSOFT_CLIENT_ID);
-  return `<div class="panel" style="margin:0"><div class="panel-header"><div><h3>${label}</h3><p class="muted">${connected ? "Connected" : ready ? "Ready to connect" : "Needs client ID configuration"}</p></div>${connected ? `<button class="secondary-button" type="button" data-calendar-disconnect="${provider}">Disconnect</button>` : ""}</div><label style="display:block;margin-top:14px">From <input id="calendar-${provider}-from" type="date"></label><label style="display:block;margin-top:10px">To <input id="calendar-${provider}-to" type="date"></label><button class="button primary" type="button" data-calendar-import="${provider}" style="margin-top:14px">${connected ? "Import appointments" : `Connect ${label}`}</button><p id="calendar-${provider}-status" class="muted" style="margin-top:10px"></p></div>`;
-}
-
-export async function renderCalendarImportUI() {
-  const mount = document.getElementById("managementCalendarImport");
-  if (!mount) return;
-  let googleConnected = false;
-  if (GOOGLE_CLIENT_ID) {
-    try { googleConnected = Boolean((await googleStatus()).connected); } catch (error) { console.error("Google Calendar status:", error); }
-  }
-  const outlookConnected = Boolean(getMicrosoftToken());
-  const today = new Date();
-  const nextMonth = new Date(today); nextMonth.setDate(nextMonth.getDate() + 31);
-  const format = d => d.toISOString().slice(0, 10);
-  const success = sessionStorage.getItem("jobpilot_calendar_oauth_success");
-  const oauthError = sessionStorage.getItem("jobpilot_calendar_oauth_error");
-  mount.innerHTML = `<div class="content-grid">${card("google", "Google Calendar", googleConnected)}${card("outlook", "Outlook Calendar", outlookConnected)}</div>`;
-  ["google", "outlook"].forEach(provider => {
-    const from = document.getElementById(`calendar-${provider}-from`); const to = document.getElementById(`calendar-${provider}-to`); const status = document.getElementById(`calendar-${provider}-status`);
-    if (from) from.value = format(today); if (to) to.value = format(nextMonth);
-    if (provider === "google" && success && success.includes("Google")) { if (status) status.textContent = success; }
-    if (provider === "google" && oauthError) { if (status) status.textContent = `Calendar connection failed: ${oauthError}`; }
-    document.querySelector(`[data-calendar-import="${provider}"]`)?.addEventListener("click", async () => {
-      try {
-        if (provider === "google") {
-          if (!googleConnected) { await beginGoogleOAuth(); return; }
-          if (!from?.value || !to?.value) return;
-          if (status) status.textContent = "Reading Google Calendar...";
-          const result = await googleImport(from.value, to.value);
-          if (status) status.textContent = `Done — ${result.imported || 0} imported, ${result.skipped || 0} skipped.`;
-        } else {
-          if (!outlookConnected) { await beginMicrosoftOAuth(); return; }
-          if (!from?.value || !to?.value) return;
-          if (status) status.textContent = "Reading Outlook Calendar...";
-          const timeMin = new Date(`${from.value}T00:00:00`).toISOString(); const timeMax = new Date(`${to.value}T23:59:59`).toISOString();
-          await importMicrosoftEvents(await microsoftEvents(getMicrosoftToken(), timeMin, timeMax), status);
-        }
-      } catch (error) { if (status) status.textContent = error.message || String(error); }
-    });
-    document.querySelector(`[data-calendar-disconnect="${provider}"]`)?.addEventListener("click", async () => {
-      try { if (provider === "google") await googleDisconnect(); else localStorage.removeItem("jobpilot_outlook_calendar_token"); await renderCalendarImportUI(); }
-      catch (error) { if (status) status.textContent = error.message || String(error); }
-    });
-  });
-  sessionStorage.removeItem("jobpilot_calendar_oauth_success");
-  sessionStorage.removeItem("jobpilot_calendar_oauth_error");
-}
-
-export async function initCalendarImport() {
-  try { await handleOAuthCallback(); } catch (error) { console.error("JobPilot calendar OAuth:", error); sessionStorage.setItem("jobpilot_calendar_oauth_error", error.message || String(error)); }
-  await renderCalendarImportUI();
-}
-
-window.renderCalendarImportUI = renderCalendarImportUI;
-window.initCalendarImport = initCalendarImport;
-initCalendarImport();
+async function microsoftEvents(token, timeMin, timeMax) { const params = new URLSearchParams({ startDateTime: timeMin, endDateTime: timeMax, "$top": "1000", "$orderby": "start/dateTime" }); const response = await fetch(`https://graph.microsoft.com/v1.0/me/calendarView?${params}`, { headers: { Authorization: `Bearer ${token}`, Prefer: 'outlook.timezone="UTC"' } }); const data = await response.json(); if (!response.ok) throw new Error(data.error?.message || "Could not read Outlook Calendar."); return (data.value || []).map(event => ({ id: event.id, title: event.subject || "Calendar appointment", description: event.bodyPreview || "", start: event.start?.dateTime, end: event.end?.dateTime, location: event.location?.displayName || "", email: event.attendees?.find(a => a.emailAddress?.address)?.emailAddress?.address || "" })); }
+function eventToJob(event) { const date = new Date(event.start); return { title: event.title, description: event.description, scheduled_date: Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10), scheduled_time: Number.isNaN(date.getTime()) ? null : date.toTimeString().slice(0, 8), notes: event.location ? `Calendar location: ${event.location}` : "", status: "scheduled", import_metadata: { source: "calendar", calendar_event_id: event.id, attendee_email: event.email || "" } }; }
+async function importMicrosoftEvents(events, statusElement) { const { data: { user } = {} } = await supabase.auth.getUser(); if (!user) throw new Error("You must be signed in to import calendar appointments."); let imported = 0, skipped = 0; for (const event of events) { if (!event.start || !event.title) { skipped++; continue; } const job = eventToJob(event); const { data: existing, error: existingError } = await supabase.from("jobs").select("id").eq("user_id", user.id).contains("import_metadata", { source: "calendar", calendar_event_id: event.id }).limit(1); if (existingError) throw existingError; if (existing?.length) { skipped++; continue; } const { error } = await supabase.from("jobs").insert({ user_id: user.id, ...job }); if (error) throw error; imported++; if (statusElement) statusElement.textContent = `Imported ${imported} appointment${imported === 1 ? "" : "s"}...`; } if (statusElement) statusElement.textContent = `Done — ${imported} imported, ${skipped} skipped.`; }
+function card(provider, label, connected) { const ready = provider === "google" ? Boolean(GOOGLE_CLIENT_ID) : Boolean(MICROSOFT_CLIENT_ID); return `<div class="panel" style="margin:0"><div class="panel-header"><div><h3>${label}</h3><p class="muted">${connected ? "Connected" : ready ? "Ready to connect" : "Needs client ID configuration"}</p></div>${connected ? `<button class="secondary-button" type="button" data-calendar-disconnect="${provider}">Disconnect</button>` : ""}</div><label style="display:block;margin-top:14px">From <input id="calendar-${provider}-from" type="date"></label><label style="display:block;margin-top:10px">To <input id="calendar-${provider}-to" type="date"></label><button class="button primary" type="button" data-calendar-import="${provider}" style="margin-top:14px">${connected ? "Import appointments" : `Connect ${label}`}</button><p id="calendar-${provider}-status" class="muted" style="margin-top:10px"></p></div>`; }
+export async function renderCalendarImportUI() { const mount = document.getElementById("managementCalendarImport"); if (!mount) return; let googleConnected = false; if (GOOGLE_CLIENT_ID) { try { googleConnected = Boolean((await googleStatus()).connected); } catch (error) { console.error("Google Calendar status:", error); } } const outlookConnected = Boolean(getMicrosoftToken()); const today = new Date(); const nextMonth = new Date(today); nextMonth.setDate(nextMonth.getDate() + 31); const format = d => d.toISOString().slice(0, 10); const success = sessionStorage.getItem("jobpilot_calendar_oauth_success"); const oauthError = sessionStorage.getItem("jobpilot_calendar_oauth_error"); mount.innerHTML = `<div class="content-grid">${card("google", "Google Calendar", googleConnected)}${card("outlook", "Outlook Calendar", outlookConnected)}</div>`; ["google", "outlook"].forEach(provider => { const from = document.getElementById(`calendar-${provider}-from`); const to = document.getElementById(`calendar-${provider}-to`); const status = document.getElementById(`calendar-${provider}-status`); if (from) from.value = format(today); if (to) to.value = format(nextMonth); if (provider === "google" && success && success.includes("Google")) { if (status) status.textContent = success; } if (provider === "google" && oauthError) { if (status) status.textContent = `Calendar connection failed: ${oauthError}`; } document.querySelector(`[data-calendar-import="${provider}"]`)?.addEventListener("click", async () => { try { if (provider === "google") { if (!googleConnected) { await beginGoogleOAuth(); return; } if (!from?.value || !to?.value) return; if (status) status.textContent = "Reading Google Calendar..."; const result = await googleImport(from.value, to.value); if (status) status.textContent = `Done — ${result.imported || 0} imported, ${result.skipped || 0} skipped.`; } else { if (!outlookConnected) { await beginMicrosoftOAuth(); return; } if (!from?.value || !to?.value) return; if (status) status.textContent = "Reading Outlook Calendar..."; const timeMin = new Date(`${from.value}T00:00:00`).toISOString(); const timeMax = new Date(`${to.value}T23:59:59`).toISOString(); await importMicrosoftEvents(await microsoftEvents(getMicrosoftToken(), timeMin, timeMax), status); } } catch (error) { if (status) status.textContent = error.message || String(error); } }); document.querySelector(`[data-calendar-disconnect="${provider}"]`)?.addEventListener("click", async () => { try { if (provider === "google") await googleDisconnect(); else localStorage.removeItem("jobpilot_outlook_calendar_token"); await renderCalendarImportUI(); } catch (error) { if (status) status.textContent = error.message || String(error); } }); }); sessionStorage.removeItem("jobpilot_calendar_oauth_success"); sessionStorage.removeItem("jobpilot_calendar_oauth_error"); }
+export async function initCalendarImport() { try { await handleOAuthCallback(); } catch (error) { console.error("JobPilot calendar OAuth:", error); sessionStorage.setItem("jobpilot_calendar_oauth_error", error.message || String(error)); } await renderCalendarImportUI(); }
+window.renderCalendarImportUI = renderCalendarImportUI; window.initCalendarImport = initCalendarImport; initCalendarImport();

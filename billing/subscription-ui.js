@@ -7,7 +7,7 @@ import { supabase } from "../supabase.js";
   let retryCount = 0;
 
   const PLANS = {
-    solo: { label: "Solo", users: 1, price: 14.99 },
+    solo: { label: "Solo", users: 1, price: 4.99 },
     team: { label: "Team", users: 10, price: 39.99 },
     business: { label: "Business", users: 25, price: 74.99 },
     pro: { label: "Pro", users: 50, price: 119.99 }

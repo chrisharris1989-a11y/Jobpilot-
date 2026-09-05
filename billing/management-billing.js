@@ -4,8 +4,8 @@ import { supabase } from "../supabase.js";
   const PLANS = {
     solo: { label: "Solo", users: 1, price: 4.99 },
     team: { label: "Team", users: 5, price: 14.99 },
-    business: { label: "Business", users: 25, price: 74.99 },
-    pro: { label: "Pro", users: 50, price: 119.99 }
+    business: { label: "Business", users: 25, price: 59.99 },
+    pro: { label: "Pro", users: 50, price: 99.99 }
   };
 
   const allowedPlans = {

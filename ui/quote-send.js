@@ -33,6 +33,29 @@ function shortWhatsAppMessage(quote, customer) {
   ].filter(Boolean).join("\n");
 }
 
+function emailQuoteMessage(quote, customer) {
+  const businessName = getBusinessName();
+  return [
+    `Dear ${customer.name},`,
+    "",
+    `Thank you for giving ${businessName} the opportunity to provide you with a quotation.`,
+    "",
+    "Please find your full quotation attached to this email as a Word document.",
+    "",
+    `Quotation number: ${quote.quote_number || "—"}`,
+    `Description: ${quote.description || "Requested work"}`,
+    `Total quotation value: £${Number(quote.total || 0).toFixed(2)}`,
+    quote.valid_until ? `Quotation valid until: ${quote.valid_until}` : "",
+    "",
+    "If you have any questions about the quotation, or would like to proceed with the work, please don't hesitate to get in touch.",
+    "",
+    "We look forward to hearing from you.",
+    "",
+    "Kind regards,",
+    businessName
+  ].filter(Boolean).join("\n");
+}
+
 function showSendChoiceModal(quote, customer, triggerButton) {
   const existing = document.getElementById("jobpilot-send-quote-modal");
   if (existing) existing.remove();
@@ -102,22 +125,9 @@ function showSendChoiceModal(quote, customer, triggerButton) {
       const filename = `${quote.quote_number || "quote"}.docx`;
       const file = new File([blob], filename, { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
       const businessName = getBusinessName();
-      const subject = `Quote ${quote.quote_number || ""} from ${businessName}`.trim();
-      const body = [
-        `Hi ${customer.name},`,
-        "",
-        `Please find attached your quote from ${businessName}.`,
-        `Quote #${quote.quote_number || "—"}`,
-        `Total: £${Number(quote.total || 0).toFixed(2)}`,
-        quote.valid_until ? `Valid until: ${quote.valid_until}` : "",
-        "",
-        "Please let us know if you would like to go ahead.",
-        "",
-        "Thank you."
-      ].filter(Boolean).join("\n");
+      const subject = `Quotation ${quote.quote_number || ""} from ${businessName}`.trim();
+      const body = emailQuoteMessage(quote, customer);
 
-      // Use the native share sheet where file sharing is supported. This allows the
-      // customer email app to receive the actual Word document as an attachment.
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ title: subject, text: body, files: [file] });
         await markQuoteSent(quote.id);
@@ -125,8 +135,6 @@ function showSendChoiceModal(quote, customer, triggerButton) {
         return;
       }
 
-      // Browser fallback: download the Word document and open the customer's email
-      // client with the recipient/subject/body pre-filled.
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;

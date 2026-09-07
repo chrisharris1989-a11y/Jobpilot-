@@ -3,6 +3,7 @@ import { supabase } from "../supabase.js";
 const ALLOWED = ["application/pdf", "image/png", "image/jpeg"];
 let renderInProgress = false;
 let settingsObserverStarted = false;
+let renderScheduled = false;
 
 async function context() {
   const { data: { user } = {} } = await supabase.auth.getUser();
@@ -69,22 +70,43 @@ async function upload(file, c) {
   return data;
 }
 
+function dedupeQuoteTemplateSections() {
+  const panel = document.querySelector(".settings-panel");
+  if (!panel) return;
+
+  const matches = [];
+  panel.querySelectorAll("h2").forEach(heading => {
+    if (heading.textContent.trim() !== "Quote Templates") return;
+    const section = heading.closest(".settings-section") || heading.parentElement;
+    if (section && !matches.includes(section)) matches.push(section);
+  });
+
+  // Keep the first real Quote Templates section and remove every duplicate,
+  // including sections created by an older cached script version.
+  matches.slice(1).forEach(section => section.remove());
+}
+
 async function render() {
   if (renderInProgress) return;
-  if (document.getElementById("jobpilot-quote-template-settings")) return;
   if (document.getElementById("pageTitle")?.textContent.trim() !== "Settings") return;
   const panel = document.querySelector(".settings-panel");
   if (!panel) return;
 
+  // Clean up any sections already created before this version loaded.
+  dedupeQuoteTemplateSections();
+  if (document.getElementById("jobpilot-quote-template-settings")) return;
+
   renderInProgress = true;
   try {
-    // Re-check after awaiting auth/context so another observer callback cannot
-    // create a second section while this async render is in progress.
-    if (document.getElementById("jobpilot-quote-template-settings")) return;
     const c = await context();
-    if (!c || document.getElementById("jobpilot-quote-template-settings")) return;
+    if (!c) return;
     const currentPanel = document.querySelector(".settings-panel");
     if (!currentPanel) return;
+
+    // The Settings DOM can be rebuilt while auth/context is resolving.
+    // Re-check for an existing section immediately before insertion.
+    dedupeQuoteTemplateSections();
+    if (currentPanel.querySelector("h2") && document.getElementById("jobpilot-quote-template-settings")) return;
 
     styles();
     const section = document.createElement("section");
@@ -122,16 +144,24 @@ async function render() {
     };
 
     await refresh();
+    dedupeQuoteTemplateSections();
   } finally {
     renderInProgress = false;
   }
 }
 
-if (!settingsObserverStarted) {
-  settingsObserverStarted = true;
-  const observer = new MutationObserver(() => {
+function scheduleRender() {
+  if (renderScheduled) return;
+  renderScheduled = true;
+  queueMicrotask(() => {
+    renderScheduled = false;
     render().catch(e => console.error("Quote template settings:", e));
   });
+}
+
+if (!settingsObserverStarted) {
+  settingsObserverStarted = true;
+  const observer = new MutationObserver(scheduleRender);
   observer.observe(document.body, { childList: true, subtree: true });
 }
-render().catch(e => console.error("Quote template settings:", e));
+scheduleRender();

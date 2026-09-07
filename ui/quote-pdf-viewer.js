@@ -1,5 +1,5 @@
 // Keep generated quote PDFs inside JobPilot instead of opening a separate browser tab.
-// This is intentionally limited to PDF/blob windows so normal JobPilot navigation is untouched.
+// This catches both window.open() and PDF links/anchors used by the generator.
 (() => {
   if (window.__jobpilotQuotePdfViewerInstalled) return;
   window.__jobpilotQuotePdfViewerInstalled = true;
@@ -13,6 +13,8 @@
   }
 
   function showViewer(url, title = "Quote PDF") {
+    if (!isPdfUrl(url)) return false;
+
     const existing = document.getElementById("jobpilot-quote-pdf-viewer");
     if (existing) existing.remove();
 
@@ -39,6 +41,7 @@
     modal.querySelector("#jpQuotePdfClose").onclick = close;
     modal.addEventListener("click", e => { if (e.target === modal) close(); });
     modal.querySelector("#jpQuotePdfOpen").onclick = () => originalOpen(url, "_blank", "noopener,noreferrer");
+    return true;
   }
 
   window.open = function(url, target, features) {
@@ -48,6 +51,18 @@
     }
     return originalOpen(url, target, features);
   };
+
+  // Some PDF generators create an <a target="_blank"> and call a.click()
+  // rather than using window.open(). Capture that before the browser navigates.
+  document.addEventListener("click", event => {
+    const anchor = event.target?.closest?.("a");
+    if (!anchor) return;
+    const url = anchor.href || anchor.getAttribute("href") || "";
+    if (!isPdfUrl(url)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    showViewer(url);
+  }, true);
 
   const style = document.createElement("style");
   style.textContent = `#jobpilot-quote-pdf-viewer{z-index:99999}#jobpilot-quote-pdf-viewer .modal-content{box-shadow:0 20px 60px rgba(0,0,0,.25)}`;

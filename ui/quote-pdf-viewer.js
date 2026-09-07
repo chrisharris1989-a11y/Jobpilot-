@@ -1,24 +1,17 @@
 // JobPilot quote PDF viewer.
-// Render quote PDFs with PDF.js inside JobPilot instead of an iframe/browser PDF tab.
+// Preview is explicitly invoked by Quote Forms; it does not globally intercept
+// window.open(), anchor clicks, or document.createElement(). Those global hooks
+// were causing unnecessary work and browser freezes.
 (() => {
   if (window.__jobpilotQuotePdfViewerInstalled) return;
   window.__jobpilotQuotePdfViewerInstalled = true;
 
-  const originalOpen = window.open.bind(window);
-  const originalAnchorClick = HTMLAnchorElement.prototype.click;
-  const originalCreateElement = document.createElement.bind(document);
   const PDF_JS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
   let pdfJsPromise;
 
-  function isPdfUrl(url) {
-    if (!url || typeof url !== "string") return false;
-    const value = url.toLowerCase();
-    return value.startsWith("blob:") || value.includes(".pdf") || value.startsWith("data:application/pdf");
-  }
-
   function loadPdfJs() {
     if (!pdfJsPromise) {
-      pdfJsPromise = import(PDF_JS).then(pdfjs => {
+      pdfJsPromise = import(/* @vite-ignore */ PDF_JS).then(pdfjs => {
         pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
         return pdfjs;
       });
@@ -26,10 +19,35 @@
     return pdfJsPromise;
   }
 
+  async function captureGeneratedPdf(generate) {
+    let capturedUrl = "";
+    const originalClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () {
+      if (this.href && (this.href.startsWith("blob:") || /\.pdf(?:$|[?#])/i.test(this.href))) {
+        capturedUrl = this.href;
+        return;
+      }
+      return originalClick.call(this);
+    };
+    try {
+      await generate();
+    } finally {
+      HTMLAnchorElement.prototype.click = originalClick;
+    }
+    if (!capturedUrl) throw new Error("The quote PDF could not be prepared for preview.");
+
+    // The generator revokes its temporary blob URL after a short delay. Make a
+    // stable copy for the in-app viewer so rendering can continue safely.
+    const response = await fetch(capturedUrl);
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  }
+
   function showViewer(url, title = "Quote PDF") {
     const existing = document.getElementById("jobpilot-quote-pdf-viewer");
     if (existing) existing.remove();
-    const modal = originalCreateElement("div");
+
+    const modal = document.createElement("div");
     modal.id = "jobpilot-quote-pdf-viewer";
     modal.className = "modal show";
     modal.innerHTML = `
@@ -41,85 +59,80 @@
         <div id="jpQuotePdfPages" style="flex:1;overflow:auto;background:#eef0f3;padding:18px;text-align:center"></div>
       </div>`;
     document.body.appendChild(modal);
-    const close = () => modal.remove();
-    modal.querySelector("#jpQuotePdfClose").onclick = close;
-    modal.addEventListener("click", e => { if (e.target === modal) close(); });
-    modal.querySelector("#jpQuotePdfOpen").onclick = () => originalOpen(url, "_blank", "noopener,noreferrer");
+
+    let closed = false;
+    const cleanup = () => {
+      if (closed) return;
+      closed = true;
+      URL.revokeObjectURL(url);
+      modal.remove();
+    };
+    modal.querySelector("#jpQuotePdfClose").onclick = cleanup;
+    modal.addEventListener("click", e => { if (e.target === modal) cleanup(); });
+    modal.querySelector("#jpQuotePdfOpen").onclick = () => window.open(url, "_blank", "noopener,noreferrer");
 
     const pages = modal.querySelector("#jpQuotePdfPages");
     pages.innerHTML = `<div style="padding:35px;color:#64748b">Loading quote PDF…</div>`;
 
     loadPdfJs()
       .then(pdfjs => pdfjs.getDocument({ url }).promise)
-      .then(async pdf => {
-        if (!document.body.contains(modal)) return;
+      .then(pdf => {
+        if (closed) return;
         pages.innerHTML = "";
+        const renderPage = async (pageNo, holder) => {
+          if (closed || holder.dataset.rendered === "true") return;
+          holder.dataset.rendered = "true";
+          try {
+            const page = await pdf.getPage(pageNo);
+            const base = page.getViewport({ scale: 1 });
+            const maxWidth = Math.max(300, Math.min(900, pages.clientWidth - 36));
+            const scale = Math.min(1.35, maxWidth / base.width);
+            const viewport = page.getViewport({ scale });
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.ceil(viewport.width);
+            canvas.height = Math.ceil(viewport.height);
+            canvas.style.cssText = "display:block;max-width:100%;height:auto;";
+            holder.replaceChildren(canvas);
+            await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+          } catch (error) {
+            holder.dataset.rendered = "false";
+            holder.innerHTML = `<div style="padding:25px;color:#b91c1c">Page ${pageNo} could not be rendered.</div>`;
+            console.error("JobPilot quote PDF page preview failed", error);
+          }
+        };
+
+        const holders = [];
         for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
-          if (!document.body.contains(modal)) return;
-          const page = await pdf.getPage(pageNo);
-          const base = page.getViewport({ scale: 1 });
-          const maxWidth = Math.max(300, Math.min(900, pages.clientWidth - 36));
-          const scale = Math.min(1.6, maxWidth / base.width);
-          const viewport = page.getViewport({ scale });
-          const wrap = originalCreateElement("div");
-          wrap.style.cssText = "display:inline-block;margin:0 auto 18px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.12);max-width:100%;";
-          const canvas = originalCreateElement("canvas");
-          canvas.width = Math.ceil(viewport.width);
-          canvas.height = Math.ceil(viewport.height);
-          canvas.style.cssText = "display:block;max-width:100%;height:auto;";
-          wrap.appendChild(canvas);
-          pages.appendChild(wrap);
-          await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+          const holder = document.createElement("div");
+          holder.style.cssText = "display:block;max-width:900px;min-height:120px;margin:0 auto 18px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;color:#64748b;";
+          holder.textContent = `Loading page ${pageNo}…`;
+          pages.appendChild(holder);
+          holders.push({ pageNo, holder });
         }
+
+        const observer = new IntersectionObserver(entries => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              const item = holders.find(x => x.holder === entry.target);
+              if (item) renderPage(item.pageNo, item.holder);
+            }
+          }
+        }, { root: pages, rootMargin: "500px 0px" });
+        holders.forEach(x => observer.observe(x.holder));
+        modal.__pdfObserver = observer;
+        modal.addEventListener("remove", () => observer.disconnect(), { once: true });
+        renderPage(1, holders[0].holder);
       })
       .catch(error => {
         console.error("JobPilot quote PDF preview failed", error);
-        pages.innerHTML = `<div style="padding:35px;color:#b91c1c">Could not preview this PDF inside JobPilot. Use Open PDF to view it in the browser.</div>`;
+        if (!closed) pages.innerHTML = `<div style="padding:35px;color:#b91c1c">Could not preview this PDF inside JobPilot. Use Open PDF to view it in the browser.</div>`;
       });
   }
 
+  window.__jobpilotPreviewQuotePdf = async generate => {
+    const url = await captureGeneratedPdf(generate);
+    showViewer(url);
+  };
+
   window.__jobpilotShowQuotePdf = showViewer;
-
-  window.open = function(url, target, features) {
-    if (isPdfUrl(url) && window.__jobpilotQuotePdfViewerMode !== "download") {
-      showViewer(url);
-      return { closed: false, close() {} };
-    }
-    return originalOpen(url, target, features);
-  };
-
-  HTMLAnchorElement.prototype.click = function() {
-    if (isPdfUrl(this.href) && window.__jobpilotQuotePdfViewerMode !== "download") {
-      showViewer(this.href);
-      return;
-    }
-    return originalAnchorClick.call(this);
-  };
-
-  document.createElement = function(tagName, options) {
-    const el = originalCreateElement(tagName, options);
-    if (String(tagName).toLowerCase() === "a") {
-      const originalInstanceClick = el.click.bind(el);
-      el.click = function() {
-        if (isPdfUrl(el.href) && window.__jobpilotQuotePdfViewerMode !== "download") {
-          showViewer(el.href);
-          return;
-        }
-        return originalInstanceClick();
-      };
-    }
-    return el;
-  };
-
-  document.addEventListener("click", e => {
-    const a = e.target.closest?.("a");
-    if (!a || !isPdfUrl(a.href) || window.__jobpilotQuotePdfViewerMode === "download") return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    showViewer(a.href);
-  }, true);
-
-  const style = originalCreateElement("style");
-  style.textContent = "#jobpilot-quote-pdf-viewer{z-index:99999}#jobpilot-quote-pdf-viewer .modal-content{box-shadow:0 20px 60px rgba(0,0,0,.25)}";
-  document.head.appendChild(style);
 })();

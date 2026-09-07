@@ -1,0 +1,160 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+};
+const REDIRECT = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/freeagent-connect";
+const APP = "https://jobpilot-eosin.vercel.app/?freeagent=connected";
+
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
+
+function uid(req: Request) {
+  try {
+    const h = req.headers.get("Authorization");
+    if (!h?.startsWith("Bearer ")) return null;
+    const token = h.slice(7);
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return payload.sub || null;
+  } catch { return null; }
+}
+
+async function db(path: string, init: RequestInit = {}) {
+  const base = Deno.env.get("SUPABASE_URL")!;
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  return fetch(`${base}/rest/v1/${path}`, { ...init, headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", ...(init.headers || {}) } });
+}
+
+async function getConnection(userId: string) {
+  const r = await db(`freeagent_connections?user_id=eq.${encodeURIComponent(userId)}&select=*`);
+  if (!r.ok) throw new Error(`Could not read FreeAgent connection: ${await r.text()}`);
+  const rows = await r.json().catch(() => []);
+  if (!Array.isArray(rows) || !rows[0]) throw new Error("FreeAgent is not connected.");
+  return rows[0];
+}
+
+async function refreshIfNeeded(connection: any) {
+  const id = Deno.env.get("FREEAGENT_CLIENT_ID");
+  const secret = Deno.env.get("FREEAGENT_CLIENT_SECRET");
+  if (!id || !secret) throw new Error("FreeAgent credentials are not configured.");
+  const expires = connection.access_token_expires_at ? Date.parse(connection.access_token_expires_at) : 0;
+  if (expires && expires > Date.now() + 120000) return connection;
+  if (!connection.refresh_token) return connection;
+  const basic = btoa(`${id}:${secret}`);
+  const response = await fetch("https://api.freeagent.com/v2/token_endpoint", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json", Authorization: `Basic ${basic}` }, body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: connection.refresh_token }).toString() });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error_description || data.error || "FreeAgent token refresh failed.");
+  const updated = { ...connection, access_token: data.access_token, refresh_token: data.refresh_token || connection.refresh_token, access_token_expires_at: new Date(Date.now() + Number(data.expires_in || 3600) * 1000).toISOString(), updated_at: new Date().toISOString() };
+  await db(`freeagent_connections?user_id=eq.${encodeURIComponent(connection.user_id)}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ access_token: updated.access_token, refresh_token: updated.refresh_token, access_token_expires_at: updated.access_token_expires_at, updated_at: updated.updated_at }) });
+  return updated;
+}
+
+async function freeAgentFetch(connection: any, path: string, init: RequestInit = {}) {
+  const current = await refreshIfNeeded(connection);
+  const response = await fetch(`https://api.freeagent.com/v2/${path}`, { ...init, headers: { Accept: "application/json", "Content-Type": "application/json", Authorization: `Bearer ${current.access_token}`, ...(init.headers || {}) } });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = data?.errors?.error?.message || data?.error_description || data?.error || JSON.stringify(data);
+    throw new Error(`FreeAgent API error (${response.status}): ${message}`);
+  }
+  return { data, connection: current };
+}
+
+async function getCategories(connection: any) {
+  const { data } = await freeAgentFetch(connection, "categories");
+  return data;
+}
+
+async function syncExpenses(userId: string) {
+  let connection = await getConnection(userId);
+  connection = await refreshIfNeeded(connection);
+  const expenseResponse = await db(`expenses?user_id=eq.${encodeURIComponent(userId)}&freeagent_expense_id=is.null&select=id,description,category,amount,vat,expense_date&order=expense_date.asc`);
+  if (!expenseResponse.ok) throw new Error(`Could not load expenses: ${await expenseResponse.text()}`);
+  const expenses = await expenseResponse.json().catch(() => []);
+  if (!expenses.length) return { synced: 0, skipped: 0, errors: [] };
+
+  const categories = await getCategories(connection);
+  const available = [...(categories.admin_expenses_categories || []), ...(categories.cost_of_sales_categories || [])];
+  const normalise = (value: unknown) => String(value || "").trim().toLowerCase();
+  let synced = 0;
+  let skipped = 0;
+  const errors: Array<{ id: string; error: string }> = [];
+
+  for (const expense of expenses) {
+    try {
+      const requested = normalise(expense.category);
+      const category = available.find((item: any) => normalise(item.description) === requested || normalise(item.nominal_code) === requested || item.url === expense.category);
+      if (!category?.url) throw new Error(`FreeAgent category not found: ${expense.category}`);
+      const gross = Math.abs(Number(expense.amount || 0));
+      if (!gross) throw new Error("Expense amount must be greater than zero.");
+      const payload: any = { expense: { user: `https://api.freeagent.com/v2/users/${connection.freeagent_user_id}`, category: category.url, dated_on: expense.expense_date, currency: "GBP", gross_value: String(-gross), description: expense.description } };
+      const vat = Number(expense.vat || 0);
+      if (vat > 0) payload.expense.manual_sales_tax_amount = String(vat);
+      const created = await freeAgentFetch(connection, "expenses", { method: "POST", body: JSON.stringify(payload) });
+      connection = created.connection;
+      const url = created.data?.expense?.url || "";
+      const id = url.split("/").pop();
+      if (!id) throw new Error("FreeAgent created the expense but did not return an expense ID.");
+      const update = await db(`expenses?id=eq.${encodeURIComponent(expense.id)}&user_id=eq.${encodeURIComponent(userId)}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ freeagent_expense_id: String(id), updated_at: new Date().toISOString() }) });
+      if (!update.ok) throw new Error(`Created in FreeAgent but could not mark JobPilot expense as synced: ${await update.text()}`);
+      synced++;
+    } catch (error) {
+      skipped++;
+      errors.push({ id: expense.id, error: error instanceof Error ? error.message : "Unknown sync error" });
+    }
+  }
+  return { synced, skipped, errors };
+}
+
+Deno.serve(async (req: Request) => {
+  try {
+    if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+    const clientId = Deno.env.get("FREEAGENT_CLIENT_ID");
+    const clientSecret = Deno.env.get("FREEAGENT_CLIENT_SECRET");
+    if (!clientId || !clientSecret) return json({ error: "FreeAgent credentials are not configured." }, 500);
+
+    if (req.method === "GET") {
+      const q = new URL(req.url).searchParams;
+      const code = q.get("code");
+      const state = q.get("state");
+      const error = q.get("error");
+      if (error) return new Response(`FreeAgent authorisation failed: ${error}`, { status: 400, headers: CORS });
+      if (!code || !state) return new Response("Missing FreeAgent authorisation code or state.", { status: 400, headers: CORS });
+      const userId = state.split(":")[0];
+      const basic = btoa(`${clientId}:${clientSecret}`);
+      const tokenResponse = await fetch("https://api.freeagent.com/v2/token_endpoint", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json", Authorization: `Basic ${basic}` }, body: new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: REDIRECT }).toString() });
+      const tokenData = await tokenResponse.json().catch(() => ({}));
+      if (!tokenResponse.ok) return new Response(`FreeAgent token exchange failed: ${tokenData.error_description || tokenData.error || JSON.stringify(tokenData)}`, { status: 400, headers: { ...CORS, "Content-Type": "text/plain" } });
+      const companyResponse = await fetch("https://api.freeagent.com/v2/company", { headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: "application/json" } });
+      const companyData = await companyResponse.json().catch(() => ({}));
+      const company = companyData.company || {};
+      const save = await db("freeagent_connections", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ user_id: userId, freeagent_user_id: company.id ? String(company.id) : null, company_name: company.name || null, access_token: tokenData.access_token, refresh_token: tokenData.refresh_token, access_token_expires_at: new Date(Date.now() + Number(tokenData.expires_in || 3600) * 1000).toISOString(), connected_at: new Date().toISOString(), updated_at: new Date().toISOString() }) });
+      if (!save.ok) return new Response(`FreeAgent authorised, but JobPilot could not save the connection: ${await save.text()}`, { status: 500, headers: { ...CORS, "Content-Type": "text/plain" } });
+      return Response.redirect(APP, 302);
+    }
+
+    const userId = uid(req);
+    if (!userId) return json({ error: "Missing or invalid authorization." }, 401);
+    let body: any = {};
+    try { body = await req.json(); } catch {}
+    const action = String(body.action || "").toLowerCase();
+    if (action === "status") {
+      const r = await db(`freeagent_connections?user_id=eq.${encodeURIComponent(userId)}&select=user_id,freeagent_user_id,company_name,connected_at,updated_at`);
+      const rows = await r.json().catch(() => []);
+      return json({ connected: Array.isArray(rows) && rows.length > 0, connection: rows?.[0] || null });
+    }
+    if (action === "categories") return json(await getCategories(await getConnection(userId)));
+    if (action === "sync_expenses") return json(await syncExpenses(userId));
+
+    const state = `${userId}:${crypto.randomUUID()}`;
+    const url = new URL("https://api.freeagent.com/v2/approve_app");
+    url.searchParams.set("client_id", clientId);
+    url.searchParams.set("redirect_uri", REDIRECT);
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("state", state);
+    return json({ url: url.toString() });
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : "Unexpected error." }, 500);
+  }
+});

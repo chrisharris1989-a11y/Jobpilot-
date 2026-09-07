@@ -77,6 +77,8 @@ async function resolveDashboardRole() {
   resolving = true;
 
   try {
+    // Role resolution is the only thing this gate waits for. It does not
+    // depend on .stats, dashboard-ui.js, Today's Jobs, or any other module.
     const managementUser = await isManagementUser();
 
     if (managementUser) {
@@ -84,14 +86,21 @@ async function resolveDashboardRole() {
       return;
     }
 
+    // Normal User: remove company-wide dashboard content that already exists,
+    // then release the application. User-specific dashboard modules continue
+    // rendering after this point.
     hideUserDashboardContent();
     releaseGate();
   } catch (error) {
     console.error("JobPilot role gate:", error);
+    // Fail open rather than leaving the whole application as a white screen.
+    // The separate User dashboard guard continues enforcing User restrictions.
     releaseGate();
   }
 }
 
+// Installed before app.js runs so the initial company dashboard cannot paint
+// before the role is known.
 const style = document.createElement("style");
 style.id = "jobpilot-role-gate-style";
 style.textContent = `

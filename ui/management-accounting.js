@@ -76,7 +76,9 @@ async function renderManagementAccounting() {
       </div>
     </div>
 
-    <button id="managementAccountingBack" class="secondary-button" type="button" style="margin-top:16px">← Back to Management</button>
+    <div id="managementCustomerPaymentsMount"></div>
+
+    <button id="managementAccountingBack" class="secondary-button" type="button" style="margin-top:24px">← Back to Management</button>
   `;
 
   const stripeStatus = document.getElementById("managementStripeStatus");

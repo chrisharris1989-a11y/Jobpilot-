@@ -50,6 +50,21 @@ async function openEditQuote(quoteId) {
   };
 }
 
+async function deleteQuote(quoteId, quoteNumber) {
+  const confirmed = window.confirm(`Delete quote ${quoteNumber || ""}?\n\nThis cannot be undone.`);
+  if (!confirmed) return;
+  const { error } = await supabase.from("quotes").delete().eq("id", quoteId);
+  if (error) {
+    console.error("JobPilot quote delete failed:", error);
+    alert(error.message || "Could not delete quote.");
+    return;
+  }
+  const view = document.querySelector(`.quote-view[data-quote-id="${CSS.escape(String(quoteId))}"]`);
+  const rowEl = view?.closest("tr") || view?.parentElement;
+  rowEl?.remove();
+  if (!rowEl) location.reload();
+}
+
 function install() {
   const add = () => {
     if (document.getElementById("pageTitle")?.textContent.trim() !== "Quotes") return;
@@ -59,6 +74,9 @@ function install() {
       const b=document.createElement("button"); b.type="button"; b.className="button secondary quote-edit"; b.dataset.quoteId=id; b.textContent="Edit";
       b.addEventListener("click",()=>openEditQuote(id).catch(e=>alert(e.message||"Could not open quote.")));
       view.parentElement?.appendChild(b);
+      const d=document.createElement("button"); d.type="button"; d.className="button danger quote-delete"; d.dataset.quoteId=id; d.textContent="Delete";
+      d.addEventListener("click",()=>deleteQuote(id, view.closest("tr")?.querySelector("td")?.textContent?.trim() || "quote"));
+      view.parentElement?.appendChild(d);
     });
   };
   new MutationObserver(add).observe(document.body,{childList:true,subtree:true});

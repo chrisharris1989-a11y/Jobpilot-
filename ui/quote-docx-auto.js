@@ -99,7 +99,7 @@ async function openQuotePreview(quoteId) {
         ${d.terms ? `<div class="jp-quote-preview-section"><h3>Terms & conditions</h3><p>${esc(d.terms)}</p></div>` : ""}
         ${s.quote_footer ? `<div class="jp-quote-preview-section"><p>${esc(s.quote_footer)}</p></div>` : ""}
       </div>
-      <div class="jp-quote-preview-actions"><button type="button" class="button secondary jp-preview-edit" data-quote-id="${esc(quote.id)}">Edit Quote</button><button type="button" class="button primary jp-preview-download" data-quote-id="${esc(quote.id)}">Download Word</button></div>`;
+      <div class="jp-quote-preview-actions"><button type="button" class="button secondary jp-preview-edit" data-quote-id="${esc(quote.id)}">Edit Quote</button><button type="button" class="button primary jp-preview-download" data-quote-id="${esc(quote.id)}">Download</button></div>`;
     backdrop.querySelector(".jp-quote-preview").innerHTML = body;
 
     backdrop.querySelector(".jp-preview-download").addEventListener("click", async e => {
@@ -110,7 +110,7 @@ async function openQuotePreview(quoteId) {
       } catch (err) {
         console.error("JobPilot Word quote download failed:", err);
         alert(err?.message || "The Word document could not be generated.");
-      } finally { button.disabled = false; button.textContent = "Download Word"; }
+      } finally { button.disabled = false; button.textContent = "Download"; }
     });
 
     backdrop.querySelector(".jp-preview-edit").addEventListener("click", () => {

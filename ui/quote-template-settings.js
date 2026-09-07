@@ -1,6 +1,8 @@
 import { supabase } from "../supabase.js";
 
 const ALLOWED = ["application/pdf", "image/png", "image/jpeg"];
+let renderInProgress = false;
+let settingsObserverStarted = false;
 
 async function context() {
   const { data: { user } = {} } = await supabase.auth.getUser();
@@ -68,50 +70,68 @@ async function upload(file, c) {
 }
 
 async function render() {
+  if (renderInProgress) return;
   if (document.getElementById("jobpilot-quote-template-settings")) return;
   if (document.getElementById("pageTitle")?.textContent.trim() !== "Settings") return;
-  const c = await context();
-  if (!c) return;
   const panel = document.querySelector(".settings-panel");
   if (!panel) return;
-  styles();
-  const section = document.createElement("section");
-  section.id = "jobpilot-quote-template-settings";
-  section.className = "settings-section";
-  section.innerHTML = `<h2>Quote Templates</h2><p class="muted">Upload your own quote design and choose which template JobPilot uses by default when creating a new quote.</p><div class="jpqts-actions"><input id="jpqts-file" type="file" accept="application/pdf,image/png,image/jpeg" hidden><button type="button" id="jpqts-upload" class="button primary">+ Upload template</button><span id="jpqts-status" class="muted"></span></div><div style="margin-top:16px"><label for="jpqts-default"><strong>Default quote template</strong></label><select id="jpqts-default" style="width:100%;margin-top:6px"><option value="">Standard JobPilot template</option></select><p class="muted" style="font-size:13px;margin-top:6px">This template will be pre-selected automatically when you create a new quote.</p></div><div id="jpqts-list" class="jpqts-list"></div>`;
-  panel.insertBefore(section, panel.firstElementChild);
 
-  const select = section.querySelector("#jpqts-default");
-  const list = section.querySelector("#jpqts-list");
-  const status = section.querySelector("#jpqts-status");
-  const file = section.querySelector("#jpqts-file");
+  renderInProgress = true;
+  try {
+    // Re-check after awaiting auth/context so another observer callback cannot
+    // create a second section while this async render is in progress.
+    if (document.getElementById("jobpilot-quote-template-settings")) return;
+    const c = await context();
+    if (!c || document.getElementById("jobpilot-quote-template-settings")) return;
+    const currentPanel = document.querySelector(".settings-panel");
+    if (!currentPanel) return;
 
-  const refresh = async () => {
-    const ts = await loadTemplates(c.companyId);
-    select.innerHTML = `<option value="">Standard JobPilot template</option>` + ts.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("");
-    const current = ts.find(t => t.is_default);
-    select.value = current?.id || "";
-    list.innerHTML = ts.length ? ts.map(t => `<div class="jpqts-row"><div class="jpqts-info"><div class="jpqts-name">${esc(t.name)}${t.is_default ? " <span>✓ Default</span>" : ""}</div><div class="jpqts-meta">${esc(t.file_type || "Template file")}</div></div><div class="jpqts-actions"><button type="button" class="button secondary" data-default="${t.id}">${t.is_default ? "Default template" : "Set as default"}</button></div></div>`).join("") : `<div class="jpqts-empty">No custom templates uploaded yet. JobPilot will use the Standard JobPilot template.</div>`;
-  };
+    styles();
+    const section = document.createElement("section");
+    section.id = "jobpilot-quote-template-settings";
+    section.className = "settings-section";
+    section.innerHTML = `<h2>Quote Templates</h2><p class="muted">Upload your own quote design and choose which template JobPilot uses by default when creating a new quote.</p><div class="jpqts-actions"><input id="jpqts-file" type="file" accept="application/pdf,image/png,image/jpeg" hidden><button type="button" id="jpqts-upload" class="button primary">+ Upload template</button><span id="jpqts-status" class="muted"></span></div><div style="margin-top:16px"><label for="jpqts-default"><strong>Default quote template</strong></label><select id="jpqts-default" style="width:100%;margin-top:6px"><option value="">Standard JobPilot template</option></select><p class="muted" style="font-size:13px;margin-top:6px">This template will be pre-selected automatically when you create a new quote.</p></div><div id="jpqts-list" class="jpqts-list"></div>`;
+    currentPanel.insertBefore(section, currentPanel.firstElementChild);
 
-  select.onchange = async () => {
-    try { select.disabled = true; status.textContent = "Saving…"; await setDefault(c.companyId, select.value || null); await refresh(); status.textContent = "Default template saved."; } catch (e) { status.textContent = e.message || "Could not save default template."; } finally { select.disabled = false; }
-  };
+    const select = section.querySelector("#jpqts-default");
+    const list = section.querySelector("#jpqts-list");
+    const status = section.querySelector("#jpqts-status");
+    const file = section.querySelector("#jpqts-file");
 
-  list.onclick = async e => {
-    const button = e.target.closest("[data-default]");
-    if (!button) return;
-    try { button.disabled = true; status.textContent = "Saving…"; await setDefault(c.companyId, button.dataset.default); await refresh(); status.textContent = "Default template saved."; } catch (err) { status.textContent = err.message || "Could not save default template."; } finally { button.disabled = false; }
-  };
+    const refresh = async () => {
+      const ts = await loadTemplates(c.companyId);
+      select.innerHTML = `<option value="">Standard JobPilot template</option>` + ts.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("");
+      const current = ts.find(t => t.is_default);
+      select.value = current?.id || "";
+      list.innerHTML = ts.length ? ts.map(t => `<div class="jpqts-row"><div class="jpqts-info"><div class="jpqts-name">${esc(t.name)}${t.is_default ? " <span>✓ Default</span>" : ""}</div><div class="jpqts-meta">${esc(t.file_type || "Template file")}</div></div><div class="jpqts-actions"><button type="button" class="button secondary" data-default="${t.id}">${t.is_default ? "Default template" : "Set as default"}</button></div></div>`).join("") : `<div class="jpqts-empty">No custom templates uploaded yet. JobPilot will use the Standard JobPilot template.</div>`;
+    };
 
-  section.querySelector("#jpqts-upload").onclick = () => file.click();
-  file.onchange = async () => {
-    try { status.textContent = "Uploading template…"; await upload(file.files?.[0], c); await refresh(); status.textContent = "Template uploaded."; } catch (e) { status.textContent = e.message || "Could not upload template."; } finally { file.value = ""; }
-  };
+    select.onchange = async () => {
+      try { select.disabled = true; status.textContent = "Saving…"; await setDefault(c.companyId, select.value || null); await refresh(); status.textContent = "Default template saved."; } catch (e) { status.textContent = e.message || "Could not save default template."; } finally { select.disabled = false; }
+    };
 
-  await refresh();
+    list.onclick = async e => {
+      const button = e.target.closest("[data-default]");
+      if (!button) return;
+      try { button.disabled = true; status.textContent = "Saving…"; await setDefault(c.companyId, button.dataset.default); await refresh(); status.textContent = "Default template saved."; } catch (err) { status.textContent = err.message || "Could not save default template."; } finally { button.disabled = false; }
+    };
+
+    section.querySelector("#jpqts-upload").onclick = () => file.click();
+    file.onchange = async () => {
+      try { status.textContent = "Uploading template…"; await upload(file.files?.[0], c); await refresh(); status.textContent = "Template uploaded."; } catch (e) { status.textContent = e.message || "Could not upload template."; } finally { file.value = ""; }
+    };
+
+    await refresh();
+  } finally {
+    renderInProgress = false;
+  }
 }
 
-const observer = new MutationObserver(() => render().catch(e => console.error("Quote template settings:", e)));
-observer.observe(document.body, { childList: true, subtree: true });
+if (!settingsObserverStarted) {
+  settingsObserverStarted = true;
+  const observer = new MutationObserver(() => {
+    render().catch(e => console.error("Quote template settings:", e));
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+}
 render().catch(e => console.error("Quote template settings:", e));

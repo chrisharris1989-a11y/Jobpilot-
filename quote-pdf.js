@@ -104,7 +104,7 @@ async function fetchQuoteData(quoteId) {
   };
 }
 
-async function createQuotePdf(quoteId) {
+export async function createQuotePdf(quoteId) {
   const button = document.querySelector(`[data-jobpilot-pdf-quote="${CSS.escape(String(quoteId))}"]`);
   if (button) {
     button.disabled = true;
@@ -135,7 +135,6 @@ async function createQuotePdf(quoteId) {
       creator: "JobPilot"
     });
 
-    // Header
     let logo = await imageToDataUrl(settings.business_logo_url);
     if (logo) {
       try {
@@ -177,7 +176,6 @@ async function createQuotePdf(quoteId) {
     doc.setDrawColor(210, 214, 220);
     doc.line(margin, 50, pageWidth - margin, 50);
 
-    // Customer block
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.text("QUOTED TO", margin, 60);
@@ -196,7 +194,6 @@ async function createQuotePdf(quoteId) {
       customerY += 5;
     });
 
-    // Quote title and description
     let y = Math.max(customerY + 8, 94);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
@@ -205,7 +202,6 @@ async function createQuotePdf(quoteId) {
     doc.setFontSize(10);
     y = addWrappedText(doc, quote.description || "", margin, y, contentWidth, 5.5) + 8;
 
-    // Amount summary
     const boxX = pageWidth - margin - 78;
     const boxW = 78;
     const subtotal = Number(quote.subtotal || 0);
@@ -237,7 +233,6 @@ async function createQuotePdf(quoteId) {
     }
     doc.setFont("helvetica", "normal");
 
-    // Terms / footer
     y += boxH + 18;
     if (y > pageHeight - 70) {
       doc.addPage();
@@ -254,7 +249,6 @@ async function createQuotePdf(quoteId) {
     const footerText = settings.quote_footer || "This quotation is subject to the agreed scope of work. Please contact us if you have any questions about this quotation.";
     y = addWrappedText(doc, footerText, margin, y, contentWidth, 4.8) + 10;
 
-    // Acceptance section
     if (y > pageHeight - 60) {
       doc.addPage();
       y = margin;
@@ -275,7 +269,6 @@ async function createQuotePdf(quoteId) {
     doc.text("Date:", margin + 5, y + 34);
     doc.line(margin + 20, y + 34, margin + 88, y + 34);
 
-    // Footer on every page
     const pages = doc.getNumberOfPages();
     for (let page = 1; page <= pages; page += 1) {
       doc.setPage(page);

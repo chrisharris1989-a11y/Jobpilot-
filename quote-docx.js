@@ -1,78 +1,74 @@
 import { supabase } from "./supabase.js";
 
-async function extractFunctionError(error) {
-  if (!error) return null;
+const DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+async function readErrorResponse(response) {
   try {
-    const response = error.context;
-    if (response && typeof response.clone === "function") {
-      const clone = response.clone();
-      const contentType = (clone.headers.get("content-type") || "").toLowerCase();
-      const body = await clone.text();
-      if (body) {
-        try {
-          const parsed = JSON.parse(body);
-          if (parsed?.error) return String(parsed.error);
-          if (parsed?.message) return String(parsed.message);
-        } catch {}
-        if (!contentType.includes("word") && !contentType.includes("officedocument")) return body;
-      }
+    const text = await response.text();
+    if (!text) return `Word document generation failed (${response.status}).`;
+    try {
+      const parsed = JSON.parse(text);
+      return String(parsed?.error || parsed?.message || text);
+    } catch {
+      return text;
     }
-  } catch (parseError) {
-    console.warn("Could not read Word generator error response:", parseError);
+  } catch {
+    return `Word document generation failed (${response.status}).`;
   }
-  return error.message || null;
 }
 
-function isDocxContentType(type = "") {
-  const value = String(type).toLowerCase();
-  return value.includes("word") || value.includes("officedocument") || value.includes("application/octet-stream");
+function looksLikeDocx(bytes) {
+  return bytes?.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
 }
 
 async function generateQuoteDocx(quoteId) {
   if (!quoteId) throw new Error("Quote could not be identified.");
 
-  const { data, error } = await supabase.functions.invoke("generate-quote-docx", {
-    body: { quoteId }
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    throw new Error("Your session has expired. Please sign in again.");
+  }
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("JobPilot Supabase configuration is missing.");
+  }
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/generate-quote-docx`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${session.access_token}`,
+      "apikey": supabaseKey,
+      "Content-Type": "application/json",
+      "Accept": DOCX_CONTENT_TYPE
+    },
+    body: JSON.stringify({ quoteId })
   });
 
-  if (error) {
-    const detail = await extractFunctionError(error);
-    throw new Error(detail || "The Word document generator failed.");
+  if (!response.ok) {
+    throw new Error(await readErrorResponse(response));
   }
 
-  // Supabase Functions may expose a binary response as Blob, ArrayBuffer or Uint8Array
-  // depending on the browser/runtime. Normalise all supported binary forms to a Blob.
-  if (data instanceof Blob) {
-    if (!isDocxContentType(data.type)) {
-      const probe = await data.slice(0, 4).arrayBuffer();
-      const bytes = new Uint8Array(probe);
-      if (!(bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04)) {
-        throw new Error("The server returned an invalid Word document.");
+  const contentType = (response.headers.get("content-type") || "").toLowerCase();
+  const buffer = await response.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+
+  if (!looksLikeDocx(bytes)) {
+    const preview = new TextDecoder().decode(bytes.slice(0, 1000));
+    let detail = "The server returned an invalid Word document.";
+    try {
+      const parsed = JSON.parse(preview);
+      detail = String(parsed?.error || parsed?.message || detail);
+    } catch {
+      if (preview.trim() && !contentType.includes("word") && !contentType.includes("officedocument")) {
+        detail = preview.trim();
       }
     }
-    return data;
+    throw new Error(detail);
   }
 
-  if (data instanceof ArrayBuffer) {
-    return new Blob([data], {
-      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    });
-  }
-
-  if (ArrayBuffer.isView(data)) {
-    return new Blob([data], {
-      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    });
-  }
-
-  // Some runtimes return the binary body as a plain object/typed representation.
-  if (data && typeof data === "object" && Array.isArray(data.data)) {
-    return new Blob([new Uint8Array(data.data)], {
-      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    });
-  }
-
-  throw new Error("Word document could not be generated.");
+  return new Blob([buffer], { type: DOCX_CONTENT_TYPE });
 }
 
 async function downloadQuoteDocx(quoteId, filename = "quote.docx") {

@@ -15,6 +15,31 @@ function backToManagement() {
   document.getElementById("jobpilot-management-button")?.click();
 }
 
+function keepAccountingBackButtonAtBottom(content) {
+  const backButton = document.getElementById("managementAccountingBack");
+  if (!content || !backButton) return;
+
+  // Customer Payments and Expenses are injected asynchronously by other
+  // modules. Always move the Back button to the final position after those
+  // modules have finished adding their sections.
+  if (backButton.parentElement === content && content.lastElementChild !== backButton) {
+    content.appendChild(backButton);
+  }
+}
+
+function watchAccountingLayout(content) {
+  const existing = content.__jobPilotAccountingObserver;
+  existing?.disconnect();
+
+  const observer = new MutationObserver(() => {
+    keepAccountingBackButtonAtBottom(content);
+  });
+
+  observer.observe(content, { childList: true, subtree: true });
+  content.__jobPilotAccountingObserver = observer;
+  keepAccountingBackButtonAtBottom(content);
+}
+
 async function goCardlessRequest(body = {}) {
   const { data: { session } = {} } = await supabase.auth.getSession();
   if (!session) throw new Error("You are not logged in.");
@@ -89,6 +114,7 @@ async function renderManagementAccounting() {
   const goButton = document.getElementById("managementGoCardlessButton");
 
   document.getElementById("managementAccountingBack")?.addEventListener("click", backToManagement);
+  watchAccountingLayout(content);
 
   if (window.JobPilotStripe?.loadStripeStatus) {
     const originalStatus = document.createElement("div");

@@ -122,7 +122,7 @@ import { supabase } from "./supabase.js";
     if (message) {
       message.textContent = data.session
         ? "Your free 7-day trial is ready. Loading JobPilot..."
-        : "Account created. Check your email to confirm your account, then sign in to start your free 7-day trial.";
+        : "Account created. Please check your email (including your junk/spam folder) to confirm your account, then sign in to start your free 7-day trial.";
       message.style.color = "#166534";
     }
   }, true);

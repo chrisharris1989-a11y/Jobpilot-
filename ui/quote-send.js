@@ -34,26 +34,15 @@ function shortWhatsAppMessage(quote, customer) {
 }
 
 function emailQuoteMessage(quote, customer) {
-  const businessName = getBusinessName();
   return [
-    `Dear ${customer.name},`,
+    `Hi ${customer.name},`,
     "",
-    `Thank you for giving ${businessName} the opportunity to provide you with a quotation.`,
+    "Here is the quote you requested.",
     "",
-    "Please find your full quotation attached to this email as a Word document.",
+    "Feel free to get in touch if you have any questions.",
     "",
-    `Quotation number: ${quote.quote_number || "—"}`,
-    `Description: ${quote.description || "Requested work"}`,
-    `Total quotation value: £${Number(quote.total || 0).toFixed(2)}`,
-    quote.valid_until ? `Quotation valid until: ${quote.valid_until}` : "",
-    "",
-    "If you have any questions about the quotation, or would like to proceed with the work, please don't hesitate to get in touch.",
-    "",
-    "We look forward to hearing from you.",
-    "",
-    "Kind regards,",
-    businessName
-  ].filter(Boolean).join("\n");
+    "Thanks."
+  ].join("\n");
 }
 
 function showSendChoiceModal(quote, customer, triggerButton) {

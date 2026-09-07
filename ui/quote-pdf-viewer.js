@@ -1,12 +1,13 @@
 // JobPilot quote PDF viewer.
-// Preview is explicitly invoked by Quote Forms; it does not globally intercept
-// window.open(), anchor clicks, or document.createElement(). Those global hooks
-// were causing unnecessary work and browser freezes.
+// Generated quote PDFs are routed to an in-app preview through one narrow
+// anchor hook. We deliberately do not override window.open(), document.createElement(),
+// or document-wide click handling because those hooks can make the whole app sluggish.
 (() => {
   if (window.__jobpilotQuotePdfViewerInstalled) return;
   window.__jobpilotQuotePdfViewerInstalled = true;
 
   const PDF_JS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
+  const originalAnchorClick = HTMLAnchorElement.prototype.click;
   let pdfJsPromise;
 
   function loadPdfJs() {
@@ -21,23 +22,19 @@
 
   async function captureGeneratedPdf(generate) {
     let capturedUrl = "";
-    const originalClick = HTMLAnchorElement.prototype.click;
     HTMLAnchorElement.prototype.click = function () {
       if (this.href && (this.href.startsWith("blob:") || /\.pdf(?:$|[?#])/i.test(this.href))) {
         capturedUrl = this.href;
         return;
       }
-      return originalClick.call(this);
+      return originalAnchorClick.call(this);
     };
     try {
       await generate();
     } finally {
-      HTMLAnchorElement.prototype.click = originalClick;
+      HTMLAnchorElement.prototype.click = originalAnchorClick;
     }
     if (!capturedUrl) throw new Error("The quote PDF could not be prepared for preview.");
-
-    // The generator revokes its temporary blob URL after a short delay. Make a
-    // stable copy for the in-app viewer so rendering can continue safely.
     const response = await fetch(capturedUrl);
     const blob = await response.blob();
     return URL.createObjectURL(blob);
@@ -61,9 +58,11 @@
     document.body.appendChild(modal);
 
     let closed = false;
+    let observer = null;
     const cleanup = () => {
       if (closed) return;
       closed = true;
+      observer?.disconnect();
       URL.revokeObjectURL(url);
       modal.remove();
     };
@@ -79,6 +78,8 @@
       .then(pdf => {
         if (closed) return;
         pages.innerHTML = "";
+
+        const holders = [];
         const renderPage = async (pageNo, holder) => {
           if (closed || holder.dataset.rendered === "true") return;
           holder.dataset.rendered = "true";
@@ -86,7 +87,7 @@
             const page = await pdf.getPage(pageNo);
             const base = page.getViewport({ scale: 1 });
             const maxWidth = Math.max(300, Math.min(900, pages.clientWidth - 36));
-            const scale = Math.min(1.35, maxWidth / base.width);
+            const scale = Math.min(1.25, maxWidth / base.width);
             const viewport = page.getViewport({ scale });
             const canvas = document.createElement("canvas");
             canvas.width = Math.ceil(viewport.width);
@@ -101,7 +102,6 @@
           }
         };
 
-        const holders = [];
         for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
           const holder = document.createElement("div");
           holder.style.cssText = "display:block;max-width:900px;min-height:120px;margin:0 auto 18px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;color:#64748b;";
@@ -110,18 +110,15 @@
           holders.push({ pageNo, holder });
         }
 
-        const observer = new IntersectionObserver(entries => {
+        observer = new IntersectionObserver(entries => {
           for (const entry of entries) {
-            if (entry.isIntersecting) {
-              const item = holders.find(x => x.holder === entry.target);
-              if (item) renderPage(item.pageNo, item.holder);
-            }
+            if (!entry.isIntersecting) continue;
+            const item = holders.find(x => x.holder === entry.target);
+            if (item) renderPage(item.pageNo, item.holder);
           }
-        }, { root: pages, rootMargin: "500px 0px" });
+        }, { root: pages, rootMargin: "400px 0px" });
         holders.forEach(x => observer.observe(x.holder));
-        modal.__pdfObserver = observer;
-        modal.addEventListener("remove", () => observer.disconnect(), { once: true });
-        renderPage(1, holders[0].holder);
+        if (holders[0]) renderPage(1, holders[0].holder);
       })
       .catch(error => {
         console.error("JobPilot quote PDF preview failed", error);
@@ -135,4 +132,16 @@
   };
 
   window.__jobpilotShowQuotePdf = showViewer;
+
+  // Normal quote generation (including Create Quote & PDF and the old View PDF
+  // button) should now preview inside JobPilot. The Forms Download action opts
+  // out by setting this flag temporarily.
+  HTMLAnchorElement.prototype.click = function () {
+    if (window.__jobpilotQuotePdfViewerMode !== "download" && this.href && this.href.startsWith("blob:")) {
+      const url = this.href;
+      showViewer(url);
+      return;
+    }
+    return originalAnchorClick.call(this);
+  };
 })();

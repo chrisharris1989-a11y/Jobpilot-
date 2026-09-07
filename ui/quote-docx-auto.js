@@ -1,28 +1,42 @@
 import { supabase } from "../supabase.js";
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const KEY = "jobpilot_pending_quote_docx";
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-async function install() {
-  for (let i = 0; i < 100; i++) {
-    if (typeof window.openQuoteBuilder === "function") break;
-    await sleep(50);
-  }
-  if (typeof window.openQuoteBuilder !== "function" || window.__jobpilotQuoteDocxWrapped) return;
-  const original = window.openQuoteBuilder;
-  window.openQuoteBuilder = async function (...args) {
-    // The builder owns the save UI. We only add the document step after it returns.
-    const before = await supabase.auth.getUser();
-    const userId = before?.data?.user?.id;
-    let result;
-    try {
-      result = await original.apply(this, args);
-    } finally {
-      // quote-builder currently closes/reloads after a successful save, so a successful
-      // result is not available to this wrapper. The normal quote list action below is
-      // the reliable document-generation path.
-    }
-    return result;
-  };
-  window.__jobpilotQuoteDocxWrapped = true;
+function rememberQuoteCreation() {
+  document.addEventListener("submit", e => {
+    if (!e.target?.matches?.("#jpQuoteForm")) return;
+    localStorage.setItem(KEY, JSON.stringify({ startedAt: Date.now() }));
+  }, true);
 }
-install();
+
+async function generatePendingDocument() {
+  let pending;
+  try { pending = JSON.parse(localStorage.getItem(KEY) || "null"); } catch { pending = null; }
+  if (!pending?.startedAt || typeof window.__jobpilotDownloadQuoteDocx !== "function") return;
+
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const { data: { user } = {} } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: quote } = await supabase.from("quotes")
+      .select("id,quote_number,created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (quote?.id && new Date(quote.created_at).getTime() >= pending.startedAt - 5000) {
+      localStorage.removeItem(KEY);
+      try {
+        await window.__jobpilotDownloadQuoteDocx(quote.id, `${quote.quote_number || "quote"}.docx`);
+      } catch (err) {
+        console.error("JobPilot Word quote generation failed:", err);
+        localStorage.setItem(KEY, JSON.stringify(pending));
+      }
+      return;
+    }
+    await sleep(500);
+  }
+}
+
+rememberQuoteCreation();
+window.addEventListener("load", () => setTimeout(generatePendingDocument, 700));

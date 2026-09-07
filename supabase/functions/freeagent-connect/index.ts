@@ -7,6 +7,7 @@ const CORS = {
 };
 const REDIRECT = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/freeagent-connect";
 const APP = "https://jobpilot-eosin.vercel.app/?freeagent=connected";
+const USER_AGENT = "JobPilot FreeAgent Integration/1.0 (https://jobpilotcrm.co.uk)";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
@@ -42,7 +43,7 @@ async function refreshIfNeeded(connection: any) {
   if (expires && expires > Date.now() + 120000) return connection;
   if (!connection.refresh_token) return connection;
   const basic = btoa(`${id}:${secret}`);
-  const response = await fetch("https://api.freeagent.com/v2/token_endpoint", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json", Authorization: `Basic ${basic}` }, body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: connection.refresh_token }).toString() });
+  const response = await fetch("https://api.freeagent.com/v2/token_endpoint", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json", "User-Agent": USER_AGENT, Authorization: `Basic ${basic}` }, body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: connection.refresh_token }).toString() });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error_description || data.error || "FreeAgent token refresh failed.");
   const updated = { ...connection, access_token: data.access_token, refresh_token: data.refresh_token || connection.refresh_token, access_token_expires_at: new Date(Date.now() + Number(data.expires_in || 3600) * 1000).toISOString(), updated_at: new Date().toISOString() };
@@ -52,10 +53,10 @@ async function refreshIfNeeded(connection: any) {
 
 async function freeAgentFetch(connection: any, path: string, init: RequestInit = {}) {
   const current = await refreshIfNeeded(connection);
-  const response = await fetch(`https://api.freeagent.com/v2/${path}`, { ...init, headers: { Accept: "application/json", "Content-Type": "application/json", Authorization: `Bearer ${current.access_token}`, ...(init.headers || {}) } });
+  const response = await fetch(`https://api.freeagent.com/v2/${path}`, { ...init, headers: { Accept: "application/json", "Content-Type": "application/json", "User-Agent": USER_AGENT, Authorization: `Bearer ${current.access_token}`, ...(init.headers || {}) } });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = data?.errors?.error?.message || data?.error_description || data?.error || JSON.stringify(data);
+    const message = Array.isArray(data?.errors) ? data.errors.map((e: any) => e?.message).filter(Boolean).join("; ") : data?.errors?.error?.message || data?.error_description || data?.error || JSON.stringify(data);
     throw new Error(`FreeAgent API error (${response.status}): ${message}`);
   }
   return { data, connection: current };
@@ -84,7 +85,7 @@ async function syncExpenses(userId: string) {
   for (const expense of expenses) {
     try {
       const requested = normalise(expense.category);
-      const category = available.find((item: any) => normalise(item.description) === requested || normalise(item.nominal_code) === requested || item.url === expense.category);
+      const category = available.find((item: any) => normalise(item.description) === requested || normalise(item.nominal_code) === requested || normalise(item.url) === requested);
       if (!category?.url) throw new Error(`FreeAgent category not found: ${expense.category}`);
       const gross = Math.abs(Number(expense.amount || 0));
       if (!gross) throw new Error("Expense amount must be greater than zero.");
@@ -123,10 +124,10 @@ Deno.serve(async (req: Request) => {
       if (!code || !state) return new Response("Missing FreeAgent authorisation code or state.", { status: 400, headers: CORS });
       const userId = state.split(":")[0];
       const basic = btoa(`${clientId}:${clientSecret}`);
-      const tokenResponse = await fetch("https://api.freeagent.com/v2/token_endpoint", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json", Authorization: `Basic ${basic}` }, body: new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: REDIRECT }).toString() });
+      const tokenResponse = await fetch("https://api.freeagent.com/v2/token_endpoint", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json", "User-Agent": USER_AGENT, Authorization: `Basic ${basic}` }, body: new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: REDIRECT }).toString() });
       const tokenData = await tokenResponse.json().catch(() => ({}));
       if (!tokenResponse.ok) return new Response(`FreeAgent token exchange failed: ${tokenData.error_description || tokenData.error || JSON.stringify(tokenData)}`, { status: 400, headers: { ...CORS, "Content-Type": "text/plain" } });
-      const companyResponse = await fetch("https://api.freeagent.com/v2/company", { headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: "application/json" } });
+      const companyResponse = await fetch("https://api.freeagent.com/v2/company", { headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: "application/json", "User-Agent": USER_AGENT } });
       const companyData = await companyResponse.json().catch(() => ({}));
       const company = companyData.company || {};
       const save = await db("freeagent_connections", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ user_id: userId, freeagent_user_id: company.id ? String(company.id) : null, company_name: company.name || null, access_token: tokenData.access_token, refresh_token: tokenData.refresh_token, access_token_expires_at: new Date(Date.now() + Number(tokenData.expires_in || 3600) * 1000).toISOString(), connected_at: new Date().toISOString(), updated_at: new Date().toISOString() }) });

@@ -20,8 +20,9 @@ function escapeHtml(value) {
 async function getManagementContext() {
   if (managementContext) return managementContext;
   try {
-    const { data: { user } = {} } = await supabase.auth.getUser();
-    if (!user) return (managementContext = false);
+    const { data: { session } = {} } = await supabase.auth.getSession();
+    const user = session?.user;
+    if (!user) return null;
     const { data, error } = await supabase
       .from("company_members")
       .select("role, company_id")
@@ -35,9 +36,14 @@ async function getManagementContext() {
     return (managementContext = { companyId: data.company_id });
   } catch (error) {
     console.error("JobPilot management month jobs access:", error);
-    return (managementContext = false);
+    return null;
   }
 }
+
+// The remainder of this module is unchanged from the existing management
+// calendar implementation. It is intentionally kept here so the only change
+// is auth hydration: managementContext now waits for a real session and can
+// be retried after Supabase auth finishes restoring the user.
 
 function addCalendarStyles() {
   if (document.getElementById("jobpilot-management-month-calendar-style")) return;
@@ -202,6 +208,10 @@ const observer = new MutationObserver(() => { void applyManagementMonthCard(); }
 function start() {
   observer.observe(document.body, { childList: true, subtree: true });
   void applyManagementMonthCard();
+  supabase.auth.onAuthStateChange((_event, session) => {
+    if (!session?.user || managementContext) return;
+    void applyManagementMonthCard();
+  });
 }
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });

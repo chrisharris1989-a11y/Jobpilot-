@@ -1,14 +1,13 @@
 import { supabase } from "../supabase.js";
 
-// Apply User dashboard restrictions whenever the base dashboard is rendered.
-// Do not classify a session as a normal User until Supabase auth hydration has
-// completed; otherwise owners/admins can incorrectly receive the User dashboard.
+// Apply User dashboard restrictions synchronously whenever the base dashboard
+// is rendered. This prevents the base company dashboard from ever becoming
+// visible between app.js rendering and the later dashboard enhancement pass.
 const MANAGEMENT_ROLES = ["owner", "admin"];
 let managementUser = null;
-let roleResolved = false;
 
 function applyUserDashboardGuard() {
-  if (!roleResolved || managementUser !== false) return;
+  if (managementUser !== false) return;
 
   const content = document.getElementById("pageContent");
   if (!content) return;
@@ -32,8 +31,7 @@ function applyUserDashboardGuard() {
 
 async function resolveRole() {
   try {
-    const { data: { session } = {} } = await supabase.auth.getSession();
-    const user = session?.user;
+    const { data: { user } = {} } = await supabase.auth.getUser();
     if (!user) return;
 
     const { data, error } = await supabase
@@ -52,7 +50,6 @@ async function resolveRole() {
     managementUser = MANAGEMENT_ROLES.includes(
       String(data?.role || "").toLowerCase()
     );
-    roleResolved = true;
 
     if (!managementUser) applyUserDashboardGuard();
   } catch (error) {
@@ -70,11 +67,6 @@ function start() {
     subtree: true
   });
   void resolveRole();
-
-  supabase.auth.onAuthStateChange((_event, session) => {
-    if (!session?.user || roleResolved) return;
-    void resolveRole();
-  });
 }
 
 if (document.readyState === "loading") {

@@ -1,10 +1,11 @@
 // Keep generated quote PDFs inside JobPilot instead of opening a separate browser tab.
-// This catches both window.open() and PDF links/anchors used by the generator.
+// Intercepts both window.open and programmatic anchor downloads used by desktop browsers.
 (() => {
   if (window.__jobpilotQuotePdfViewerInstalled) return;
   window.__jobpilotQuotePdfViewerInstalled = true;
 
   const originalOpen = window.open.bind(window);
+  const originalAnchorClick = HTMLAnchorElement.prototype.click;
 
   function isPdfUrl(url) {
     if (!url || typeof url !== "string") return false;
@@ -13,8 +14,6 @@
   }
 
   function showViewer(url, title = "Quote PDF") {
-    if (!isPdfUrl(url)) return false;
-
     const existing = document.getElementById("jobpilot-quote-pdf-viewer");
     if (existing) existing.remove();
 
@@ -41,7 +40,6 @@
     modal.querySelector("#jpQuotePdfClose").onclick = close;
     modal.addEventListener("click", e => { if (e.target === modal) close(); });
     modal.querySelector("#jpQuotePdfOpen").onclick = () => originalOpen(url, "_blank", "noopener,noreferrer");
-    return true;
   }
 
   window.open = function(url, target, features) {
@@ -52,16 +50,20 @@
     return originalOpen(url, target, features);
   };
 
-  // Some PDF generators create an <a target="_blank"> and call a.click()
-  // rather than using window.open(). Capture that before the browser navigates.
-  document.addEventListener("click", event => {
-    const anchor = event.target?.closest?.("a");
-    if (!anchor) return;
-    const url = anchor.href || anchor.getAttribute("href") || "";
-    if (!isPdfUrl(url)) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    showViewer(url);
+  HTMLAnchorElement.prototype.click = function() {
+    if (isPdfUrl(this.href)) {
+      showViewer(this.href);
+      return;
+    }
+    return originalAnchorClick.call(this);
+  };
+
+  document.addEventListener("click", e => {
+    const a = e.target.closest?.("a");
+    if (!a || !isPdfUrl(a.href)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    showViewer(a.href);
   }, true);
 
   const style = document.createElement("style");

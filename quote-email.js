@@ -41,6 +41,13 @@ async function generatePdf(quoteId) {
   await window.__jobpilotGenerateQuotePdf(quoteId);
 }
 
+async function previewPdf(quoteId) {
+  if (typeof window.__jobpilotPreviewQuotePdf !== "function") {
+    throw new Error("The in-app PDF viewer is not available. Please refresh JobPilot and try again.");
+  }
+  await window.__jobpilotPreviewQuotePdf(() => window.__jobpilotGenerateQuotePdf(quoteId));
+}
+
 function businessName() {
   try {
     return JSON.parse(localStorage.getItem("jobpilot_settings") || "{}").businessName || "our business";
@@ -121,10 +128,9 @@ async function openForms() {
   };
 
   m.querySelector("#jpFormsView").onclick = () => run(m.querySelector("#jpFormsView"), async () => {
-    await generatePdf(quote.id);
+    await previewPdf(quote.id);
   });
   m.querySelector("#jpFormsDownload").onclick = () => run(m.querySelector("#jpFormsDownload"), async () => {
-    // The existing generator supplies the PDF download. The in-app viewer remains the default for View PDF.
     const viewer = window.__jobpilotQuotePdfViewerMode;
     window.__jobpilotQuotePdfViewerMode = "download";
     try { await generatePdf(quote.id); } finally { window.__jobpilotQuotePdfViewerMode = viewer; }

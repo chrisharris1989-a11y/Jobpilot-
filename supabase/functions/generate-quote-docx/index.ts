@@ -52,13 +52,13 @@ Deno.serve(async (req) => {
     const customerAddress = [customer?.address_line1, customer?.address_line2, customer?.city, customer?.postcode].filter(Boolean).join(", ");
     const logo = await fetchLogo(text(s.business_logo_url) || null);
     const cell = (v: string, bold = false) => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: v || "", bold })] })] });
-    const rows = [new TableRow({ children: [cell("Description", true), cell("Qty", true), cell("Unit", true), cell("Unit price", true), cell("Total", true)] })];
-    for (const item of items) rows.push(new TableRow({ children: [cell(text(item.description)), cell(String(Number(item.quantity ?? 0))), cell(text(item.unit) || "item"), cell(money(Number(item.unit_price || 0), currency)), cell(money(Number(item.quantity || 0) * Number(item.unit_price || 0), currency))] }));
+    const rows = [new TableRow({ tableHeader: true, children: [cell("Description", true), cell("Qty", true), cell("Unit", true), cell("Unit price", true), cell("Total", true)] })];
+    for (const item of items) rows.push(new TableRow({ cantSplit: true, children: [cell(text(item.description)), cell(String(Number(item.quantity ?? 0))), cell(text(item.unit) || "item"), cell(money(Number(item.unit_price || 0), currency)), cell(money(Number(item.quantity || 0) * Number(item.unit_price || 0), currency))] }));
     const headerChildren: Paragraph[] = [];
     if (logo) headerChildren.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: [new ImageRun({ data: logo.data, transformation: { width: 180, height: 90 }, type: logo.type })] }));
     headerChildren.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [new TextRun({ text: text(s.business_name) || "JobPilot", bold: true, size: 34 })] }));
     headerChildren.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 300 }, children: [new TextRun({ text: "QUOTATION", bold: true, size: 24 })] }));
-    const doc = new Document({ sections: [{ properties: {}, children: [
+    const doc = new Document({ sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 900, right: 900, bottom: 900, left: 900 } } }, children: [
       ...headerChildren,
       new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [
         new TableRow({ children: [cell(`Quote number: ${text(quote.quote_number)}`), cell(`Quote date: ${text(d.quoteDate) || text(quote.created_at).slice(0,10)}`)] }),

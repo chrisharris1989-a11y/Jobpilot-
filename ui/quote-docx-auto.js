@@ -38,5 +38,55 @@ async function generatePendingDocument() {
   }
 }
 
+// The Quotes page originally used View to open the internal quote profile. For the
+// document workflow, View now produces the actual Word quote. Capture the click
+// before app.js's older View handler so it cannot navigate away instead.
+function installQuoteViewWordAction() {
+  document.addEventListener("click", async event => {
+    const button = event.target?.closest?.(".quote-view[data-quote-id]");
+    if (!button) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    const quoteId = button.dataset.quoteId;
+    if (!quoteId) return;
+
+    if (typeof window.__jobpilotDownloadQuoteDocx !== "function") {
+      alert("The Word quote generator is still loading. Please try again in a moment.");
+      return;
+    }
+
+    if (button.dataset.wordBusy === "1") return;
+    button.dataset.wordBusy = "1";
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = "Creating Word…";
+
+    try {
+      const { data: quote, error } = await supabase
+        .from("quotes")
+        .select("id,quote_number")
+        .eq("id", quoteId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!quote) throw new Error("Quote could not be found.");
+
+      await window.__jobpilotDownloadQuoteDocx(
+        quote.id,
+        `${quote.quote_number || "quote"}.docx`
+      );
+    } catch (err) {
+      console.error("JobPilot Word quote View failed:", err);
+      alert(err?.message || "The Word document could not be generated.");
+    } finally {
+      button.disabled = false;
+      button.dataset.wordBusy = "0";
+      button.textContent = originalText;
+    }
+  }, true);
+}
+
 rememberQuoteCreation();
+installQuoteViewWordAction();
 window.addEventListener("load", () => setTimeout(generatePendingDocument, 700));

@@ -1,11 +1,11 @@
 import { supabase } from "../supabase.js";
 
 // Prevent the company dashboard from painting before the user's role is known.
-// The gate must NEVER wait for a particular dashboard element to appear: if
-// app.js changes its initial markup or rendering is delayed, waiting for
-// .stats would leave the entire application permanently invisible.
+// IMPORTANT: Supabase auth hydration can finish after this module loads, so a
+// missing user must never be treated as a normal User permanently.
 const MANAGEMENT_ROLES = ["owner", "admin"];
 let resolving = false;
+let resolved = false;
 
 function gateApp() {
   const app = document.getElementById("app");
@@ -39,29 +39,25 @@ function hideUserDashboardContent() {
   });
 }
 
-async function isManagementUser() {
-  try {
-    const { data: { user } = {} } = await supabase.auth.getUser();
-    if (!user) return false;
+async function getRole() {
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  const user = session?.user;
+  if (!user) return null;
 
-    const { data, error } = await supabase
-      .from("company_members")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .limit(1)
-      .maybeSingle();
+  const { data, error } = await supabase
+    .from("company_members")
+    .select("role")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
 
-    if (error) {
-      console.error("JobPilot role gate:", error);
-      return false;
-    }
-
-    return MANAGEMENT_ROLES.includes(String(data?.role || "").toLowerCase());
-  } catch (error) {
+  if (error) {
     console.error("JobPilot role gate:", error);
-    return false;
+    throw error;
   }
+
+  return String(data?.role || "").toLowerCase();
 }
 
 function releaseGate() {
@@ -73,34 +69,31 @@ function releaseGate() {
 }
 
 async function resolveDashboardRole() {
-  if (resolving) return;
+  if (resolving || resolved) return;
   resolving = true;
 
   try {
-    // Role resolution is the only thing this gate waits for. It does not
-    // depend on .stats, dashboard-ui.js, Today's Jobs, or any other module.
-    const managementUser = await isManagementUser();
+    const role = await getRole();
 
-    if (managementUser) {
-      releaseGate();
-      return;
-    }
+    // Auth has not hydrated yet. Keep the gate in place and let the auth
+    // listener below retry once Supabase has restored the session.
+    if (role === null) return;
 
-    // Normal User: remove company-wide dashboard content that already exists,
-    // then release the application. User-specific dashboard modules continue
-    // rendering after this point.
-    hideUserDashboardContent();
+    resolved = true;
+    const managementUser = MANAGEMENT_ROLES.includes(role);
+
+    if (!managementUser) hideUserDashboardContent();
     releaseGate();
   } catch (error) {
-    console.error("JobPilot role gate:", error);
-    // Fail open rather than leaving the whole application as a white screen.
-    // The separate User dashboard guard continues enforcing User restrictions.
+    // Do not permanently classify the account as a normal User because of a
+    // transient auth/RLS request. Release the visual gate and let the normal
+    // application/RLS rules continue to enforce access while we retry.
     releaseGate();
+  } finally {
+    resolving = false;
   }
 }
 
-// Installed before app.js runs so the initial company dashboard cannot paint
-// before the role is known.
 const style = document.createElement("style");
 style.id = "jobpilot-role-gate-style";
 style.textContent = `
@@ -117,6 +110,15 @@ function start() {
   gateApp();
   gateContent();
   void resolveDashboardRole();
+
+  // Re-run after Supabase restores the authenticated session. This fixes the
+  // race where the role gate previously saw no user during initial hydration
+  // and permanently rendered the User dashboard for company owners/admins.
+  supabase.auth.onAuthStateChange((_event, session) => {
+    if (!session?.user) return;
+    if (resolved) return;
+    void resolveDashboardRole();
+  });
 }
 
 if (document.readyState === "loading") {

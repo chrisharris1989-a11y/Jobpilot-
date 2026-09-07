@@ -1,11 +1,11 @@
 import { supabase } from "../supabase.js";
 
 // Prevent the company dashboard from painting before the user's role is known.
-// IMPORTANT: Supabase auth hydration can finish after this module loads, so a
-// missing user must never be treated as a normal User permanently.
+// The gate must NEVER wait for a particular dashboard element to appear: if
+// app.js changes its initial markup or rendering is delayed, waiting for
+// .stats would leave the entire application permanently invisible.
 const MANAGEMENT_ROLES = ["owner", "admin"];
 let resolving = false;
-let resolved = false;
 
 function gateApp() {
   const app = document.getElementById("app");
@@ -39,25 +39,29 @@ function hideUserDashboardContent() {
   });
 }
 
-async function getRole() {
-  const { data: { session } = {} } = await supabase.auth.getSession();
-  const user = session?.user;
-  if (!user) return null;
+async function isManagementUser() {
+  try {
+    const { data: { user } = {} } = await supabase.auth.getUser();
+    if (!user) return false;
 
-  const { data, error } = await supabase
-    .from("company_members")
-    .select("role")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
+    const { data, error } = await supabase
+      .from("company_members")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .limit(1)
+      .maybeSingle();
 
-  if (error) {
+    if (error) {
+      console.error("JobPilot role gate:", error);
+      return false;
+    }
+
+    return MANAGEMENT_ROLES.includes(String(data?.role || "").toLowerCase());
+  } catch (error) {
     console.error("JobPilot role gate:", error);
-    throw error;
+    return false;
   }
-
-  return String(data?.role || "").toLowerCase();
 }
 
 function releaseGate() {
@@ -69,28 +73,22 @@ function releaseGate() {
 }
 
 async function resolveDashboardRole() {
-  if (resolving || resolved) return;
+  if (resolving) return;
   resolving = true;
 
   try {
-    const role = await getRole();
+    const managementUser = await isManagementUser();
 
-    // Auth has not hydrated yet. Keep the gate in place and let the auth
-    // listener below retry once Supabase has restored the session.
-    if (role === null) return;
+    if (managementUser) {
+      releaseGate();
+      return;
+    }
 
-    resolved = true;
-    const managementUser = MANAGEMENT_ROLES.includes(role);
-
-    if (!managementUser) hideUserDashboardContent();
+    hideUserDashboardContent();
     releaseGate();
   } catch (error) {
-    // Do not permanently classify the account as a normal User because of a
-    // transient auth/RLS request. Release the visual gate and let the normal
-    // application/RLS rules continue to enforce access while we retry.
+    console.error("JobPilot role gate:", error);
     releaseGate();
-  } finally {
-    resolving = false;
   }
 }
 
@@ -110,15 +108,6 @@ function start() {
   gateApp();
   gateContent();
   void resolveDashboardRole();
-
-  // Re-run after Supabase restores the authenticated session. This fixes the
-  // race where the role gate previously saw no user during initial hydration
-  // and permanently rendered the User dashboard for company owners/admins.
-  supabase.auth.onAuthStateChange((_event, session) => {
-    if (!session?.user) return;
-    if (resolved) return;
-    void resolveDashboardRole();
-  });
 }
 
 if (document.readyState === "loading") {

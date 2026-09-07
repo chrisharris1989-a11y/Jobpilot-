@@ -1,5 +1,5 @@
 // JobPilot quote PDF viewer.
-// Quote Forms uses this as the in-app preview instead of relying on browser PDF tabs.
+// Render quote PDFs with PDF.js inside JobPilot instead of an iframe/browser PDF tab.
 (() => {
   if (window.__jobpilotQuotePdfViewerInstalled) return;
   window.__jobpilotQuotePdfViewerInstalled = true;
@@ -7,11 +7,23 @@
   const originalOpen = window.open.bind(window);
   const originalAnchorClick = HTMLAnchorElement.prototype.click;
   const originalCreateElement = document.createElement.bind(document);
+  const PDF_JS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
+  let pdfJsPromise;
 
   function isPdfUrl(url) {
     if (!url || typeof url !== "string") return false;
     const value = url.toLowerCase();
     return value.startsWith("blob:") || value.includes(".pdf") || value.startsWith("data:application/pdf");
+  }
+
+  function loadPdfJs() {
+    if (!pdfJsPromise) {
+      pdfJsPromise = import(PDF_JS).then(pdfjs => {
+        pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+        return pdfjs;
+      });
+    }
+    return pdfJsPromise;
   }
 
   function showViewer(url, title = "Quote PDF") {
@@ -26,13 +38,44 @@
           <div><h2 style="margin:0">${title}</h2><p style="margin:3px 0 0;color:#64748b;font-size:12px">Previewing inside JobPilot</p></div>
           <div style="display:flex;gap:8px"><button type="button" class="button secondary" id="jpQuotePdfOpen">Open PDF</button><button type="button" class="button secondary" id="jpQuotePdfClose">Close</button></div>
         </div>
-        <iframe title="Quote PDF preview" src="${String(url).replace(/&/g,"&amp;").replace(/"/g,"&quot;")}" style="flex:1;width:100%;border:0;background:#f3f4f6"></iframe>
+        <div id="jpQuotePdfPages" style="flex:1;overflow:auto;background:#eef0f3;padding:18px;text-align:center"></div>
       </div>`;
     document.body.appendChild(modal);
     const close = () => modal.remove();
     modal.querySelector("#jpQuotePdfClose").onclick = close;
     modal.addEventListener("click", e => { if (e.target === modal) close(); });
     modal.querySelector("#jpQuotePdfOpen").onclick = () => originalOpen(url, "_blank", "noopener,noreferrer");
+
+    const pages = modal.querySelector("#jpQuotePdfPages");
+    pages.innerHTML = `<div style="padding:35px;color:#64748b">Loading quote PDF…</div>`;
+
+    loadPdfJs()
+      .then(pdfjs => pdfjs.getDocument({ url }).promise)
+      .then(async pdf => {
+        if (!document.body.contains(modal)) return;
+        pages.innerHTML = "";
+        for (let pageNo = 1; pageNo <= pdf.numPages; pageNo++) {
+          if (!document.body.contains(modal)) return;
+          const page = await pdf.getPage(pageNo);
+          const base = page.getViewport({ scale: 1 });
+          const maxWidth = Math.max(300, Math.min(900, pages.clientWidth - 36));
+          const scale = Math.min(1.6, maxWidth / base.width);
+          const viewport = page.getViewport({ scale });
+          const wrap = originalCreateElement("div");
+          wrap.style.cssText = "display:inline-block;margin:0 auto 18px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.12);max-width:100%;";
+          const canvas = originalCreateElement("canvas");
+          canvas.width = Math.ceil(viewport.width);
+          canvas.height = Math.ceil(viewport.height);
+          canvas.style.cssText = "display:block;max-width:100%;height:auto;";
+          wrap.appendChild(canvas);
+          pages.appendChild(wrap);
+          await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+        }
+      })
+      .catch(error => {
+        console.error("JobPilot quote PDF preview failed", error);
+        pages.innerHTML = `<div style="padding:35px;color:#b91c1c">Could not preview this PDF inside JobPilot. Use Open PDF to view it in the browser.</div>`;
+      });
   }
 
   window.__jobpilotShowQuotePdf = showViewer;
@@ -53,7 +96,6 @@
     return originalAnchorClick.call(this);
   };
 
-  // Some Chromium desktop paths invoke an element's own click method. Catch that too.
   document.createElement = function(tagName, options) {
     const el = originalCreateElement(tagName, options);
     if (String(tagName).toLowerCase() === "a") {

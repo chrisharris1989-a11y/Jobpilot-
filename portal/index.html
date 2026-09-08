@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JobPilot Customer Portal</title>
+<link rel="stylesheet" href="/customer-portal.css">
+</head>
+<body>
+<div class="jp-portal">
+<header class="jp-portal-header"><div class="jp-portal-brand">JobPilot</div><button id="portal-signout" class="jp-portal-button secondary" hidden>Sign out</button></header>
+<main class="jp-portal-main"><div id="portal-root"></div></main>
+</div>
+<script type="module">
+import { supabase } from '../supabase.js';
+import { getCustomerPortalSession, getPortalDashboard, updatePortalCustomer } from '../customer-portal.js';
+
+const root=document.getElementById('portal-root');
+const signout=document.getElementById('portal-signout');
+const esc=v=>String(v??'').replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]));
+const money=v=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(Number(v||0));
+function login(){root.innerHTML=`<div class="jp-portal-card" style="max-width:460px;margin:60px auto"><h1>Customer Portal</h1><p class="jp-portal-muted">Sign in to view your jobs, quotes and invoices.</p><form id="portal-login"><label>Email<br><input id="portal-email" type="email" required style="width:100%;padding:12px;margin:6px 0 14px;box-sizing:border-box"></label><button class="jp-portal-button">Send sign-in link</button></form><p id="portal-msg" class="jp-portal-muted"></p></div>`;document.getElementById('portal-login').onsubmit=async e=>{e.preventDefault();const email=document.getElementById('portal-email').value.trim();const msg=document.getElementById('portal-msg');const {error}=await supabase.auth.signInWithOtp({email,options:{emailRedirectTo:`${location.origin}/portal/`}});msg.textContent=error?error.message:'Check your email for your secure JobPilot sign-in link.';};}
+function list(items,empty,render){return items.length?`<div class="jp-portal-list">${items.map(render).join('')}</div>`:`<p class="jp-portal-muted">${empty}</p>`;}
+async function render(){try{const session=await getCustomerPortalSession();if(!session){signout.hidden=true;login();return;}signout.hidden=false;const d=await getPortalDashboard(session.customer_id);const c=session.customers||{};root.innerHTML=`<h1>Welcome, ${esc(c.name||'Customer')}</h1><p class="jp-portal-muted">Your JobPilot customer portal</p><div class="jp-portal-grid"><section class="jp-portal-card"><h2>Upcoming jobs</h2><div class="jp-portal-stat">${d.jobs.filter(j=>j.scheduled_date&&j.scheduled_date>=new Date().toISOString().slice(0,10)).length}</div>${list(d.jobs.filter(j=>j.scheduled_date&&j.scheduled_date>=new Date().toISOString().slice(0,10)).slice(0,5),'No upcoming jobs.',j=>`<div class="jp-portal-row"><strong>${esc(j.title||'Job')}</strong><br><span class="jp-portal-muted">${esc(j.scheduled_date||'')}${j.scheduled_time?' · '+esc(j.scheduled_time):''}</span><br>${esc(j.status||'')}</div>`)}</section><section class="jp-portal-card"><h2>Quotes</h2><div class="jp-portal-stat">${d.quotes.length}</div>${list(d.quotes.slice(0,5),'No quotes yet.',q=>`<div class="jp-portal-row"><strong>${esc(q.title||q.quote_number||'Quote')}</strong><br><span class="jp-portal-muted">${esc(q.quote_number||'')} · ${money(q.total)}</span><br>${esc(q.status||'')}</div>`)}</section><section class="jp-portal-card"><h2>Invoices</h2><div class="jp-portal-stat">${d.invoices.length}</div>${list(d.invoices.slice(0,5),'No invoices yet.',i=>`<div class="jp-portal-row"><strong>${esc(i.invoice_number||'Invoice')}</strong><br><span class="jp-portal-muted">${money(i.total)} · ${esc(i.status||'')}</span><br>${i.due_date?'Due '+esc(i.due_date):''}</div>`)}</section></div><section class="jp-portal-card" style="margin-top:16px"><h2>Your details</h2><p>${esc(c.email||'')}<br>${esc(c.phone||'')}<br>${esc(c.address_line1||'')}${c.city?', '+esc(c.city):''}${c.postcode?' '+esc(c.postcode):''}</p><button id="edit-details" class="jp-portal-button secondary">Update details</button><div id="details-form"></div></section>`;document.getElementById('edit-details').onclick=()=>{document.getElementById('details-form').innerHTML=`<form id="save-details"><input id="p-name" value="${esc(c.name)}" placeholder="Name" style="padding:10px;margin:6px;width:90%"><input id="p-email" type="email" value="${esc(c.email)}" placeholder="Email" style="padding:10px;margin:6px;width:90%"><input id="p-phone" value="${esc(c.phone)}" placeholder="Phone" style="padding:10px;margin:6px;width:90%"><input id="p-address" value="${esc(c.address_line1)}" placeholder="Address" style="padding:10px;margin:6px;width:90%"><input id="p-city" value="${esc(c.city)}" placeholder="City" style="padding:10px;margin:6px;width:90%"><input id="p-postcode" value="${esc(c.postcode)}" placeholder="Postcode" style="padding:10px;margin:6px;width:90%"><button class="jp-portal-button">Save</button></form>`;document.getElementById('save-details').onsubmit=async e=>{e.preventDefault();await updatePortalCustomer(c.id,{name:document.getElementById('p-name').value,email:document.getElementById('p-email').value,phone:document.getElementById('p-phone').value,address_line1:document.getElementById('p-address').value,city:document.getElementById('p-city').value,postcode:document.getElementById('p-postcode').value});await render();};};}catch(e){root.innerHTML=`<div class="jp-portal-card"><h2>Portal unavailable</h2><p>${esc(e.message||'Please try again.')}</p></div>`;}}
+signout.onclick=async()=>{await supabase.auth.signOut();render();};render();
+</script>
+</body>
+</html>

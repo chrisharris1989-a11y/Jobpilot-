@@ -2,59 +2,51 @@ import { supabase } from "../../supabase.js";
 
 const GC_INVOICE_PAYMENT_URL = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/gocardless-invoice-payment";
 
-function findInvoiceModal(button) {
-  return button.closest(".modal") || button.closest(".modal-content") || button.parentElement?.parentElement || document.body;
+function findInvoiceButton() {
+  return document.getElementById("sendInvoiceButton");
 }
 
-async function resolveInvoice(modal) {
-  const publicLink = modal.querySelector('a[href*="public-invoice.html?token="]');
-  let token = null;
+async function resolveInvoice() {
+  // The existing invoice profile keeps the invoice in the page title as:
+  // "Invoice #123". Use that stable identifier rather than looking for a
+  // non-existent email/public-link field in the invoice profile.
+  const title = document.getElementById("pageTitle")?.textContent?.trim() || "";
+  const match = title.match(/Invoice\s*#\s*(.+)$/i);
+  const invoiceNumber = match?.[1]?.trim();
 
-  if (publicLink) {
-    try {
-      token = new URL(publicLink.href, window.location.origin).searchParams.get("token");
-    } catch {}
-  }
-
-  if (token) {
+  if (invoiceNumber) {
     const { data, error } = await supabase
       .from("invoices")
       .select("id,invoice_number,total,public_token,customer_id,description")
-      .eq("public_token", token)
+      .eq("invoice_number", invoiceNumber)
       .maybeSingle();
+
     if (!error && data) return data;
   }
 
-  const emailInput = modal.querySelector('input[type="email"]');
-  const email = emailInput?.value?.trim();
-  if (!email) return null;
+  return null;
+}
 
-  const { data: customer } = await supabase
+async function resolveCustomerEmail(customerId) {
+  if (!customerId) return null;
+
+  const { data, error } = await supabase
     .from("customers")
-    .select("id")
-    .eq("email", email)
-    .limit(1)
-    .maybeSingle();
-  if (!customer?.id) return null;
-
-  const { data: invoice } = await supabase
-    .from("invoices")
-    .select("id,invoice_number,total,public_token,customer_id,description")
-    .eq("customer_id", customer.id)
-    .neq("status", "paid")
-    .order("created_at", { ascending: false })
-    .limit(1)
+    .select("email")
+    .eq("id", customerId)
     .maybeSingle();
 
-  return invoice || null;
+  if (error) {
+    console.error("GoCardless customer lookup:", error);
+    return null;
+  }
+
+  return data?.email?.trim() || null;
 }
 
 function addPaymentSelector(button) {
   if (button.dataset.gocardlessSelectorAdded === "true") return;
   button.dataset.gocardlessSelectorAdded = "true";
-
-  const modal = findInvoiceModal(button);
-  if (!modal || modal.querySelector("#jobpilotInvoicePaymentMethod")) return;
 
   const wrapper = document.createElement("div");
   wrapper.style.margin = "14px 0";
@@ -79,7 +71,7 @@ function addPaymentSelector(button) {
   button.parentElement?.insertBefore(wrapper, button);
 
   button.addEventListener("click", async (event) => {
-    const select = modal.querySelector("#jobpilotInvoicePaymentMethod");
+    const select = document.getElementById("jobpilotInvoicePaymentMethod");
     if (!select || select.value !== "gocardless") return;
 
     event.preventDefault();
@@ -90,12 +82,24 @@ function addPaymentSelector(button) {
     button.textContent = "Creating GoCardless payment link…";
 
     try {
-      const invoice = await resolveInvoice(modal);
-      if (!invoice?.id) throw new Error("Could not identify the invoice. Please close this window and try again.");
-      if (Number(invoice.total || 0) <= 0) throw new Error("This invoice has no outstanding amount to collect.");
+      const invoice = await resolveInvoice();
+      if (!invoice?.id) {
+        throw new Error("Could not identify the invoice. Please close this window and try again.");
+      }
+
+      if (Number(invoice.total || 0) <= 0) {
+        throw new Error("This invoice has no outstanding amount to collect.");
+      }
+
+      const email = await resolveCustomerEmail(invoice.customer_id);
+      if (!email) {
+        throw new Error("This customer does not have an email address saved. Add an email address to the customer and try again.");
+      }
 
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error("Please sign in again before sending the invoice.");
+      if (!session?.access_token) {
+        throw new Error("Please sign in again before sending the invoice.");
+      }
 
       const response = await fetch(GC_INVOICE_PAYMENT_URL, {
         method: "POST",
@@ -107,11 +111,9 @@ function addPaymentSelector(button) {
       });
 
       const result = await response.json().catch(() => ({}));
-      if (!response.ok || !result.url) throw new Error(result.error || "Unable to create the GoCardless payment link.");
-
-      const emailInput = modal.querySelector('input[type="email"]');
-      const email = emailInput?.value?.trim();
-      if (!email) throw new Error("Please enter the customer's email address.");
+      if (!response.ok || !result.url) {
+        throw new Error(result.error || "Unable to create the GoCardless payment link.");
+      }
 
       const invoiceLabel = invoice.invoice_number ? `Invoice ${invoice.invoice_number}` : "Your invoice";
       const subject = `${invoiceLabel} from JobPilot`;
@@ -129,12 +131,12 @@ function addPaymentSelector(button) {
 }
 
 const observer = new MutationObserver(() => {
-  const button = document.getElementById("sendInvoiceButton");
+  const button = findInvoiceButton();
   if (button) addPaymentSelector(button);
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
 setTimeout(() => {
-  const button = document.getElementById("sendInvoiceButton");
+  const button = findInvoiceButton();
   if (button) addPaymentSelector(button);
 }, 250);

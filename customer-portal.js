@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import './portal-auth.js';
 
 const QUOTE_ACTION_URL = 'https://qxoynttvipducubmczwl.supabase.co/functions/v1/customer-quote-action';
 

@@ -54,7 +54,15 @@ import { supabase } from "./supabase.js";
     document.querySelectorAll("[data-job-id]").forEach(card => {
       const jobId = String(card.dataset.jobId || "");
       const plan = loadedPlans.get(jobId);
-      if (!plan || card.querySelector("[data-open-job-plan]")) return;
+      if (!plan) return;
+
+      // Hide the old notes-handoff control. The plan is already linked to the job.
+      [...card.querySelectorAll("button")].forEach(button => {
+        const text = String(button.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+        if (text.includes("add plan to job")) button.style.display = "none";
+      });
+
+      if (card.querySelector("[data-open-job-plan]")) return;
 
       const action = document.createElement("button");
       action.type = "button";
@@ -74,8 +82,7 @@ import { supabase } from "./supabase.js";
     });
   }
 
-  // Completed plans are already linked through job_plans.job_id, so prevent
-  // the old notes-based handoff from changing the job's Notes field.
+  // Prevent the old notes-based handoff from changing the job's Notes field.
   document.addEventListener("click", event => {
     const button = event.target?.closest?.("button");
     if (!button) return;
@@ -83,7 +90,6 @@ import { supabase } from "./supabase.js";
     if (!text.includes("add plan to job")) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    alert("This plan is already linked to the job. You can open it from the job card.");
   }, true);
 
   const observer = new MutationObserver(async () => {

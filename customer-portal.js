@@ -28,15 +28,15 @@ async function applyPortalBranding() {
     const brand = document.querySelector('.jp-portal-brand');
     if (brand) {
       const logo = String(branding?.logo_url || '').trim();
+      const safeName = companyName.replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]));
+      const safeLogo = logo.replace(/\"/g, '&quot;');
       brand.innerHTML = logo
-        ? `<img src="${logo.replace(/\"/g, '&quot;')}" alt="${companyName.replace(/\"/g, '&quot;')} logo"><span>${companyName.replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]))}</span>`
-        : `<span>${companyName.replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]))}</span>`;
+        ? `<img src="${safeLogo}" alt="${safeName} logo"><span>${safeName}</span>`
+        : `<span>${safeName}</span>`;
     }
 
     const subtitle = document.querySelector('#portal-root > p.jp-portal-muted');
-    if (subtitle && subtitle.textContent.trim() === 'Your JobPilot customer portal') {
-      subtitle.textContent = `Your ${companyName} customer portal`;
-    }
+    if (subtitle) subtitle.textContent = `Your ${companyName} customer portal`;
   } catch (error) {
     console.warn('JobPilot portal branding:', error);
   }
@@ -44,6 +44,10 @@ async function applyPortalBranding() {
 
 supabase.auth.onAuthStateChange(() => setTimeout(applyPortalBranding, 0));
 setTimeout(applyPortalBranding, 0);
+
+const portalRootObserver = new MutationObserver(() => setTimeout(applyPortalBranding, 0));
+const portalRoot = document.getElementById('portal-root');
+if (portalRoot) portalRootObserver.observe(portalRoot, { childList: true, subtree: true });
 
 export async function getPortalDashboard(customerId) {
   const [jobs, quotes, invoices] = await Promise.all([

@@ -3,7 +3,6 @@ import { supabase } from "./supabase.js";
 (() => {
   let opening = false;
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-  const getContent = () => document.getElementById("pageContent");
 
   async function loadPlanForJob(jobId) {
     if (!jobId) return null;
@@ -24,7 +23,7 @@ import { supabase } from "./supabase.js";
   async function openPlanDirect(planId) {
     if (opening || !planId) return;
     opening = true;
-    const content = getContent();
+    const content = document.getElementById("pageContent");
     const previousVisibility = content?.style.visibility || "";
 
     try {
@@ -34,34 +33,35 @@ import { supabase } from "./supabase.js";
       if (!tools) throw new Error("Tools could not be opened.");
       tools.click();
 
+      // Tools cards contain both a title and description, so do not search
+      // by exact textContent. Use the actual Job Planner card id instead.
       let plannerButton = null;
       for (let i = 0; i < 80; i++) {
         await sleep(100);
-        plannerButton = [...document.querySelectorAll("button, [role=button], a")]
-          .find(el => String(el.textContent || "").trim() === "Job Planner");
+        plannerButton = document.getElementById("jp-open-job-planner");
         if (plannerButton) break;
       }
       if (!plannerButton) throw new Error("Job Planner could not be opened.");
 
       plannerButton.click();
 
-      // The planner loads its own saved-plan list asynchronously. Wait for
-      // the exact plan button belonging to this job, then open that plan.
+      // Job Planner loads its saved-plan list asynchronously. Wait for the
+      // exact saved plan belonging to this job, then open that plan.
       let planButton = null;
       for (let i = 0; i < 120; i++) {
         await sleep(100);
-        planButton = [...document.querySelectorAll("[data-plan-id]")]
-          .find(el => String(el.dataset.planId || "") === String(planId));
+        planButton = document.querySelector(`[data-plan-id="${CSS.escape(String(planId))}"]`);
         if (planButton) break;
       }
       if (!planButton) throw new Error("The saved Job Planner plan could not be found.");
 
       planButton.click();
 
-      // Give the planner time to replace the list with the selected plan.
+      // Allow the planner to replace its list with the selected plan before
+      // restoring the page visibility.
       for (let i = 0; i < 80; i++) {
         await sleep(100);
-        if (document.querySelector(".jp-planner-card") &&
+        if (document.querySelector(".jp-task-list, #jp-plan-form, .jp-complete-panel") &&
             !document.querySelector(`[data-plan-id="${CSS.escape(String(planId))}"]`)) {
           break;
         }

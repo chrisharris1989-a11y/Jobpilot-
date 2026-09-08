@@ -17,6 +17,34 @@ export async function getPortalBranding() {
   return Array.isArray(data) ? (data[0] || null) : (data || null);
 }
 
+async function applyPortalBranding() {
+  try {
+    const { data: { session } = {} } = await supabase.auth.getSession();
+    if (!session?.user) return;
+    const branding = await getPortalBranding();
+    const companyName = String(branding?.company_name || '').trim();
+    if (!companyName) return;
+
+    const brand = document.querySelector('.jp-portal-brand');
+    if (brand) {
+      const logo = String(branding?.logo_url || '').trim();
+      brand.innerHTML = logo
+        ? `<img src="${logo.replace(/\"/g, '&quot;')}" alt="${companyName.replace(/\"/g, '&quot;')} logo"><span>${companyName.replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]))}</span>`
+        : `<span>${companyName.replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]))}</span>`;
+    }
+
+    const subtitle = document.querySelector('#portal-root > p.jp-portal-muted');
+    if (subtitle && subtitle.textContent.trim() === 'Your JobPilot customer portal') {
+      subtitle.textContent = `Your ${companyName} customer portal`;
+    }
+  } catch (error) {
+    console.warn('JobPilot portal branding:', error);
+  }
+}
+
+supabase.auth.onAuthStateChange(() => setTimeout(applyPortalBranding, 0));
+setTimeout(applyPortalBranding, 0);
+
 export async function getPortalDashboard(customerId) {
   const [jobs, quotes, invoices] = await Promise.all([
     supabase.from('jobs').select('*').eq('customer_id', customerId).order('scheduled_date', { ascending: true }),

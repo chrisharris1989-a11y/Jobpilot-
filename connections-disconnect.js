@@ -8,6 +8,8 @@ const PROVIDERS = {
   freeagent: { endpoint: `${BASE}/freeagent-disconnect`, label: "FreeAgent" }
 };
 
+const STRIPE_CONNECT_URL = `${BASE}/stripe-connect-v3`;
+
 function addStyles() {
   if (document.getElementById("jobpilot-disconnect-style")) return;
   const style = document.createElement("style");
@@ -90,9 +92,68 @@ function scan() {
   addButton(document.querySelector('[data-accounting-provider="freeagent"]') || document.querySelector('[data-connection-provider="freeagent"]'), "freeagent");
 }
 
+// The Management → Accounting page uses a dynamically-created Stripe button.
+// Bind it directly to the v3 OAuth endpoint rather than relying on the legacy
+// hidden-button bridge used by the older Connections UI.
+async function connectManagementStripe(button) {
+  if (!button || button.dataset.jobpilotStripeBound === "true" || button.disabled) return;
+  button.dataset.jobpilotStripeBound = "true";
+  button.addEventListener("click", async event => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (button.dataset.jobpilotStripeBusy === "true") return;
+    button.dataset.jobpilotStripeBusy = "true";
+    button.disabled = true;
+    button.textContent = "Connecting to Stripe…";
+
+    try {
+      const { data: { session } = {} } = await supabase.auth.getSession();
+      if (!session) throw new Error("You are not logged in.");
+
+      const response = await fetch(STRIPE_CONNECT_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: session.access_token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          action: "connect",
+          origin: window.location.origin
+        })
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Could not connect Stripe (${response.status}).`);
+      if (!result.url) throw new Error("Stripe did not return an authorisation URL.");
+
+      window.location.assign(result.url);
+    } catch (error) {
+      console.error("JobPilot Stripe connect error:", error);
+      button.dataset.jobpilotStripeBusy = "false";
+      button.disabled = false;
+      button.textContent = "💳 Connect Stripe";
+      alert(`Could not connect Stripe:\n\n${error.message || error}`);
+    }
+  });
+}
+
+function scanManagementStripe() {
+  const button = document.getElementById("managementStripeButton");
+  if (button) connectManagementStripe(button);
+}
+
 addStyles();
-const observer = new MutationObserver(scan);
+const observer = new MutationObserver(() => {
+  scan();
+  scanManagementStripe();
+});
 observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-document.addEventListener("DOMContentLoaded", scan);
+document.addEventListener("DOMContentLoaded", () => {
+  scan();
+  scanManagementStripe();
+});
 setTimeout(scan, 700);
 setTimeout(scan, 1500);
+setTimeout(scanManagementStripe, 700);
+setTimeout(scanManagementStripe, 1500);

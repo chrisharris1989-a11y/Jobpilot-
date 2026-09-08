@@ -29,7 +29,7 @@ import { supabase } from "./supabase.js";
     state.plan = String(state.company?.plan || "solo").toLowerCase();
     const [{data:jobs,error:je},{data:customers,error:ce}] = await Promise.all([
       supabase.from("jobs").select("id,title,description,scheduled_date,customer_id,assigned_user_id").order("scheduled_date",{ascending:true,nullsFirst:false}),
-      supabase.from("customers").select("id,name,first_name,last_name").order("created_at",{ascending:false})
+      supabase.from("customers").select("id,name").order("created_at",{ascending:false})
     ]);
     if (je) throw je; if (ce) throw ce;
     state.jobs=jobs||[]; state.customers=customers||[];
@@ -38,7 +38,7 @@ import { supabase } from "./supabase.js";
     }
   }
 
-  function customerName(id){ const c=state.customers.find(x=>String(x.id)===String(id)); if(!c)return ""; return c.name || [c.first_name,c.last_name].filter(Boolean).join(" ") || "Customer"; }
+  function customerName(id){ const c=state.customers.find(x=>String(x.id)===String(id)); if(!c)return ""; return c.name || "Customer"; }
   function memberName(id){ const m=state.members.find(x=>String(x.user_id)===String(id)); return m?.name || m?.email || "Team member"; }
 
   async function loadPlanner(id) {

@@ -24,16 +24,17 @@ async function getProfileCustomer() {
 
 async function getDirectDebitStatus(customerId) {
   const { data: customerLink } = await supabase.from("gocardless_customers").select("gocardless_customer_id").eq("customer_id", customerId).maybeSingle();
-  if (!customerLink?.gocardless_customer_id) return "none";
+  if (!customerLink?.gocardless_customer_id) return { state: "none", mandateStatus: null, subscriptionStatus: null };
   const { data: mandate } = await supabase.from("gocardless_mandates").select("id,status,cancelled_at,updated_at").eq("customer_id", customerId).order("updated_at", { ascending: false }).limit(1).maybeSingle();
   const { data: subscription } = await supabase.from("gocardless_subscriptions").select("status,cancelled_at,updated_at").eq("customer_id", customerId).order("updated_at", { ascending: false }).limit(1).maybeSingle();
   const subscriptionStatus = String(subscription?.status || "").toLowerCase();
   const mandateStatus = String(mandate?.status || "").toLowerCase();
-  if (["cancelled", "canceled", "finished", "failed", "expired"].includes(subscriptionStatus) || ["cancelled", "canceled", "failed", "expired"].includes(mandateStatus)) return "cancelled";
-  if (["active", "created", "pending_customer_approval", "pending_submission"].includes(subscriptionStatus)) return subscriptionStatus === "active" ? "active" : "pending";
-  if (mandateStatus && mandateStatus !== "active") return "pending";
-  if (mandateStatus === "active") return "active";
-  return "none";
+  if (["cancelled", "canceled", "finished", "failed", "expired"].includes(subscriptionStatus) || ["cancelled", "canceled", "failed", "expired"].includes(mandateStatus)) return { state: "cancelled", mandateStatus, subscriptionStatus };
+  if (["active", "created", "pending_customer_approval", "pending_submission"].includes(subscriptionStatus)) return { state: subscriptionStatus === "active" ? "active" : "pending", mandateStatus, subscriptionStatus };
+  if (mandateStatus === "active") return { state: "active", mandateStatus, subscriptionStatus };
+  if (mandateStatus === "consumed") return { state: "consumed", mandateStatus, subscriptionStatus };
+  if (mandateStatus) return { state: "pending", mandateStatus, subscriptionStatus };
+  return { state: "none", mandateStatus: null, subscriptionStatus };
 }
 
 function createSetupButton(customer, label = "Set Up New Direct Debit") {
@@ -45,37 +46,50 @@ function createSetupButton(customer, label = "Set Up New Direct Debit") {
   return button;
 }
 
-function buildDirectDebitControls(customer, status) {
+function buildDirectDebitControls(customer, statusInfo) {
   const wrapper = document.createElement("div");
   wrapper.className = "gocardless-recurring-controls";
   wrapper.style.display = "inline-flex";
   wrapper.style.gap = "8px";
   wrapper.style.alignItems = "center";
 
+  const status = statusInfo?.state || "none";
+  const mandateStatus = statusInfo?.mandateStatus;
+  const readableMandate = mandateStatus ? mandateStatus.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "Not Set Up";
+
   if (status === "active") {
     const statusButton = document.createElement("button");
     statusButton.type = "button";
     statusButton.className = "btn btn-secondary gocardless-recurring-btn";
-    statusButton.textContent = "✓ Direct Debit Active";
+    statusButton.textContent = `✓ Direct Debit Active${mandateStatus ? ` · Mandate: ${readableMandate}` : ""}`;
     statusButton.disabled = true;
-    statusButton.title = "This customer has an active Direct Debit subscription";
+    statusButton.title = `Current GoCardless mandate status: ${readableMandate}`;
     wrapper.appendChild(statusButton);
   } else if (status === "cancelled") {
     const statusButton = document.createElement("button");
     statusButton.type = "button";
     statusButton.className = "btn btn-secondary gocardless-recurring-btn";
-    statusButton.textContent = "✕ Direct Debit Cancelled";
+    statusButton.textContent = `✕ Direct Debit ${mandateStatus === "cancelled" ? "Cancelled" : "Unavailable"}`;
     statusButton.disabled = true;
-    statusButton.title = "This customer's Direct Debit has been cancelled";
+    statusButton.title = `Current GoCardless mandate status: ${readableMandate}`;
+    wrapper.appendChild(statusButton);
+    wrapper.appendChild(createSetupButton(customer));
+  } else if (status === "consumed") {
+    const statusButton = document.createElement("button");
+    statusButton.type = "button";
+    statusButton.className = "btn btn-secondary gocardless-recurring-btn";
+    statusButton.textContent = "Direct Debit Mandate Consumed";
+    statusButton.disabled = true;
+    statusButton.title = "The GoCardless mandate was consumed by a one-off payment and cannot be reused.";
     wrapper.appendChild(statusButton);
     wrapper.appendChild(createSetupButton(customer));
   } else if (status === "pending") {
     const statusButton = document.createElement("button");
     statusButton.type = "button";
     statusButton.className = "btn btn-secondary gocardless-recurring-btn";
-    statusButton.textContent = "Direct Debit Setup Pending";
+    statusButton.textContent = `Direct Debit Setup Pending${mandateStatus ? ` · Mandate: ${readableMandate}` : ""}`;
     statusButton.disabled = true;
-    statusButton.title = "Direct Debit setup is still pending";
+    statusButton.title = `Current GoCardless mandate status: ${readableMandate}`;
     wrapper.appendChild(statusButton);
   } else {
     wrapper.appendChild(createSetupButton(customer, "Monthly Direct Debit"));
@@ -110,8 +124,8 @@ async function openRecurringSetup(customer) {
 async function addProfileDirectDebitAction() {
   const customer = await getProfileCustomer();
   if (!customer) return;
-  const status = await getDirectDebitStatus(customer.id);
-  const controls = buildDirectDebitControls(customer, status);
+  const statusInfo = await getDirectDebitStatus(customer.id);
+  const controls = buildDirectDebitControls(customer, statusInfo);
   const editButton = document.getElementById("editCustomer");
   if (!editButton) return;
   const existing = document.querySelector(".gocardless-recurring-controls, .gocardless-recurring-btn");

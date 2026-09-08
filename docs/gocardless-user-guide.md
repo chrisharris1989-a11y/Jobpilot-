@@ -6,14 +6,14 @@
 
 JobPilot integrates with GoCardless to allow businesses to collect customer payments as part of their normal invoicing workflow.
 
-GoCardless is connected from **Settings → Management & Accounting → Connections**. Once connected, GoCardless can be selected when sending an invoice.
+GoCardless is connected from **Management → Accounting**. Once connected, GoCardless can be selected when sending an invoice.
 
 JobPilot uses GoCardless-hosted payment and mandate pages. Customers enter their bank details directly with GoCardless rather than into JobPilot.
 
 ## 2. Connecting GoCardless
 
-1. Open JobPilot and go to **Settings**.
-2. Open **Management & Accounting → Connections**.
+1. Open JobPilot and select **Management** from the main navigation.
+2. Open **Accounting**.
 3. Select **Connect GoCardless**.
 4. JobPilot opens the secure GoCardless authorisation flow.
 5. Sign in to an existing GoCardless account or create a new account.
@@ -79,7 +79,7 @@ GoCardless may apply timing, safety and account-level restrictions to refunds. R
 
 ## 8. Disconnecting or changing the GoCardless account
 
-GoCardless connection controls are available in **Settings → Management & Accounting → Connections**.
+GoCardless connection controls are available in **Management → Accounting**.
 
 If the connected GoCardless organisation needs to be changed, use the supported GoCardless connection flow rather than sharing credentials manually.
 
@@ -99,7 +99,7 @@ Customers enter bank details through GoCardless-hosted pages rather than through
 
 ### GoCardless is not showing as connected
 
-Go to **Settings → Management & Accounting → Connections** and check the GoCardless connection status.
+Open **Management → Accounting** and check the GoCardless connection status.
 
 ### A payment link cannot be created
 

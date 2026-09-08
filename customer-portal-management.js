@@ -9,34 +9,128 @@ async function companyContext() {
   return data;
 }
 
+function escapeHtml(v) {
+  return String(v ?? '').replace(/[&<>"']/g, m => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[m]));
+}
+
+async function getCustomer(customerId) {
+  const cached = window.jobpilotCustomers?.find?.(c => String(c.id) === String(customerId));
+  if (cached) return cached;
+  const { data, error } = await supabase.from('customers').select('id,name,email').eq('id', customerId).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 async function getPortalStatus(customerId) {
-  const { data, error } = await supabase.from('customer_portal_accounts').select('id,status,invited_at,activated_at').eq('customer_id',customerId).maybeSingle();
+  const { data, error } = await supabase.from('customer_portal_accounts')
+    .select('id,status,invited_at,activated_at')
+    .eq('customer_id', customerId)
+    .maybeSingle();
   if (error) throw error;
   return data;
 }
 
 export async function openCustomerPortalManager(customerId) {
-  const customer = window.jobpilotCustomers?.find?.(c => c.id === customerId);
-  const { data: customerRow } = await supabase.from('customers').select('id,name,email').eq('id',customerId).maybeSingle();
-  const c = customer || customerRow;
-  if (!c) return;
-  const status = await getPortalStatus(customerId);
-  const modal=document.createElement('div'); modal.className='modal show';
-  modal.innerHTML=`<div class="modal-content"><div class="modal-header"><div><h2>Customer Portal</h2><p>${escapeHtml(c.name||'Customer')}</p></div><button class="close">×</button></div><div class="panel" style="box-shadow:none;border:1px solid var(--border,#e5e7eb)"><p><strong>Status:</strong> ${status?.status==='active'?'Enabled':'Not enabled'}</p><p class="muted">${escapeHtml(c.email||'No email address')}</p>${status?.invited_at?`<p class="muted">Invitation: ${new Date(status.invited_at).toLocaleString('en-GB')}</p>`:''}<button id="portalInvite" class="button primary" ${!c.email?'disabled':''}>${status?'Resend / enable portal':'Enable & send invitation'}</button><p id="portalResult" class="muted"></p></div></div>`;
-  document.body.appendChild(modal); modal.querySelectorAll('.close').forEach(b=>b.onclick=()=>modal.remove());
-  modal.querySelector('#portalInvite').onclick=async()=>{const result=modal.querySelector('#portalResult');result.textContent='Sending invitation...';try{await companyContext();const {data:{session}}=await supabase.auth.getSession();const {data,error}=await supabase.functions.invoke('invite-customer-portal',{body:{customer_id:customerId,redirect_to:`${location.origin}/portal.html`},headers:{Authorization:`Bearer ${session.access_token}`}});if(error)throw error;if(!data?.ok)throw new Error(data?.error||'Unable to send invitation.');result.textContent=data.message||'Invitation sent.';}catch(e){result.textContent=e.message||'Unable to send invitation.';}};
+  if (!customerId) {
+    alert('Unable to open the customer portal: this customer row has no customer ID.');
+    return;
+  }
+
+  // Open the modal immediately so a slow database request never looks like a dead button.
+  const modal = document.createElement('div');
+  modal.className = 'modal show';
+  modal.innerHTML = `<div class="modal-content">
+    <div class="modal-header">
+      <div><h2>Customer Portal</h2><p id="portalCustomerName">Customer</p></div>
+      <button type="button" class="close" aria-label="Close">×</button>
+    </div>
+    <div class="panel" style="box-shadow:none;border:1px solid var(--border,#e5e7eb)">
+      <p id="portalStatusText">Loading portal details...</p>
+      <p id="portalCustomerEmail" class="muted"></p>
+      <button type="button" id="portalInvite" class="button primary" disabled>Loading...</button>
+      <p id="portalResult" class="muted"></p>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('.close').onclick = () => modal.remove();
+
+  try {
+    const [customer, status] = await Promise.all([
+      getCustomer(customerId),
+      getPortalStatus(customerId)
+    ]);
+
+    if (!customer) throw new Error('Customer could not be found.');
+
+    modal.querySelector('#portalCustomerName').textContent = customer.name || 'Customer';
+    modal.querySelector('#portalCustomerEmail').textContent = customer.email || 'No email address';
+    modal.querySelector('#portalStatusText').innerHTML = `<strong>Status:</strong> ${status?.status === 'active' ? 'Enabled' : 'Not enabled'}${status?.invited_at ? `<br><span class="muted">Invitation: ${new Date(status.invited_at).toLocaleString('en-GB')}</span>` : ''}`;
+
+    const inviteButton = modal.querySelector('#portalInvite');
+    inviteButton.disabled = !customer.email;
+    inviteButton.textContent = status ? 'Resend / enable portal' : 'Enable & send invitation';
+
+    if (!customer.email) {
+      modal.querySelector('#portalResult').textContent = 'Add an email address to this customer before enabling the portal.';
+      return;
+    }
+
+    inviteButton.onclick = async () => {
+      const result = modal.querySelector('#portalResult');
+      inviteButton.disabled = true;
+      result.textContent = 'Sending invitation...';
+      try {
+        await companyContext();
+        const { data: { session } = {} } = await supabase.auth.getSession();
+        if (!session?.access_token) throw new Error('Your JobPilot session has expired. Please sign in again.');
+
+        const { data, error } = await supabase.functions.invoke('invite-customer-portal', {
+          body: {
+            customer_id: customerId,
+            redirect_to: `${location.origin}/portal.html`
+          },
+          headers: { Authorization: `Bearer ${session.access_token}` }
+        });
+        if (error) throw error;
+        if (!data?.ok) throw new Error(data?.error || 'Unable to send invitation.');
+        result.textContent = data.message || 'Invitation sent.';
+        inviteButton.textContent = 'Portal enabled';
+      } catch (e) {
+        result.textContent = e?.message || 'Unable to send invitation.';
+        inviteButton.disabled = false;
+      }
+    };
+  } catch (e) {
+    modal.querySelector('#portalStatusText').textContent = 'Unable to load portal details.';
+    modal.querySelector('#portalResult').textContent = e?.message || 'Please try again.';
+  }
 }
 
-function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function injectPortalButtons() {
+  const table = document.getElementById('customerTable');
+  if (!table) return;
 
-function injectPortalButtons(){
-  const table=document.getElementById('customerTable'); if(!table) return;
-  table.querySelectorAll('[data-customer-id]').forEach(row=>{
-    if(row.querySelector('.customer-portal-button')) return;
-    const id=row.dataset.customerId;
-    const button=document.createElement('button'); button.type='button'; button.className='button secondary customer-portal-button'; button.textContent='Portal'; button.style.marginLeft='10px';
-    button.onclick=e=>{e.stopPropagation();openCustomerPortalManager(id);}; row.appendChild(button);
+  table.querySelectorAll('[data-customer-id]').forEach(row => {
+    if (row.querySelector('.customer-portal-button')) return;
+    const id = row.dataset.customerId;
+    if (!id) return;
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'button secondary customer-portal-button';
+    button.textContent = 'Portal';
+    button.style.marginLeft = '10px';
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      openCustomerPortalManager(id);
+    });
+    row.appendChild(button);
   });
 }
-const observer=new MutationObserver(injectPortalButtons); observer.observe(document.body,{childList:true,subtree:true});
+
+const observer = new MutationObserver(injectPortalButtons);
+observer.observe(document.body, { childList: true, subtree: true });
 injectPortalButtons();

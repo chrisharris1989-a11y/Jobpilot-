@@ -3,6 +3,7 @@ import { supabase } from "./supabase.js";
 (() => {
   let opening = false;
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const getContent = () => document.getElementById("pageContent");
 
   async function loadPlanForJob(jobId) {
     if (!jobId) return null;
@@ -23,55 +24,53 @@ import { supabase } from "./supabase.js";
   async function openPlanDirect(planId) {
     if (opening || !planId) return;
     opening = true;
+    const content = getContent();
+    const previousVisibility = content?.style.visibility || "";
 
     try {
-      // Move to Tools/Job Planner, but keep the transition hidden so the
-      // user goes from Jobs -> Open plan -> the exact plan, not the planner list.
-      const content = document.getElementById("pageContent");
-      if (content) {
-        content.dataset.jpOpening = "true";
-        content.style.visibility = "hidden";
-      }
+      if (content) content.style.visibility = "hidden";
 
       const tools = document.getElementById("jobpilot-tools-button");
-      if (tools) tools.click();
+      if (!tools) throw new Error("Tools could not be opened.");
+      tools.click();
 
       let plannerButton = null;
-      for (let i = 0; i < 60; i++) {
-        await sleep(75);
+      for (let i = 0; i < 80; i++) {
+        await sleep(100);
         plannerButton = [...document.querySelectorAll("button, [role=button], a")]
           .find(el => String(el.textContent || "").trim() === "Job Planner");
         if (plannerButton) break;
       }
-
       if (!plannerButton) throw new Error("Job Planner could not be opened.");
+
       plannerButton.click();
 
+      // The planner loads its own saved-plan list asynchronously. Wait for
+      // the exact plan button belonging to this job, then open that plan.
       let planButton = null;
-      for (let i = 0; i < 80; i++) {
-        await sleep(75);
-        planButton = document.querySelector(
-          `[data-plan-id="${CSS.escape(String(planId))}"]`
-        );
+      for (let i = 0; i < 120; i++) {
+        await sleep(100);
+        planButton = [...document.querySelectorAll("[data-plan-id]")]
+          .find(el => String(el.dataset.planId || "") === String(planId));
         if (planButton) break;
       }
+      if (!planButton) throw new Error("The saved Job Planner plan could not be found.");
 
-      if (!planButton) throw new Error("The Job Planner plan could not be found.");
       planButton.click();
 
-      for (let i = 0; i < 40; i++) {
-        await sleep(75);
-        const planner = document.querySelector(".jp-planner-card");
-        if (planner && !document.querySelector(`[data-plan-id="${CSS.escape(String(planId))}"]`)) break;
+      // Give the planner time to replace the list with the selected plan.
+      for (let i = 0; i < 80; i++) {
+        await sleep(100);
+        if (document.querySelector(".jp-planner-card") &&
+            !document.querySelector(`[data-plan-id="${CSS.escape(String(planId))}"]`)) {
+          break;
+        }
       }
     } catch (error) {
       console.warn("JobPilot direct plan open:", error);
       alert(error.message || "Could not open this Job Planner plan.");
     } finally {
-      if (content) {
-        content.style.visibility = "";
-        delete content.dataset.jpOpening;
-      }
+      if (content) content.style.visibility = previousVisibility;
       opening = false;
     }
   }
@@ -92,9 +91,7 @@ import { supabase } from "./supabase.js";
       action.className = "button secondary";
       action.dataset.openJobPlan = plan.id;
       action.textContent = "Open plan";
-      action.title = plan.status === "completed"
-        ? "Open finalised plan"
-        : "Open Job Planner plan";
+      action.title = plan.status === "completed" ? "Open finalised plan" : "Open Job Planner plan";
       action.style.marginLeft = "10px";
       action.addEventListener("click", event => {
         event.preventDefault();
@@ -117,7 +114,6 @@ import { supabase } from "./supabase.js";
   const observer = new MutationObserver(() => {
     decorateJobRows().catch(error => console.warn("JobPilot plan cards:", error));
   });
-
   observer.observe(document.body, { childList: true, subtree: true });
   decorateJobRows();
 })();

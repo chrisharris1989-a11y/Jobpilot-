@@ -1,5 +1,7 @@
 import { supabase } from './supabase.js';
 
+const QUOTE_ACTION_URL = 'https://qxoynttvipducubmczwl.supabase.co/functions/v1/customer-quote-action';
+
 export async function getCustomerPortalSession() {
   const { data: { session } = {} } = await supabase.auth.getSession();
   if (!session?.user) return null;
@@ -19,6 +21,23 @@ export async function getPortalDashboard(customerId) {
   if (invoices.error) throw invoices.error;
   return { jobs: jobs.data || [], quotes: quotes.data || [], invoices: invoices.data || [] };
 }
+
+async function quoteAction(quoteId, action) {
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Your portal session has expired. Please sign in again.');
+  const response = await fetch(QUOTE_ACTION_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({ quote_id: quoteId, action, origin: window.location.origin })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'Could not complete quote action.');
+  return result;
+}
+
+export async function acceptPortalQuote(quoteId) { return quoteAction(quoteId, 'accept'); }
+export async function declinePortalQuote(quoteId) { return quoteAction(quoteId, 'decline'); }
+export async function payPortalQuote(quoteId) { return quoteAction(quoteId, 'pay'); }
 
 export async function updatePortalCustomer(customerId, updates) {
   const allowed = {};

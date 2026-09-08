@@ -1,9 +1,8 @@
 import { supabase } from "./supabase.js";
 
 (() => {
-  let currentJobId = null;
-  let currentPlan = null;
   let opening = false;
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
   async function loadPlanForJob(jobId) {
     if (!jobId) return null;
@@ -21,91 +20,104 @@ import { supabase } from "./supabase.js";
     return data || null;
   }
 
-  async function openPlan(planId) {
-    if (opening) return;
+  async function openPlanDirect(planId) {
+    if (opening || !planId) return;
     opening = true;
+
     try {
+      // Move to Tools/Job Planner, but keep the transition hidden so the
+      // user goes from Jobs -> Open plan -> the exact plan, not the planner list.
+      const content = document.getElementById("pageContent");
+      if (content) {
+        content.dataset.jpOpening = "true";
+        content.style.visibility = "hidden";
+      }
+
       const tools = document.getElementById("jobpilot-tools-button");
       if (tools) tools.click();
 
-      for (let i = 0; i < 50; i++) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        const plannerCard = [...document.querySelectorAll("button, [role=button], a")]
-          .find(el => String(el.textContent || "").trim() === "Job Planner");
-        if (plannerCard) {
-          plannerCard.click();
-          break;
-        }
-      }
-
+      let plannerButton = null;
       for (let i = 0; i < 60; i++) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        const button = document.querySelector(`[data-plan-id="${CSS.escape(String(planId))}"]`);
-        if (button) {
-          button.click();
-          return;
-        }
+        await sleep(75);
+        plannerButton = [...document.querySelectorAll("button, [role=button], a")]
+          .find(el => String(el.textContent || "").trim() === "Job Planner");
+        if (plannerButton) break;
       }
 
-      alert("Could not open this Job Planner plan. Please try again.");
+      if (!plannerButton) throw new Error("Job Planner could not be opened.");
+      plannerButton.click();
+
+      let planButton = null;
+      for (let i = 0; i < 80; i++) {
+        await sleep(75);
+        planButton = document.querySelector(
+          `[data-plan-id="${CSS.escape(String(planId))}"]`
+        );
+        if (planButton) break;
+      }
+
+      if (!planButton) throw new Error("The Job Planner plan could not be found.");
+      planButton.click();
+
+      for (let i = 0; i < 40; i++) {
+        await sleep(75);
+        const planner = document.querySelector(".jp-planner-card");
+        if (planner && !document.querySelector(`[data-plan-id="${CSS.escape(String(planId))}"]`)) break;
+      }
+    } catch (error) {
+      console.warn("JobPilot direct plan open:", error);
+      alert(error.message || "Could not open this Job Planner plan.");
     } finally {
+      if (content) {
+        content.style.visibility = "";
+        delete content.dataset.jpOpening;
+      }
       opening = false;
     }
   }
 
-  function hideObsoleteHandoff() {
-    const button = document.getElementById("jp-add-to-job");
-    if (button) button.remove();
-  }
+  async function decorateJobRows() {
+    const rows = [...document.querySelectorAll(".job-row[data-job-id]")];
+    if (!rows.length) return;
 
-  async function decorateJobProfile() {
-    hideObsoleteHandoff();
+    for (const row of rows) {
+      if (row.dataset.jpPlanDecorated === "true") continue;
+      row.dataset.jpPlanDecorated = "true";
 
-    const subtitle = document.getElementById("pageSubtitle");
-    if (!subtitle || subtitle.textContent.trim() !== "Job details" || !currentJobId) return;
+      const plan = await loadPlanForJob(row.dataset.jobId);
+      if (!plan) continue;
 
-    const actions = document.getElementById("editJob")?.parentElement;
-    if (!actions || actions.querySelector("[data-open-job-plan]")) return;
+      const action = document.createElement("button");
+      action.type = "button";
+      action.className = "button secondary";
+      action.dataset.openJobPlan = plan.id;
+      action.textContent = "Open plan";
+      action.title = plan.status === "completed"
+        ? "Open finalised plan"
+        : "Open Job Planner plan";
+      action.style.marginLeft = "10px";
+      action.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        openPlanDirect(plan.id);
+      });
 
-    const plan = currentPlan || await loadPlanForJob(currentJobId);
-    currentPlan = plan;
-    if (!plan) return;
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "button secondary";
-    button.dataset.openJobPlan = plan.id;
-    button.textContent = "Open plan";
-    button.title = plan.status === "completed" ? "Open finalised plan" : "Open Job Planner plan";
-    button.addEventListener("click", event => {
-      event.preventDefault();
-      event.stopPropagation();
-      openPlan(plan.id);
-    });
-
-    actions.insertBefore(button, actions.firstChild);
-  }
-
-  document.addEventListener("click", event => {
-    const row = event.target?.closest?.("[data-job-id]");
-    if (row) {
-      currentJobId = String(row.dataset.jobId || "");
-      currentPlan = null;
+      const right = row.lastElementChild;
+      if (right) {
+        right.style.display = "flex";
+        right.style.alignItems = "center";
+        right.style.gap = "8px";
+        right.appendChild(action);
+      } else {
+        row.appendChild(action);
+      }
     }
-
-    const history = event.target?.closest?.("[data-history-job]");
-    const recurring = event.target?.closest?.("[data-recurring-job-id]");
-    const id = history?.dataset.historyJob || recurring?.dataset.recurringJobId;
-    if (id) {
-      currentJobId = String(id);
-      currentPlan = null;
-    }
-  }, true);
+  }
 
   const observer = new MutationObserver(() => {
-    decorateJobProfile().catch(error => console.warn("JobPilot plan button:", error));
+    decorateJobRows().catch(error => console.warn("JobPilot plan cards:", error));
   });
 
   observer.observe(document.body, { childList: true, subtree: true });
-  decorateJobProfile();
+  decorateJobRows();
 })();

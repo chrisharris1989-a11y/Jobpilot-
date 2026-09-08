@@ -61,7 +61,11 @@ function providerConnected(card, providerId) {
   if (!card) return false;
   const status = card.querySelector(".connection-status") || card.querySelector("#gocardlessConnectionStatus");
   const text = status?.textContent?.toLowerCase() || "";
-  return card.dataset.connected === "true" || text.includes("connected");
+  const mainButton = card.querySelector("#connectStripeButton, #connectFreeAgentButton");
+  return card.dataset.connected === "true"
+    || text.includes("connected")
+    || (providerId === "stripe" && text.includes("setup incomplete"))
+    || (providerId === "stripe" && mainButton?.disabled === true && !text.includes("not connected"));
 }
 
 function addButton(card, providerId) {

@@ -130,7 +130,9 @@ Deno.serve(async (req) => {
       headers: {
         Authorization: `Bearer ${resendKey}`,
         "Content-Type": "application/json",
-        "Idempotency-Key": `jobpilot-quote-${quote.id}`,
+        // A quote can legitimately be resent after its business details, recipient,
+        // or document content changes, so each send needs its own idempotency key.
+        "Idempotency-Key": `jobpilot-quote-${quote.id}-${crypto.randomUUID()}`,
       },
       body: JSON.stringify({
         from: fromEmail.includes("<") ? fromEmail : `${businessName} <${fromEmail}>`,

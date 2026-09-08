@@ -11,6 +11,12 @@ export async function getCustomerPortalSession() {
   return data || null;
 }
 
+export async function getPortalBranding() {
+  const { data, error } = await supabase.rpc('get_customer_portal_branding');
+  if (error) throw error;
+  return Array.isArray(data) ? (data[0] || null) : (data || null);
+}
+
 export async function getPortalDashboard(customerId) {
   const [jobs, quotes, invoices] = await Promise.all([
     supabase.from('jobs').select('*').eq('customer_id', customerId).order('scheduled_date', { ascending: true }),

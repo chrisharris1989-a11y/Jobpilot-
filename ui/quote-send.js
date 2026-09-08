@@ -45,6 +45,11 @@ function emailQuoteMessage(quote, customer) {
   ].join("\n");
 }
 
+function isMobileShareDevice() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "") ||
+    (navigator.maxTouchPoints > 1 && window.matchMedia?.("(max-width: 1024px)")?.matches);
+}
+
 function showSendChoiceModal(quote, customer, triggerButton) {
   const existing = document.getElementById("jobpilot-send-quote-modal");
   if (existing) existing.remove();
@@ -118,17 +123,30 @@ function showSendChoiceModal(quote, customer, triggerButton) {
       const subject = `Quotation ${quote.quote_number || ""} from ${businessName}`.trim();
       const body = emailQuoteMessage(quote, customer);
 
-      // Mobile/tablet: use the native share sheet so the DOCX can be attached directly.
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ title: subject, text: body, files: [file] });
-        await markQuoteSent(quote.id);
-        modal.remove();
-        return;
+      // Native file sharing is intended for phones/tablets. Some desktop browsers expose
+      // navigator.share but reject file sharing with a "Permission denied" error.
+      // Never let that desktop browser behaviour break the email workflow.
+      if (isMobileShareDevice() && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ title: subject, text: body, files: [file] });
+          await markQuoteSent(quote.id);
+          modal.remove();
+          return;
+        } catch (shareError) {
+          if (shareError?.name === "AbortError") {
+            message.textContent = "Email cancelled.";
+            emailButton.disabled = false;
+            whatsappButton.disabled = false;
+            emailButton.textContent = "📧 Email Word document";
+            return;
+          }
+          // Fall through to the desktop-style download/email flow.
+          console.warn("JobPilot native file share unavailable:", shareError);
+        }
       }
 
-      // Desktop browsers generally cannot attach a generated Blob to a mailto link.
-      // They can also block programmatic downloads with a "Permission denied" error.
-      // Give the user a real download button instead, which is an explicit user action.
+      // Desktop browsers cannot reliably attach a generated Blob to a mailto link.
+      // Provide an explicit download link, then let the user open their email client.
       blobUrl = URL.createObjectURL(blob);
       message.innerHTML = `
         <div style="display:grid;gap:10px">
@@ -144,11 +162,19 @@ function showSendChoiceModal(quote, customer, triggerButton) {
       const openEmailButton = modal.querySelector("#jpOpenQuoteEmail");
 
       downloadButton.addEventListener("click", async () => {
-        await markQuoteSent(quote.id);
+        try {
+          await markQuoteSent(quote.id);
+        } catch (error) {
+          console.error("JobPilot quote status update:", error);
+        }
       });
 
       openEmailButton.addEventListener("click", async () => {
-        await markQuoteSent(quote.id);
+        try {
+          await markQuoteSent(quote.id);
+        } catch (error) {
+          console.error("JobPilot quote status update:", error);
+        }
         window.location.href = `mailto:${encodeURIComponent(customer.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
       });
 
@@ -158,12 +184,8 @@ function showSendChoiceModal(quote, customer, triggerButton) {
       }));
     } catch (error) {
       if (blobUrl) URL.revokeObjectURL(blobUrl);
-      if (error?.name === "AbortError") {
-        message.textContent = "Email cancelled.";
-      } else {
-        console.error("JobPilot email quote:", error);
-        message.textContent = error.message || "The quote could not be prepared for email.";
-      }
+      console.error("JobPilot email quote:", error);
+      message.textContent = error.message || "The quote could not be prepared for email.";
       emailButton.disabled = false;
       whatsappButton.disabled = false;
       emailButton.textContent = "📧 Email Word document";

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="JobPilot Stripe Integration User Guide">
+  <meta name="robots" content="index,follow">
+  <title>Stripe Integration User Guide | JobPilot</title>
+  <style>
+    :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#1f2937;background:#f7f8fa;line-height:1.65}
+    *{box-sizing:border-box}body{margin:0}header{background:#fff;border-bottom:1px solid #e5e7eb}
+    .header-inner{max-width:960px;margin:auto;padding:24px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+    .brand{font-size:22px;font-weight:800;letter-spacing:-.03em;color:#111827;text-decoration:none}.brand span{font-weight:500;color:#6b7280}
+    .back{color:#4b5563;text-decoration:none;font-size:14px}.back:hover{text-decoration:underline}
+    main{max-width:860px;margin:48px auto;padding:0 24px 72px}.hero{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:36px 40px;margin-bottom:24px;box-shadow:0 4px 18px rgba(17,24,39,.04)}
+    .eyebrow{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;margin:0 0 8px}h1{font-size:38px;line-height:1.15;letter-spacing:-.04em;color:#111827;margin:0 0 12px}.intro{font-size:17px;color:#4b5563;margin:0}
+    .content{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:38px 40px;box-shadow:0 4px 18px rgba(17,24,39,.04)}h2{font-size:23px;line-height:1.25;color:#111827;margin:36px 0 12px;padding-top:4px}h2:first-child{margin-top:0}p{margin:10px 0}ol,ul{padding-left:24px}li{margin:6px 0}strong{color:#111827}
+    .note{background:#f3f4f6;border-left:4px solid #9ca3af;padding:14px 16px;margin:18px 0;border-radius:6px;color:#374151}footer{max-width:860px;margin:-30px auto 0;padding:0 24px 40px;color:#6b7280;font-size:13px;text-align:center}
+    @media(max-width:640px){main{margin:24px auto;padding:0 14px 48px}.hero,.content{padding:26px 22px;border-radius:12px}h1{font-size:30px}.header-inner{padding:18px 16px}.back{display:none}}
+  </style>
+</head>
+<body>
+  <header><div class="header-inner"><a class="brand" href="/">JobPilot <span>CRM</span></a><a class="back" href="/">Back to JobPilot</a></div></header>
+  <main>
+    <section class="hero"><p class="eyebrow">Integration documentation</p><h1>Stripe Integration User Guide</h1><p class="intro">How to connect Stripe to JobPilot and accept secure online card payments from your invoices.</p></section>
+    <article class="content">
+      <h2>1. Overview</h2>
+      <p>JobPilot integrates with Stripe to let you accept online card payments from customers directly from your invoice workflow.</p>
+      <p>Stripe is connected from <strong>Management → Accounting</strong>. Once connected, Stripe can be used when sending an invoice.</p>
+      <p>Customers are sent to a secure Stripe-hosted checkout page to complete their card payment.</p>
+
+      <h2>2. Connecting Stripe</h2>
+      <ol><li>Open JobPilot and select <strong>Management</strong> from the main navigation.</li><li>Open <strong>Accounting</strong>.</li><li>Find the <strong>Stripe</strong> section.</li><li>Select <strong>Connect Stripe</strong>.</li><li>JobPilot opens the Stripe connection/onboarding flow.</li><li>Sign in to your Stripe account or complete the requested Stripe business details.</li><li>Complete any verification or account setup requested by Stripe.</li><li>Return to JobPilot when the Stripe connection flow is complete.</li><li>JobPilot will show the Stripe connection status and account information.</li></ol>
+      <p>JobPilot uses Stripe's secure connection flow. Your Stripe password should never be entered into JobPilot.</p>
+
+      <h2>3. Stripe account setup</h2>
+      <p>Stripe may require additional business, identity or banking information before your account can accept live payments.</p>
+      <p>If JobPilot shows <strong>Stripe setup incomplete</strong>, follow the Stripe onboarding steps and complete any outstanding requirements. Payments may not be available until Stripe enables the required account capabilities.</p>
+
+      <h2>4. Checking your Stripe connection</h2>
+      <p>Open <strong>Management → Accounting</strong> and view the Stripe section.</p>
+      <p>A successful connection is shown as <strong>Stripe connected</strong> together with the connected Stripe account information.</p>
+      <p>If the account is connected but setup is incomplete, JobPilot will show a warning and prompt you to complete the Stripe setup.</p>
+
+      <h2>5. Sending an invoice with Stripe payment</h2>
+      <ol><li>Create or open an invoice in JobPilot.</li><li>Select <strong>Send Invoice</strong>.</li><li>Choose <strong>Stripe</strong> as the payment method.</li><li>JobPilot creates a secure Stripe checkout session for the invoice.</li><li>JobPilot provides the customer with the Stripe payment link as part of the invoice email workflow.</li><li>The customer opens the link and completes payment on Stripe's secure checkout page.</li></ol>
+      <p>The payment request is created for the specific JobPilot invoice, so check the invoice total before sending it.</p>
+
+      <h2>6. Customer payment experience</h2>
+      <p>The customer completes their payment on Stripe's hosted checkout page rather than entering card details into a JobPilot-built payment form.</p>
+      <p>The exact payment options displayed to the customer are controlled by Stripe and can depend on the connected Stripe account, payment configuration, customer location and Stripe's availability for the transaction.</p>
+
+      <h2>7. Payment links and invoices</h2>
+      <p>Stripe checkout is created from the specific JobPilot invoice rather than being a generic payment link.</p>
+      <p>If an invoice cannot generate a Stripe payment link, check that:</p>
+      <ul><li>The Stripe account is connected.</li><li>Stripe setup is complete.</li><li>The invoice has a valid customer.</li><li>The invoice has an amount greater than zero.</li><li>The invoice is still outstanding.</li></ul>
+
+      <h2>8. Disconnecting Stripe</h2>
+      <p>Stripe connection controls are available in <strong>Management → Accounting</strong>.</p>
+      <p>If Stripe is connected, JobPilot provides a <strong>Disconnect Stripe</strong> option.</p>
+      <p>Disconnecting Stripe from JobPilot does not delete your Stripe account. It removes the connection between that Stripe account and JobPilot.</p>
+      <p>If you later reconnect Stripe, complete the secure Stripe connection flow again.</p>
+
+      <h2>9. Security</h2>
+      <p>JobPilot uses Stripe's secure connection and hosted checkout flows for Stripe payments.</p>
+      <p>Customers enter their card details on Stripe's checkout experience rather than into a JobPilot card-payment form.</p>
+      <p>Never share your Stripe password, secret API keys or other Stripe credentials with anyone claiming to need them for JobPilot.</p>
+
+      <h2>10. Troubleshooting</h2>
+      <p><strong>Stripe is not showing as connected:</strong> Open <strong>Management → Accounting</strong> and check the Stripe status.</p>
+      <p><strong>Stripe says setup is incomplete:</strong> Complete the outstanding Stripe onboarding or verification requirements.</p>
+      <p><strong>The Stripe payment option is not working:</strong> Confirm that Stripe is connected, the account is enabled for live payments, and the invoice has a valid outstanding amount.</p>
+      <p><strong>A payment link cannot be created:</strong> Check the invoice customer details and invoice amount, then try again.</p>
+      <p><strong>The customer cannot complete payment:</strong> Ask the customer to retry the Stripe checkout link. If Stripe displays a payment or verification message, follow the instructions shown by Stripe.</p>
+      <p><strong>You need to change the connected Stripe account:</strong> Disconnect Stripe from <strong>Management → Accounting</strong>, then reconnect the required Stripe account using the secure connection flow.</p>
+
+      <h2>11. Support</h2>
+      <p>For JobPilot product support, use the support channel provided with your JobPilot account.</p>
+      <p>For Stripe account verification, payment-method availability, account restrictions or Stripe-specific payment issues, use Stripe support or the support options available in your Stripe account.</p>
+    </article>
+  </main>
+  <footer>JobPilot CRM · Stripe integration user documentation · Version 1.0 · September 2026</footer>
+</body>
+</html>

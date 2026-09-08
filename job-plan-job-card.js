@@ -28,7 +28,6 @@ import { supabase } from "./supabase.js";
       const tools = document.getElementById("jobpilot-tools-button");
       if (tools) tools.click();
 
-      // Open Job Planner, then immediately open this exact plan.
       for (let i = 0; i < 50; i++) {
         await new Promise(resolve => setTimeout(resolve, 100));
         const plannerCard = [...document.querySelectorAll("button, [role=button], a")]
@@ -54,9 +53,15 @@ import { supabase } from "./supabase.js";
     }
   }
 
+  function hideObsoleteHandoff() {
+    const button = document.getElementById("jp-add-to-job");
+    if (button) button.remove();
+  }
+
   async function decorateJobProfile() {
+    hideObsoleteHandoff();
+
     const subtitle = document.getElementById("pageSubtitle");
-    const title = document.getElementById("pageTitle");
     if (!subtitle || subtitle.textContent.trim() !== "Job details" || !currentJobId) return;
 
     const actions = document.getElementById("editJob")?.parentElement;
@@ -81,16 +86,13 @@ import { supabase } from "./supabase.js";
     actions.insertBefore(button, actions.firstChild);
   }
 
-  // Capture the exact job ID before the existing app click handler opens the job profile.
   document.addEventListener("click", event => {
     const row = event.target?.closest?.("[data-job-id]");
-    if (!row) return;
-    currentJobId = String(row.dataset.jobId || "");
-    currentPlan = null;
-  }, true);
+    if (row) {
+      currentJobId = String(row.dataset.jobId || "");
+      currentPlan = null;
+    }
 
-  // Also support opening a job from customer history or recurring-job lists.
-  document.addEventListener("click", event => {
     const history = event.target?.closest?.("[data-history-job]");
     const recurring = event.target?.closest?.("[data-recurring-job-id]");
     const id = history?.dataset.historyJob || recurring?.dataset.recurringJobId;

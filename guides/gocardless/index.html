@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="JobPilot GoCardless Integration User Guide">
+  <meta name="robots" content="index,follow">
+  <title>GoCardless Integration User Guide | JobPilot</title>
+  <style>
+    :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#1f2937;background:#f7f8fa;line-height:1.65}
+    *{box-sizing:border-box}
+    body{margin:0}
+    header{background:#fff;border-bottom:1px solid #e5e7eb}
+    .header-inner{max-width:960px;margin:auto;padding:24px 24px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+    .brand{font-size:22px;font-weight:800;letter-spacing:-.03em;color:#111827;text-decoration:none}
+    .brand span{font-weight:500;color:#6b7280}
+    .back{color:#4b5563;text-decoration:none;font-size:14px}
+    .back:hover{text-decoration:underline}
+    main{max-width:860px;margin:48px auto;padding:0 24px 72px}
+    .hero{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:36px 40px;margin-bottom:24px;box-shadow:0 4px 18px rgba(17,24,39,.04)}
+    .eyebrow{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;margin:0 0 8px}
+    h1{font-size:38px;line-height:1.15;letter-spacing:-.04em;color:#111827;margin:0 0 12px}
+    .intro{font-size:17px;color:#4b5563;margin:0}
+    .content{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:38px 40px;box-shadow:0 4px 18px rgba(17,24,39,.04)}
+    h2{font-size:23px;line-height:1.25;color:#111827;margin:36px 0 12px;padding-top:4px}
+    h2:first-child{margin-top:0}
+    p{margin:10px 0}
+    ol,ul{padding-left:24px}
+    li{margin:6px 0}
+    strong{color:#111827}
+    .note{background:#f3f4f6;border-left:4px solid #9ca3af;padding:14px 16px;margin:18px 0;border-radius:6px;color:#374151}
+    footer{max-width:860px;margin:-30px auto 0;padding:0 24px 40px;color:#6b7280;font-size:13px;text-align:center}
+    @media(max-width:640px){main{margin:24px auto;padding:0 14px 48px}.hero,.content{padding:26px 22px;border-radius:12px}h1{font-size:30px}.header-inner{padding:18px 16px}.back{display:none}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <a class="brand" href="/">JobPilot <span>CRM</span></a>
+      <a class="back" href="/">Back to JobPilot</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow">Integration documentation</p>
+      <h1>GoCardless Integration User Guide</h1>
+      <p class="intro">How to connect GoCardless to JobPilot, collect customer payments, track payment status and manage refunds.</p>
+    </section>
+
+    <article class="content">
+      <h2>1. Overview</h2>
+      <p>JobPilot integrates with GoCardless to allow businesses to collect customer payments as part of their normal invoicing workflow.</p>
+      <p>GoCardless is connected from <strong>Settings → Management &amp; Accounting → Connections</strong>. Once connected, GoCardless can be selected when sending an invoice.</p>
+      <p>JobPilot uses GoCardless-hosted payment and mandate pages. Customers enter their bank details directly with GoCardless rather than into JobPilot.</p>
+
+      <h2>2. Connecting GoCardless</h2>
+      <ol>
+        <li>Open JobPilot and go to <strong>Settings</strong>.</li>
+        <li>Open <strong>Management &amp; Accounting → Connections</strong>.</li>
+        <li>Select <strong>Connect GoCardless</strong>.</li>
+        <li>JobPilot opens the secure GoCardless authorisation flow.</li>
+        <li>Sign in to an existing GoCardless account or create a new account.</li>
+        <li>Authorise JobPilot to access the GoCardless account.</li>
+        <li>You are returned to JobPilot.</li>
+        <li>JobPilot displays the connection status and connected GoCardless organisation.</li>
+      </ol>
+      <p>JobPilot uses OAuth for authorisation. Your GoCardless password is never entered into JobPilot.</p>
+
+      <h2>3. Account verification</h2>
+      <p>GoCardless may require the connected business to complete account verification before payments can be processed or paid out.</p>
+      <p>If GoCardless requests additional information or verification, complete those steps through the GoCardless account before processing live payments.</p>
+
+      <h2>4. Taking a payment from an invoice</h2>
+      <ol>
+        <li>Create or open an invoice in JobPilot.</li>
+        <li>Select <strong>Send Invoice</strong>.</li>
+        <li>Select <strong>GoCardless</strong> as the payment method.</li>
+        <li>JobPilot creates a GoCardless payment request for the invoice.</li>
+        <li>JobPilot generates a secure GoCardless payment link.</li>
+        <li>Send the payment link to the customer by email.</li>
+        <li>The customer follows the link and completes payment through the GoCardless-hosted payment experience.</li>
+        <li>GoCardless sends payment events back to JobPilot.</li>
+        <li>JobPilot updates the payment and invoice status as the payment progresses.</li>
+      </ol>
+
+      <h2>5. Direct Debit and customer bank details</h2>
+      <p>JobPilot does not collect or store the customer's bank account details itself.</p>
+      <p>Customer bank details are entered through GoCardless's hosted payment and mandate experience. This keeps sensitive bank information within the GoCardless flow.</p>
+      <p>Where supported, JobPilot can pre-fill available customer information such as name and contact details into the GoCardless flow.</p>
+
+      <h2>6. Payment status and reconciliation</h2>
+      <p>JobPilot receives GoCardless webhook events and uses them to keep payment information synchronised.</p>
+      <p>The current payment status is displayed against the relevant invoice. When GoCardless confirms a payment, JobPilot marks the corresponding invoice as <strong>Paid</strong> and records the payment confirmation.</p>
+      <p>Mandate status is also displayed in the customer's Direct Debit information where available.</p>
+      <p>If a payment fails or another payment exception occurs, JobPilot does not incorrectly mark the invoice as paid.</p>
+
+      <h2>7. Refunds</h2>
+      <p>Where refunds have been enabled for the connected GoCardless account, a paid GoCardless invoice can be refunded from the JobPilot invoice workflow.</p>
+      <ol>
+        <li>Open the relevant paid invoice.</li>
+        <li>Select <strong>Refund</strong>.</li>
+        <li>Enter the refund amount.</li>
+        <li>Enter a reason if required.</li>
+        <li>Confirm the refund.</li>
+      </ol>
+      <p>JobPilot sends the refund request to GoCardless against the original payment and records the GoCardless refund ID and status.</p>
+      <p>Partial refunds are supported. A further refund can only be made for the remaining refundable amount.</p>
+      <div class="note">GoCardless may apply timing, safety and account-level restrictions to refunds. Refund availability is controlled by GoCardless and may need to be enabled for the connected account.</div>
+
+      <h2>8. Disconnecting or changing the GoCardless account</h2>
+      <p>GoCardless connection controls are available in <strong>Settings → Management &amp; Accounting → Connections</strong>.</p>
+      <p>If the connected GoCardless organisation needs to be changed, use the supported GoCardless connection flow rather than sharing credentials manually.</p>
+      <p>Never share a GoCardless password or access token with JobPilot support.</p>
+
+      <h2>9. Security</h2>
+      <p>JobPilot uses OAuth to authorise access to the connected GoCardless account.</p>
+      <p>Access credentials are handled by JobPilot's secure backend integration and are not exposed to customers.</p>
+      <p>Payment and mandate updates are received through authenticated GoCardless webhook requests.</p>
+      <p>Customers enter bank details through GoCardless-hosted pages rather than through a JobPilot-built bank-detail form.</p>
+
+      <h2>10. Troubleshooting</h2>
+      <p><strong>GoCardless is not showing as connected:</strong> Go to <strong>Settings → Management &amp; Accounting → Connections</strong> and check the GoCardless connection status.</p>
+      <p><strong>A payment link cannot be created:</strong> Check that GoCardless is connected and that the invoice has a valid customer contact email.</p>
+      <p><strong>A customer has paid but the invoice has not updated:</strong> GoCardless payment events are processed by JobPilot automatically. Refresh the invoice after allowing time for the payment event to be received and processed.</p>
+      <p><strong>Refund is unavailable:</strong> Confirm that the invoice is paid, the payment was collected through GoCardless, the invoice has a linked GoCardless payment, and refunds are enabled for the connected GoCardless account.</p>
+      <p><strong>GoCardless requests verification:</strong> Follow the verification instructions provided by GoCardless.</p>
+
+      <h2>11. Support</h2>
+      <p>For JobPilot product support, use the support channel provided with your JobPilot account.</p>
+      <p>For GoCardless account verification, payment processing, refund enablement or account-level restrictions, contact GoCardless support or your GoCardless account contact.</p>
+    </article>
+  </main>
+
+  <footer>JobPilot CRM · GoCardless integration user documentation · Version 1.0 · September 2026</footer>
+</body>
+</html>

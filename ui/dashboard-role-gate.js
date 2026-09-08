@@ -1,9 +1,7 @@
 import { supabase } from "../supabase.js";
 
 // Prevent the company dashboard from painting before the user's role is known.
-// The gate must NEVER wait for a particular dashboard element to appear: if
-// app.js changes its initial markup or rendering is delayed, waiting for
-// .stats would leave the entire application permanently invisible.
+// Customer portal accounts are deliberately kept outside the company-user model.
 const MANAGEMENT_ROLES = ["owner", "admin"];
 let resolving = false;
 
@@ -39,11 +37,36 @@ function hideUserDashboardContent() {
   });
 }
 
-async function isManagementUser() {
-  try {
-    const { data: { user } = {} } = await supabase.auth.getUser();
-    if (!user) return false;
+async function getCurrentUser() {
+  const { data: { user } = {} } = await supabase.auth.getUser();
+  return user || null;
+}
 
+async function isCustomerPortalUser(user) {
+  if (!user) return false;
+
+  // Check the portal-account table rather than relying on metadata alone.
+  // This makes the separation authoritative even if auth metadata changes.
+  const { data, error } = await supabase
+    .from("customer_portal_accounts")
+    .select("id, status")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("JobPilot portal account check:", error);
+    return false;
+  }
+
+  return Boolean(data?.id);
+}
+
+async function isManagementUser(user) {
+  if (!user) return false;
+
+  try {
     const { data, error } = await supabase
       .from("company_members")
       .select("role")
@@ -77,9 +100,21 @@ async function resolveDashboardRole() {
   resolving = true;
 
   try {
-    // Role resolution is the only thing this gate waits for. It does not
-    // depend on .stats, dashboard-ui.js, Today's Jobs, or any other module.
-    const managementUser = await isManagementUser();
+    const user = await getCurrentUser();
+    if (!user) {
+      releaseGate();
+      return;
+    }
+
+    // A customer portal account is NOT a JobPilot company user. If a portal
+    // customer lands on the company app URL, send them to the dedicated portal
+    // before any company dashboard content can be exposed or rendered.
+    if (await isCustomerPortalUser(user)) {
+      window.location.replace("/portal.html");
+      return;
+    }
+
+    const managementUser = await isManagementUser(user);
 
     if (managementUser) {
       releaseGate();

@@ -99,6 +99,7 @@ function showSendChoiceModal(quote, customer, triggerButton) {
   });
 
   emailButton.addEventListener("click", async () => {
+    let blobUrl = null;
     try {
       if (!customer.email) throw new Error("This customer does not have an email address saved.");
       if (typeof window.__jobpilotGenerateQuoteDocx !== "function") {
@@ -117,6 +118,7 @@ function showSendChoiceModal(quote, customer, triggerButton) {
       const subject = `Quotation ${quote.quote_number || ""} from ${businessName}`.trim();
       const body = emailQuoteMessage(quote, customer);
 
+      // Mobile/tablet: use the native share sheet so the DOCX can be attached directly.
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ title: subject, text: body, files: [file] });
         await markQuoteSent(quote.id);
@@ -124,19 +126,38 @@ function showSendChoiceModal(quote, customer, triggerButton) {
         return;
       }
 
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      // Desktop browsers generally cannot attach a generated Blob to a mailto link.
+      // They can also block programmatic downloads with a "Permission denied" error.
+      // Give the user a real download button instead, which is an explicit user action.
+      blobUrl = URL.createObjectURL(blob);
+      message.innerHTML = `
+        <div style="display:grid;gap:10px">
+          <div><strong>The Word quote is ready.</strong></div>
+          <div>Download the Word document first, then open your email and attach it.</div>
+          <a id="jpDownloadQuoteDocx" class="button primary" href="${blobUrl}" download="${escapeHtml(filename)}" style="text-align:center;text-decoration:none">⬇️ Download Word document</a>
+          <button id="jpOpenQuoteEmail" type="button" class="button secondary">📧 Open email</button>
+        </div>
+      `;
+      emailButton.style.display = "none";
 
-      await markQuoteSent(quote.id);
-      window.location.href = `mailto:${encodeURIComponent(customer.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      modal.remove();
+      const downloadButton = modal.querySelector("#jpDownloadQuoteDocx");
+      const openEmailButton = modal.querySelector("#jpOpenQuoteEmail");
+
+      downloadButton.addEventListener("click", async () => {
+        await markQuoteSent(quote.id);
+      });
+
+      openEmailButton.addEventListener("click", async () => {
+        await markQuoteSent(quote.id);
+        window.location.href = `mailto:${encodeURIComponent(customer.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      });
+
+      modal.querySelectorAll(".close").forEach(button => button.addEventListener("click", () => {
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
+        modal.remove();
+      }));
     } catch (error) {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
       if (error?.name === "AbortError") {
         message.textContent = "Email cancelled.";
       } else {

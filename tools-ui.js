@@ -1,6 +1,7 @@
 import "./job-planner.js";
 import "./calculators.js";
 import "./plumbing-calculators.js";
+import "./construction-calculators.js";
 
 function getToolsButton() { return document.getElementById("jobpilot-tools-button"); }
 function setToolsActive() { document.querySelectorAll(".nav-item").forEach(item => item.classList.remove("active")); getToolsButton()?.classList.add("active"); }

@@ -29,7 +29,7 @@ function renderSummary(container, rows) {
 
 function renderPromoters(container, promoters) {
   const base = window.location.origin;
-  container.innerHTML = `<div class="page-actions"><div><h2>Promoters</h2><p>Create and manage referral partners.</p></div><button id="referral-add-promoter" class="button primary" type="button">+ Add Promoter</button></div><div class="panel"><div class="table-container"><table><thead><tr><th>Name</th><th>Code</th><th>Commission</th><th>Referral link</th><th>Status</th><th></th></tr></thead><tbody>${promoters.map(p => `<tr><td><strong>${escapeHtml(p.name)}</strong><div class="muted">${escapeHtml(p.email || "")}</div></td><td><code>${escapeHtml(p.code)}</code></td><td>${Number(p.commission_percent).toFixed(0)}%</td><td><input readonly value="${escapeHtml(`${base}/?ref=${encodeURIComponent(p.code)}`)}" style="min-width:260px;"></td><td>${p.active ? "Active" : "Inactive"}</td><td><button type="button" class="secondary-btn" data-toggle-promoter="${escapeHtml(p.id)}">${p.active ? "Disable" : "Enable"}</button></td></tr>`).join("") || `<tr><td colspan="6">No promoters yet.</td></tr>`}</tbody></table></div></div>`;
+  container.innerHTML = `<div class="page-actions"><div><h2>Promoters</h2><p>Create and manage referral partners.</p></div><button id="referral-add-promoter" class="button primary" type="button">+ Add Promoter</button></div><div class="panel"><div class="table-container"><table><thead><tr><th>Name</th><th>Code</th><th>Commission</th><th>Referral link</th><th>Status</th><th>Actions</th></tr></thead><tbody>${promoters.map(p => `<tr><td><strong>${escapeHtml(p.name)}</strong><div class="muted">${escapeHtml(p.email || "")}</div></td><td><code>${escapeHtml(p.code)}</code></td><td>${Number(p.commission_percent).toFixed(0)}%</td><td><input readonly value="${escapeHtml(`${base}/?ref=${encodeURIComponent(p.code)}`)}" style="min-width:260px;"></td><td>${p.active ? "Active" : "Inactive"}</td><td><button type="button" class="secondary-btn" data-edit-promoter="${escapeHtml(p.id)}">Edit</button> <button type="button" class="secondary-btn" data-toggle-promoter="${escapeHtml(p.id)}">${p.active ? "Disable" : "Enable"}</button></td></tr>`).join("") || `<tr><td colspan="6">No promoters yet.</td></tr>`}</tbody></table></div></div>`;
 
   document.getElementById("referral-add-promoter")?.addEventListener("click", async () => {
     const name = window.prompt("Promoter name:"); if (!name?.trim()) return;
@@ -39,6 +39,24 @@ function renderPromoters(container, promoters) {
     const { error } = await supabase.from("referral_promoters").insert({ name: name.trim(), code: code.trim().toUpperCase(), commission_percent: commission, email });
     if (error) return alert(error.message); await renderReferralsPage();
   });
+
+  container.querySelectorAll("[data-edit-promoter]").forEach(button => button.addEventListener("click", async () => {
+    const id = button.getAttribute("data-edit-promoter");
+    const promoter = promoters.find(p => p.id === id);
+    if (!promoter) return;
+    const name = window.prompt("Promoter name:", promoter.name || "");
+    if (!name?.trim()) return;
+    const code = window.prompt("Referral code:", promoter.code || "");
+    if (!code?.trim()) return;
+    const commission = Number(window.prompt("Commission percentage:", String(promoter.commission_percent ?? 30)));
+    if (!Number.isFinite(commission) || commission < 0 || commission > 100) return alert("Enter a commission between 0 and 100.");
+    const emailInput = window.prompt("Promoter email (optional):", promoter.email || "");
+    const email = emailInput?.trim() || null;
+    const { error } = await supabase.from("referral_promoters").update({ name: name.trim(), code: code.trim().toUpperCase(), commission_percent: commission, email, updated_at: new Date().toISOString() }).eq("id", id);
+    if (error) return alert(error.message);
+    await renderReferralsPage();
+  }));
+
   container.querySelectorAll("[data-toggle-promoter]").forEach(button => button.addEventListener("click", async () => { const id = button.getAttribute("data-toggle-promoter"); const promoter = promoters.find(p => p.id === id); if (!promoter) return; const { error } = await supabase.from("referral_promoters").update({ active: !promoter.active, updated_at: new Date().toISOString() }).eq("id", id); if (error) return alert(error.message); await renderReferralsPage(); }));
 }
 

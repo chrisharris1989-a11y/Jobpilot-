@@ -14,9 +14,6 @@ function renderToolsPage() {
       <div class="page-actions"><div><h2>Tools</h2><p>Practical tools that connect directly to your JobPilot data.</p></div></div>
       <div class="jp-tools-grid">
         <button class="jp-tool-card" id="jp-open-job-planner" type="button"><span class="jp-tool-icon">📋</span><span><strong>Job Planner</strong><small>Break a job into tasks, dates and responsibilities.</small></span><span class="jp-tool-arrow">→</span></button>
-        <div class="jp-tool-card jp-tool-card-locked"><span class="jp-tool-icon">📊</span><span><strong>GANTT Programme</strong><small>Business &amp; Pro — turn project tasks into a visual programme.</small></span><span class="jp-tool-lock">Business</span></div>
-        <div class="jp-tool-card jp-tool-card-locked"><span class="jp-tool-icon">🚐</span><span><strong>Advanced Route Optimisation</strong><small>Business &amp; Pro — optimise multi-stop work routes.</small></span><span class="jp-tool-lock">Business</span></div>
-        <div class="jp-tool-card jp-tool-card-locked"><span class="jp-tool-icon">✨</span><span><strong>Advanced Planning</strong><small>Pro — forecasting, workload and planning optimisation.</small></span><span class="jp-tool-lock">Pro</span></div>
       </div>
     </div>`;
   if (!document.getElementById("jp-tools-styles")) {

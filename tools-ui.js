@@ -4,6 +4,10 @@ import "./plumbing-calculators.js";
 import "./construction-calculators.js";
 import "./cleaning-calculators.js";
 import "./trade-calculators.js";
+import "./cleaning-business-calculators.js";
+import "./construction-trade-calculators.js";
+import "./plumbing-heating-calculators.js";
+import "./electrical-energy-calculators.js";
 
 function getToolsButton() { return document.getElementById("jobpilot-tools-button"); }
 function setToolsActive() { document.querySelectorAll(".nav-item").forEach(item => item.classList.remove("active")); getToolsButton()?.classList.add("active"); }
@@ -18,3 +22,28 @@ function renderToolsPage() {
 }
 function addToolsButton() { const managementButton=document.getElementById("jobpilot-management-button"); if (!managementButton || getToolsButton()) return; const button=document.createElement("button"); button.id="jobpilot-tools-button"; button.className="nav-item"; button.type="button"; button.textContent="🛠️ Tools"; button.addEventListener("click",renderToolsPage); managementButton.insertAdjacentElement("afterend",button); }
 addToolsButton(); const toolsNavObserver=new MutationObserver(()=>addToolsButton()); toolsNavObserver.observe(document.body,{childList:true,subtree:true});
+
+const SPECIALIST_CALCULATOR_GROUPS = {
+  cleaning: { marker:"data-cleaning-calculator", items:window.JobPilotCleaningBusinessCalculators?.calculators || [], open:id=>window.JobPilotCleaningBusinessCalculators?.open?.(id) },
+  construction: { marker:"data-construction-calculator", items:window.JobPilotConstructionTradeCalculators?.calculators || [], open:id=>window.JobPilotConstructionTradeCalculators?.open?.(id) },
+  plumbing: { marker:"data-plumbing-calculator", items:window.JobPilotPlumbingHeatingCalculators?.calculators || [], open:id=>window.JobPilotPlumbingHeatingCalculators?.open?.(id) },
+  electrical: { marker:"data-electrical-calculator", items:window.JobPilotElectricalEnergyCalculators?.calculators || [], open:id=>window.JobPilotElectricalEnergyCalculators?.open?.(id) }
+};
+function injectSpecialistCalculators(){
+  Object.entries(SPECIALIST_CALCULATOR_GROUPS).forEach(([category,group])=>{
+    const existing=document.querySelector(`[${group.marker}]`);
+    const grids=document.querySelectorAll(".jp-calculator-grid");
+    if(!grids.length || existing) return;
+    const grid=[...grids].find(g=>g.querySelector(`[data-category=\"${category}\"]`)==null && g.querySelector(`[${group.marker}]`)==null);
+    if(!grid) return;
+    const heading=document.getElementById("pageTitle")?.textContent?.toLowerCase()||"";
+    if(!heading.includes(category)) return;
+    group.items.forEach(item=>{
+      const b=document.createElement("button"); b.className="jp-calculator-category"; b.type="button"; b.setAttribute(group.marker,item.id); b.innerHTML=`<span class="jp-calculator-icon">${item.icon}</span><span><strong>${item.title}</strong><small>${item.description}</small></span><span class="jp-calculator-arrow">→</span>`;
+      b.addEventListener("click",()=>group.open(item.id)); grid.appendChild(b);
+    });
+  });
+}
+const specialistObserver=new MutationObserver(()=>injectSpecialistCalculators());
+specialistObserver.observe(document.body,{childList:true,subtree:true});
+setTimeout(injectSpecialistCalculators,100);

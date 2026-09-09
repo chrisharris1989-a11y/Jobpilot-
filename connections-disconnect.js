@@ -4,7 +4,6 @@ const BASE = "https://qxoynttvipducubmczwl.supabase.co/functions/v1";
 
 const PROVIDERS = {
   stripe: { endpoint: `${BASE}/stripe-disconnect`, label: "Stripe" },
-  gocardless: { endpoint: `${BASE}/gocardless-disconnect`, label: "GoCardless" },
   freeagent: { endpoint: `${BASE}/freeagent-disconnect`, label: "FreeAgent" }
 };
 
@@ -27,7 +26,6 @@ function addStyles() {
 async function disconnect(providerId, button) {
   const provider = PROVIDERS[providerId];
   if (!provider) return;
-
   if (!confirm(`Disconnect ${provider.label} from JobPilot?`)) return;
 
   button.disabled = true;
@@ -49,7 +47,6 @@ async function disconnect(providerId, button) {
 
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || `Could not disconnect ${provider.label}.`);
-
     window.location.reload();
   } catch (error) {
     console.error(`${provider.label} disconnect error:`, error);
@@ -61,7 +58,7 @@ async function disconnect(providerId, button) {
 
 function providerConnected(card, providerId) {
   if (!card) return false;
-  const status = card.querySelector(".connection-status") || card.querySelector("#gocardlessConnectionStatus");
+  const status = card.querySelector(".connection-status");
   const text = status?.textContent?.toLowerCase() || "";
   const mainButton = card.querySelector("#connectStripeButton, #connectFreeAgentButton");
   return card.dataset.connected === "true"
@@ -86,15 +83,10 @@ function addButton(card, providerId) {
 function scan() {
   const panel = document.querySelector(".connections-page-panel");
   if (!panel) return;
-
   addButton(document.querySelector('[data-connection-provider="stripe"]'), "stripe");
-  addButton(document.querySelector('[data-connection-provider="gocardless"]'), "gocardless");
   addButton(document.querySelector('[data-accounting-provider="freeagent"]') || document.querySelector('[data-connection-provider="freeagent"]'), "freeagent");
 }
 
-// The Management → Accounting page uses a dynamically-created Stripe button.
-// Bind it directly to the v3 OAuth endpoint rather than relying on the legacy
-// hidden-button bridge used by the older Connections UI.
 async function connectManagementStripe(button) {
   if (!button || button.dataset.jobpilotStripeBound === "true" || button.disabled) return;
   button.dataset.jobpilotStripeBound = "true";
@@ -117,16 +109,12 @@ async function connectManagementStripe(button) {
           apikey: session.access_token,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          action: "connect",
-          origin: window.location.origin
-        })
+        body: JSON.stringify({ action: "connect", origin: window.location.origin })
       });
 
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || `Could not connect Stripe (${response.status}).`);
       if (!result.url) throw new Error("Stripe did not return an authorisation URL.");
-
       window.location.assign(result.url);
     } catch (error) {
       console.error("JobPilot Stripe connect error:", error);

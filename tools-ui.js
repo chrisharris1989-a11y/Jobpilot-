@@ -30,9 +30,11 @@ const SPECIALIST_GROUPS = {
   electrical: { category:"electrical-energy", icon:"🔌", title:"Electrical & Energy Calculators", description:"Voltage drop, electricity costs, appliance costs and solar generation." }
 };
 function injectSpecialistCalculators(){
+  const title=(document.getElementById("pageTitle")?.textContent||"").toLowerCase();
+  const grid=document.querySelector(".jp-calculator-grid");
+  if(!grid)return;
   Object.entries(SPECIALIST_GROUPS).forEach(([category,group])=>{
-    const grid=[...document.querySelectorAll(".jp-calculator-grid")].find(g=>g.querySelector(`[data-category=\"${category}\"]`));
-    if(!grid || grid.querySelector(`[data-specialist-group=\"${category}\"]`)) return;
+    if(!title.includes(category) || grid.querySelector(`[data-specialist-group="${category}"]`)) return;
     const card=document.createElement("button");
     card.className="jp-calculator-category"; card.type="button"; card.dataset.specialistGroup=category; card.dataset.category=group.category;
     card.innerHTML=`<span class="jp-calculator-icon">${group.icon}</span><span><strong>${group.title}</strong><small>${group.description}</small></span><span class="jp-calculator-arrow">→</span>`;

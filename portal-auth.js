@@ -40,8 +40,11 @@ function installPinLogin(root, email = '') {
     button.disabled = true; button.textContent = 'Signing in…'; msg.textContent = '';
     try {
       const result = await callPin('login', { email: emailValue, pin });
-      if (!result.action_link) throw new Error('Could not create the portal session.');
-      window.location.href = result.action_link;
+      if (!result.token_hash) throw new Error('Could not create the portal session.');
+      const { error } = await supabase.auth.verifyOtp({ token_hash: result.token_hash, type: result.token_type || 'email' });
+      if (error) throw error;
+      window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.hash || ''}`);
+      window.location.reload();
     } catch (error) {
       msg.textContent = error.message || 'Could not sign in.';
       button.disabled = false; button.textContent = 'Sign in';

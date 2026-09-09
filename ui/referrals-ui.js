@@ -37,7 +37,6 @@ function renderSummary(container, promoters, rows, onPromotersClick) {
 }
 
 function renderPromoters(container, promoters, rows, onSelectPromoter) {
-  const base = window.location.origin;
   const statsByPromoter = new Map();
   rows.forEach(row => {
     const current = statsByPromoter.get(row.promoterId) || { referrals: 0, active: 0, atRisk: 0, cancelled: 0, mrr: 0, commission: 0 };
@@ -60,7 +59,6 @@ function renderPromoters(container, promoters, rows, onSelectPromoter) {
   });
 
   container.querySelectorAll("[data-view-promoter]").forEach(row => row.addEventListener("click", event => { if (event.target.closest("button")) return; onSelectPromoter?.(row.getAttribute("data-view-promoter")); }));
-
   container.querySelectorAll("[data-edit-promoter]").forEach(button => button.addEventListener("click", async () => {
     const id = button.getAttribute("data-edit-promoter"); const promoter = promoters.find(p => p.id === id); if (!promoter) return;
     const name = window.prompt("Promoter name:", promoter.name || ""); if (!name?.trim()) return;
@@ -70,7 +68,6 @@ function renderPromoters(container, promoters, rows, onSelectPromoter) {
     const { error } = await supabase.from("referral_promoters").update({ name: name.trim(), code: code.trim().toUpperCase(), commission_percent: commission, email, updated_at: new Date().toISOString() }).eq("id", id);
     if (error) return alert(error.message); await renderReferralsPage();
   }));
-
   container.querySelectorAll("[data-toggle-promoter]").forEach(button => button.addEventListener("click", async () => { const id = button.getAttribute("data-toggle-promoter"); const promoter = promoters.find(p => p.id === id); if (!promoter) return; const { error } = await supabase.from("referral_promoters").update({ active: !promoter.active, updated_at: new Date().toISOString() }).eq("id", id); if (error) return alert(error.message); await renderReferralsPage(); }));
 }
 
@@ -80,8 +77,7 @@ function renderPromoterDetail(container, promoter, rows, onBack) {
   const cancelled = rows.filter(r => r.status === "cancelled");
   const mrr = active.reduce((sum, r) => sum + r.value, 0);
   const commission = active.reduce((sum, r) => sum + r.commission, 0);
-  const base = window.location.origin;
-  const referralLink = `${base}/?ref=${encodeURIComponent(promoter.code)}`;
+  const referralLink = `${window.location.origin}/?ref=${encodeURIComponent(promoter.code)}`;
   const conversion = rows.length ? (active.length / rows.length) * 100 : 0;
 
   container.innerHTML = `<div class="page-actions"><div><h2>${escapeHtml(promoter.name)}</h2><p>Promoter statistics and referred customers.</p></div><button id="promoter-detail-back" class="button secondary" type="button">← Back to Promoters</button></div><div class="panel" style="margin-bottom:18px;"><div class="panel-header"><div><h3>Referral link</h3><p>Share this link with customers to attribute new signups.</p></div><input readonly value="${escapeHtml(referralLink)}" style="min-width:320px;max-width:100%;"></div><div style="margin-top:8px;"><strong>Code:</strong> <code>${escapeHtml(promoter.code)}</code> &nbsp; <strong>Commission:</strong> ${Number(promoter.commission_percent).toFixed(0)}% &nbsp; <strong>Status:</strong> ${promoter.active ? "Active" : "Inactive"}</div></div><div class="referral-detail-stats" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:18px;"><div class="stat-card"><div><span>Total referrals</span><strong>${rows.length}</strong></div></div><div class="stat-card"><div><span>Active subscribers</span><strong>${active.length}</strong></div></div><div class="stat-card"><div><span>Referral MRR</span><strong>${money(mrr)}</strong></div></div><div class="stat-card"><div><span>Monthly commission</span><strong>${money(commission)}</strong></div></div></div><div class="panel" style="margin-bottom:18px;"><div class="panel-header"><div><h3>Performance</h3><p>Current status of customers attributed to this promoter.</p></div><div><strong>${conversion.toFixed(1)}%</strong> active conversion</div></div><div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:12px;"><span><strong>${active.length}</strong> Active</span><span><strong>${atRisk.length}</strong> At risk</span><span><strong>${cancelled.length}</strong> Cancelled</span></div></div><div class="panel"><div class="panel-header"><div><h3>Referred customers</h3><p>Customers currently attributed to ${escapeHtml(promoter.name)}.</p></div></div><div class="table-container"><table><thead><tr><th>Company</th><th>Plan</th><th>Status</th><th>Monthly value</th><th>Commission</th></tr></thead><tbody>${rows.map(r => `<tr><td>${escapeHtml(r.companyName || "Unknown company")}</td><td>${escapeHtml(r.planLabel)}</td><td><strong>${escapeHtml(r.status)}</strong>${r.cancelAtPeriodEnd && r.periodEnd ? `<div class="muted">Ends ${escapeHtml(new Date(r.periodEnd).toLocaleDateString())}</div>` : ""}</td><td>${money(r.value)}</td><td>${money(r.commission)}/mo</td></tr>`).join("") || `<tr><td colspan="5">No referrals for this promoter yet.</td></tr>`}</tbody></table></div></div>`;
@@ -98,28 +94,44 @@ export async function renderReferralsPage() {
   document.getElementById("pageTitle").textContent = "Referrals";
   document.getElementById("pageSubtitle").textContent = "Manage JobPilot referral partners and recurring commission.";
   document.querySelectorAll(".nav-item").forEach(item => item.classList.remove("active")); document.getElementById("jobpilot-management-button")?.classList.add("active");
-  content.innerHTML = `<div class="page-actions"><div><h2>Referrals</h2><p>Super User referral management.</p></div><button id="referrals-back" class="button secondary" type="button">← Back to Management</button></div><div id="referral-summary"></div><div id="referral-promoters"></div><div id="referral-customers" style="margin-top:18px;"></div>`;
+  content.innerHTML = `<div class="page-actions"><div><h2>Referrals</h2><p>Super User referral management.</p></div><button id="referrals-back" class="button secondary" type="button">← Back to Management</button></div><div id="referral-summary"></div><div id="referral-promoters" style="display:none;"></div><div id="referral-customers" style="margin-top:18px;"></div>`;
   document.getElementById("referrals-back")?.addEventListener("click", () => window.renderManagementPage?.());
   try {
     const { promoters, referrals, companies, subscriptions } = await loadData();
-    const promoterMap = new Map(promoters.map(p => [p.id, p])); const companyMap = new Map(companies.map(c => [c.id, c])); const subscriptionMap = new Map(subscriptions.map(s => [s.company_id, s]));
-    const rows = referrals.map(ref => { const company = companyMap.get(ref.company_id) || {}; const subscription = subscriptionMap.get(ref.company_id) || {}; const plan = String(subscription.plan || company.plan || ref.plan || "solo").toLowerCase(); const value = monthlyValue(company, subscription); const percent = Number(ref.commission_percent || promoterMap.get(ref.promoter_id)?.commission_percent || 30); const status = statusFor(company, subscription); return { promoter: promoterMap.get(ref.promoter_id)?.name || "Unknown", promoterId: ref.promoter_id, companyName: company.name, planLabel: PLANS[plan]?.label || plan, status, value, commission: ["active", "at risk"].includes(status) ? value * percent / 100 : 0, cancelAtPeriodEnd: subscription.cancel_at_period_end === true, periodEnd: subscription.current_period_end, updatedAt: ref.updated_at || ref.created_at }; });
+    const promoterMap = new Map(promoters.map(p => [p.id, p]));
+    const companyMap = new Map(companies.map(c => [c.id, c]));
+    const subscriptionMap = new Map(subscriptions.map(s => [s.company_id, s]));
+    const rows = referrals.map(ref => {
+      const company = companyMap.get(ref.company_id) || {};
+      const subscription = subscriptionMap.get(ref.company_id) || {};
+      const plan = String(subscription.plan || company.plan || ref.plan || "solo").toLowerCase();
+      const value = monthlyValue(company, subscription);
+      const percent = Number(ref.commission_percent || promoterMap.get(ref.promoter_id)?.commission_percent || 30);
+      const status = statusFor(company, subscription);
+      return { promoter: promoterMap.get(ref.promoter_id)?.name || "Unknown", promoterId: ref.promoter_id, companyName: company.name, planLabel: PLANS[plan]?.label || plan, status, value, commission: ["active", "at risk"].includes(status) ? value * percent / 100 : 0, cancelAtPeriodEnd: subscription.cancel_at_period_end === true, periodEnd: subscription.current_period_end, updatedAt: ref.updated_at || ref.created_at };
+    });
+
+    const summary = document.getElementById("referral-summary");
+    const promotersPanel = document.getElementById("referral-promoters");
+    const customersPanel = document.getElementById("referral-customers");
 
     const showPromoters = () => {
-      renderPromoters(document.getElementById("referral-promoters"), promoters, rows, showPromoterDetail);
-      document.getElementById("referral-customers").style.display = "block";
-    };
-    const showPromoterDetail = promoterId => {
-      const promoter = promoters.find(p => p.id === promoterId); if (!promoter) return;
-      const promoterRows = rows.filter(r => r.promoterId === promoterId);
-      document.getElementById("referral-summary").innerHTML = "";
-      document.getElementById("referral-customers").style.display = "none";
-      renderPromoterDetail(document.getElementById("referral-promoters"), promoter, promoterRows, showPromoters);
+      summary.style.display = "none";
+      customersPanel.style.display = "none";
+      promotersPanel.style.display = "block";
+      renderPromoters(promotersPanel, promoters, rows, showPromoterDetail);
     };
 
-    renderSummary(document.getElementById("referral-summary"), promoters, rows, showPromoters);
-    showPromoters();
-    renderReferralRows(document.getElementById("referral-customers"), rows);
+    const showPromoterDetail = promoterId => {
+      const promoter = promoters.find(p => p.id === promoterId); if (!promoter) return;
+      summary.style.display = "none";
+      customersPanel.style.display = "none";
+      promotersPanel.style.display = "block";
+      renderPromoterDetail(promotersPanel, promoter, rows.filter(r => r.promoterId === promoterId), showPromoters);
+    };
+
+    renderSummary(summary, promoters, rows, showPromoters);
+    renderReferralRows(customersPanel, rows);
   } catch (error) { console.error("JobPilot referrals:", error); content.innerHTML += `<div class="panel"><h3>Could not load referrals</h3><p>${escapeHtml(error.message || "Unable to load referral data.")}</p></div>`; }
 }
 

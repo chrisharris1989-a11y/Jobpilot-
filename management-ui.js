@@ -1,153 +1,62 @@
 import { supabase } from "./supabase.js";
 
 const MANAGEMENT_ROLES = ["owner", "admin"];
+const JOBPILOT_ADMIN_ID = "9a89bdf0-1f17-48ec-a622-db59545e8ada";
 
-function getManagementButton() {
-  return document.getElementById("jobpilot-management-button");
+function getManagementButton() { return document.getElementById("jobpilot-management-button"); }
+function setManagementActive() { document.querySelectorAll(".nav-item").forEach(item => item.classList.remove("active")); getManagementButton()?.classList.add("active"); }
+
+async function isSuperUser() {
+  const { data: { user } = {} } = await supabase.auth.getUser();
+  return String(user?.id || "") === JOBPILOT_ADMIN_ID;
 }
 
-function setManagementActive() {
-  document.querySelectorAll(".nav-item").forEach(item => item.classList.remove("active"));
-  getManagementButton()?.classList.add("active");
+async function addSuperUserReferralCard() {
+  if (!(await isSuperUser())) return;
+  const grid = document.querySelector(".content-grid");
+  if (!grid || grid.querySelector('[data-management-section="referrals"]')) return;
+  const card = document.createElement("button");
+  card.className = "panel jobpilot-management-card";
+  card.type = "button";
+  card.dataset.managementSection = "referrals";
+  card.style.cssText = "text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)";
+  card.innerHTML = `<div class="panel-header"><div><h2>↗️ Referrals</h2><p>Manage referral partners and commission.</p></div><span aria-hidden="true">→</span></div><p class="muted" style="margin:16px 0 0">Manage promoters, referral links and recurring subscription commission.</p>`;
+  card.addEventListener("click", async () => { try { if (typeof window.renderReferralsPage !== "function") await import("./ui/referrals-ui.js"); window.renderReferralsPage?.(); } catch (error) { console.error("JobPilot referrals load:", error); alert(error.message || "Referrals could not be loaded."); } });
+  grid.appendChild(card);
 }
 
 function renderManagementPage() {
-  const content = document.getElementById("pageContent");
-  if (!content) return;
-
-  const title = document.getElementById("pageTitle");
-  const subtitle = document.getElementById("pageSubtitle");
-  if (title) title.textContent = "Management";
-  if (subtitle) subtitle.textContent = "Manage your JobPilot company.";
-  setManagementActive();
-
+  const content = document.getElementById("pageContent"); if (!content) return;
+  const title = document.getElementById("pageTitle"); const subtitle = document.getElementById("pageSubtitle");
+  if (title) title.textContent = "Management"; if (subtitle) subtitle.textContent = "Manage your JobPilot company."; setManagementActive();
   content.innerHTML = `
-    <div class="page-actions">
-      <div>
-        <h2>Management</h2>
-        <p>Company and team management.</p>
-      </div>
-    </div>
+    <div class="page-actions"><div><h2>Management</h2><p>Company and team management.</p></div></div>
     <div class="content-grid">
-      <button class="panel jobpilot-management-card" type="button" data-management-section="users" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)">
-        <div class="panel-header"><div><h2>👥 Users &amp; Team</h2><p>Manage company users, roles and access.</p></div><span aria-hidden="true">→</span></div>
-        <p class="muted" style="margin:16px 0 0">Manage the people who have access to your company.</p>
-      </button>
-      <button class="panel jobpilot-management-card" type="button" data-management-section="quote-requests" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)">
-        <div class="panel-header"><div><h2>💷 Quote Requests</h2><p>Review jobs submitted by your team.</p></div><span aria-hidden="true">→</span></div>
-        <p class="muted" style="margin:16px 0 0">Review a requested job and create a draft quote for the customer.</p>
-      </button>
-      <button class="panel jobpilot-management-card" type="button" data-management-section="company" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)">
-        <div class="panel-header"><div><h2>🏢 Company</h2><p>Manage your company details.</p></div><span aria-hidden="true">→</span></div>
-        <p class="muted" style="margin:16px 0 0">Edit the company information used throughout JobPilot.</p>
-      </button>
-      <button class="panel jobpilot-management-card" type="button" data-management-section="accounting" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)">
-        <div class="panel-header"><div><h2>📊 Accounting</h2><p>Manage your accounting and payment connections.</p></div><span aria-hidden="true">→</span></div>
-        <p class="muted" style="margin:16px 0 0">Connect the accounting and payment services you use.</p>
-      </button>
-      <button class="panel jobpilot-management-card" type="button" data-management-section="billing" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)">
-        <div class="panel-header"><div><h2>💳 Billing</h2><p>Manage your JobPilot subscription.</p></div><span aria-hidden="true">→</span></div>
-        <p class="muted" style="margin:16px 0 0">View your current plan and billing options.</p>
-      </button>
-      <button class="panel jobpilot-management-card" type="button" data-management-section="import" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)">
-        <div class="panel-header"><div><h2>↕️ Import &amp; Export</h2><p>Move your business data in and out of JobPilot.</p></div><span aria-hidden="true">→</span></div>
-        <p class="muted" style="margin:16px 0 0">Import and export your JobPilot data.</p>
-      </button>
+      <button class="panel jobpilot-management-card" type="button" data-management-section="users" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)"><div class="panel-header"><div><h2>👥 Users &amp; Team</h2><p>Manage company users, roles and access.</p></div><span aria-hidden="true">→</span></div><p class="muted" style="margin:16px 0 0">Manage the people who have access to your company.</p></button>
+      <button class="panel jobpilot-management-card" type="button" data-management-section="quote-requests" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)"><div class="panel-header"><div><h2>💷 Quote Requests</h2><p>Review jobs submitted by your team.</p></div><span aria-hidden="true">→</span></div><p class="muted" style="margin:16px 0 0">Review a requested job and create a draft quote for the customer.</p></button>
+      <button class="panel jobpilot-management-card" type="button" data-management-section="company" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)"><div class="panel-header"><div><h2>🏢 Company</h2><p>Manage your company details.</p></div><span aria-hidden="true">→</span></div><p class="muted" style="margin:16px 0 0">Edit the company information used throughout JobPilot.</p></button>
+      <button class="panel jobpilot-management-card" type="button" data-management-section="accounting" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)"><div class="panel-header"><div><h2>📊 Accounting</h2><p>Manage your accounting and payment connections.</p></div><span aria-hidden="true">→</span></div><p class="muted" style="margin:16px 0 0">Connect the accounting and payment services you use.</p></button>
+      <button class="panel jobpilot-management-card" type="button" data-management-section="billing" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)"><div class="panel-header"><div><h2>💳 Billing</h2><p>Manage your JobPilot subscription.</p></div><span aria-hidden="true">→</span></div><p class="muted" style="margin:16px 0 0">View your current plan and billing options.</p></button>
+      <button class="panel jobpilot-management-card" type="button" data-management-section="import" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)"><div class="panel-header"><div><h2>↕️ Import &amp; Export</h2><p>Move your business data in and out of JobPilot.</p></div><span aria-hidden="true">→</span></div><p class="muted" style="margin:16px 0 0">Import and export your JobPilot data.</p></button>
     </div>`;
 
-  document.querySelector('[data-management-section="users"]')?.addEventListener("click", async () => {
-    try {
-      if (typeof window.renderManagementUsers !== "function") {
-        await import("./ui/management-users.js");
-      }
-      if (typeof window.renderManagementUsers === "function") {
-        window.renderManagementUsers();
-      } else {
-        throw new Error("Users & Team could not be loaded.");
-      }
-    } catch (error) {
-      console.error("JobPilot Users & Team load:", error);
-      const content = document.getElementById("pageContent");
-      if (content) content.innerHTML = `<div class="panel"><h2>Users &amp; Team</h2><p class="muted">${String(error?.message || error).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</p><button class="button secondary" type="button" style="margin-top:16px" onclick="window.renderManagementPage?.()">← Management</button></div>`;
-    }
-  });
-  document.querySelector('[data-management-section="quote-requests"]')?.addEventListener("click", () => {
-    if (typeof window.renderManagementQuoteRequests === "function") window.renderManagementQuoteRequests();
-    else console.error("JobPilot: renderManagementQuoteRequests is not available.");
-  });
-  document.querySelector('[data-management-section="company"]')?.addEventListener("click", () => {
-    if (typeof window.renderManagementCompanyPage === "function") window.renderManagementCompanyPage();
-  });
-  document.querySelector('[data-management-section="accounting"]')?.addEventListener("click", () => {
-    if (typeof window.renderManagementAccounting === "function") window.renderManagementAccounting();
-    else console.error("JobPilot: renderManagementAccounting is not available.");
-  });
-  document.querySelector('[data-management-section="billing"]')?.addEventListener("click", () => {
-    const title = document.getElementById("pageTitle");
-    if (title) title.textContent = "Billing";
-    if (typeof window.renderManagementBillingPage === "function") window.renderManagementBillingPage();
-    else console.error("JobPilot: renderManagementBillingPage is not available.");
-  });
-  document.querySelector('[data-management-section="import"]')?.addEventListener("click", () => {
-    if (typeof window.renderManagementImportExport === "function") window.renderManagementImportExport();
-    else console.error("JobPilot: renderManagementImportExport is not available.");
-  });
+  document.querySelector('[data-management-section="users"]')?.addEventListener("click", async () => { try { if (typeof window.renderManagementUsers !== "function") await import("./ui/management-users.js"); if (typeof window.renderManagementUsers === "function") window.renderManagementUsers(); else throw new Error("Users & Team could not be loaded."); } catch (error) { console.error("JobPilot Users & Team load:", error); const content = document.getElementById("pageContent"); if (content) content.innerHTML = `<div class="panel"><h2>Users &amp; Team</h2><p class="muted">${String(error?.message || error).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</p><button class="button secondary" type="button" style="margin-top:16px" onclick="window.renderManagementPage?.()">← Management</button></div>`; } });
+  document.querySelector('[data-management-section="quote-requests"]')?.addEventListener("click", () => { if (typeof window.renderManagementQuoteRequests === "function") window.renderManagementQuoteRequests(); else console.error("JobPilot: renderManagementQuoteRequests is not available."); });
+  document.querySelector('[data-management-section="company"]')?.addEventListener("click", () => { if (typeof window.renderManagementCompanyPage === "function") window.renderManagementCompanyPage(); });
+  document.querySelector('[data-management-section="accounting"]')?.addEventListener("click", () => { if (typeof window.renderManagementAccounting === "function") window.renderManagementAccounting(); else console.error("JobPilot: renderManagementAccounting is not available."); });
+  document.querySelector('[data-management-section="billing"]')?.addEventListener("click", () => { const title = document.getElementById("pageTitle"); if (title) title.textContent = "Billing"; if (typeof window.renderManagementBillingPage === "function") window.renderManagementBillingPage(); else console.error("JobPilot: renderManagementBillingPage is not available."); });
+  document.querySelector('[data-management-section="import"]')?.addEventListener("click", () => { if (typeof window.renderManagementImportExport === "function") window.renderManagementImportExport(); else console.error("JobPilot: renderManagementImportExport is not available."); });
+  addSuperUserReferralCard();
 }
 
 window.renderManagementPage = renderManagementPage;
 
 async function hasManagementAccess() {
-  try {
-    const { data: { user } = {} } = await supabase.auth.getUser();
-    if (!user) return false;
-
-    const { data, error } = await supabase
-      .from("company_members")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error("JobPilot management access:", error);
-      return false;
-    }
-
-    return MANAGEMENT_ROLES.includes(String(data?.role || "").toLowerCase());
-  } catch (error) {
-    console.error("JobPilot management access:", error);
-    return false;
-  }
+  try { const { data: { user } = {} } = await supabase.auth.getUser(); if (!user) return false; const { data, error } = await supabase.from("company_members").select("role").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle(); if (error) { console.error("JobPilot management access:", error); return false; } return MANAGEMENT_ROLES.includes(String(data?.role || "").toLowerCase()); } catch (error) { console.error("JobPilot management access:", error); return false; }
 }
 
-async function syncManagementButton() {
-  const allowed = await hasManagementAccess();
-  const existing = getManagementButton();
-
-  if (allowed) {
-    if (!existing) addManagementButton();
-  } else if (existing) {
-    existing.remove();
-  }
-}
-
-function addManagementButton() {
-  const nav = document.querySelector(".sidebar nav");
-  if (!nav || getManagementButton()) return;
-
-  const button = document.createElement("button");
-  button.id = "jobpilot-management-button";
-  button.className = "nav-item";
-  button.type = "button";
-  button.textContent = "⚙️ Management";
-  button.addEventListener("click", renderManagementPage);
-  nav.appendChild(button);
-}
-
+async function syncManagementButton() { const allowed = await hasManagementAccess(); const existing = getManagementButton(); if (allowed) { if (!existing) addManagementButton(); } else if (existing) existing.remove(); }
+function addManagementButton() { const nav = document.querySelector(".sidebar nav"); if (!nav || getManagementButton()) return; const button = document.createElement("button"); button.id = "jobpilot-management-button"; button.className = "nav-item"; button.type = "button"; button.textContent = "⚙️ Management"; button.addEventListener("click", renderManagementPage); nav.appendChild(button); }
 syncManagementButton();
-
-const navObserver = new MutationObserver(() => {
-  if (!getManagementButton()) syncManagementButton();
-});
+const navObserver = new MutationObserver(() => { if (!getManagementButton()) syncManagementButton(); });
 navObserver.observe(document.body, { childList: true, subtree: true });

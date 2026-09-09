@@ -4,10 +4,10 @@ import { supabase } from "./supabase.js";
   let processingUserId = null;
 
   const PLANS = {
-    solo: { label: "Solo", price: "£4.99/month", users: "1 user" },
-    team: { label: "Team", price: "£14.99/month", users: "Up to 5 users" },
-    business: { label: "Business", price: "£59.99/month", users: "Up to 25 users" },
-    pro: { label: "Pro", price: "£99.99/month", users: "Up to 50 users" }
+    solo: { label: "Solo", price: "£7.49/month", users: "1 user" },
+    team: { label: "Team", price: "£24.99/month", users: "Up to 5 users" },
+    business: { label: "Business", price: "£59.99/month", users: "Up to 10 users" },
+    pro: { label: "Pro", price: "£99.99/month", users: "Up to 15 users" }
   };
 
   function showPlanSelector() {

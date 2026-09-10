@@ -13,7 +13,7 @@
     ["Integrations", "Connect JobPilot with your other business services.", ["Connections", "Integrations"]],
     ["Billing & Subscription", "Manage your plan, subscription and billing.", ["Billing & Subscription", "Billing", "Subscription"]],
     ["Team", "Manage team members, roles and access.", ["Team", "Users", "Team Members"]],
-    ["App / Preferences", "Choose your app and business preferences.", ["Preferences", "App Preferences"]],
+    ["App / Preferences", "Choose your app and business preferences.", ["App / Preferences", "Preferences", "App Preferences"]],
     ["Security", "Manage account security and access.", ["Security"]],
     ["Danger Zone", "Export data or permanently delete your account.", ["Danger Zone"]]
   ];
@@ -39,6 +39,9 @@
       .settings-section.settings-business-details { padding-bottom:26px; }
       .settings-section.settings-business-details > label { display:block; margin:0 0 7px; }
       .settings-section.settings-business-details > input,.settings-section.settings-business-details > textarea,.settings-section.settings-business-details > select { display:block; width:100%; margin:0 0 18px; }
+      .settings-section.settings-app-preferences { padding-bottom:6px; }
+      .settings-section.settings-app-preferences > .settings-section { box-shadow:none; margin:0 0 18px; }
+      .settings-section.settings-app-preferences > .settings-section:last-child { margin-bottom:18px; }
       .settings-category-view-header { display:flex; align-items:center; gap:14px; margin:0 0 18px; }
       .settings-category-back { flex:0 0 auto; border:1px solid var(--border,#e5e7eb); background:var(--surface,#fff); color:inherit; border-radius:10px; padding:9px 13px; cursor:pointer; font:inherit; font-weight:600; }
       .settings-category-view-title { margin:0; font-size:22px; }
@@ -70,6 +73,35 @@
     heading?.closest(".settings-section")?.classList.add("settings-business-details");
   }
 
+  function moveQuoteSettingsIntoAppPreferences(panel) {
+    if (!panel) return;
+
+    const quoteHeadings = new Set(["Quote Message", "Quote Templates"]);
+    const quoteSections = Array.from(panel.querySelectorAll(".settings-section")).filter(section => {
+      const heading = section.querySelector(":scope > h2");
+      return heading && quoteHeadings.has(heading.textContent.trim());
+    });
+
+    if (!quoteSections.length) return;
+
+    let appPreferences = panel.querySelector(":scope > .settings-section.settings-app-preferences");
+    if (!appPreferences) {
+      appPreferences = document.createElement("section");
+      appPreferences.className = "settings-section settings-app-preferences";
+      appPreferences.innerHTML = `<h2>App / Preferences</h2>`;
+
+      const firstSection = panel.querySelector(":scope > .settings-section");
+      if (firstSection) panel.insertBefore(appPreferences, firstSection);
+      else panel.appendChild(appPreferences);
+    }
+
+    quoteSections.forEach(section => {
+      if (section !== appPreferences && section.parentElement !== appPreferences) {
+        appPreferences.appendChild(section);
+      }
+    });
+  }
+
   function findCategorySections(keywords, panel) {
     return Array.from(panel.querySelectorAll(".settings-section")).filter(section => {
       const heading = section.querySelector(":scope > h2");
@@ -93,7 +125,11 @@
     const isDangerZone = title === "Danger Zone";
     grid.classList.add("is-hidden");
     header.classList.remove("is-hidden");
-    sections.forEach(section => section.classList.toggle("is-hidden", !matchingSections.includes(section)));
+    sections.forEach(section => {
+      const isMatch = matchingSections.includes(section);
+      section.classList.toggle("is-hidden", !isMatch);
+      if (isMatch) section.querySelectorAll(":scope > .settings-section").forEach(child => child.classList.remove("is-hidden"));
+    });
     deleteCard?.classList.toggle("is-hidden", !isDangerZone);
     saveActions?.classList.remove("is-hidden");
   }
@@ -146,7 +182,10 @@
   function sectionizeSettings() {
     if(!isSettingsPage()) return;
     const panel=document.querySelector(".settings-panel");
-    if(!panel || panel.dataset.sectionized === "true") return;
+    if(!panel || panel.dataset.sectionized === "true") {
+      if(panel) moveQuoteSettingsIntoAppPreferences(panel);
+      return;
+    }
     addSettingsSectionStyles();
     const headings=Array.from(panel.querySelectorAll(":scope > h2"));
     if(!headings.length) return;
@@ -170,6 +209,7 @@
     panel.classList.add("settings-sectionized");
     panel.dataset.sectionized="true";
     markBusinessDetailsSection();
+    moveQuoteSettingsIntoAppPreferences(panel);
   }
 
   function moveSaveActionOutsideCards(panel) {

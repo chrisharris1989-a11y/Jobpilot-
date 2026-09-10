@@ -32,6 +32,15 @@ function renderSettingsOverview(content) {
           </span>
           <span class="jp-settings-card-arrow">→</span>
         </button>
+
+        <button class="jp-settings-card" type="button" data-settings-section="documents">
+          <span class="jp-settings-card-icon">📄</span>
+          <span class="jp-settings-card-body">
+            <strong>Documents</strong>
+            <small>Manage your business documents.</small>
+          </span>
+          <span class="jp-settings-card-arrow">→</span>
+        </button>
       </div>
     </section>
   `;

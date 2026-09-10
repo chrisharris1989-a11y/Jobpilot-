@@ -1,0 +1,143 @@
+name: Fix sidebar initial layout
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-sidebar-initial-layout.yml'
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make sidebar match final layout from first render
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('app.js')
+          text = path.read_text(encoding='utf-8')
+
+          old = '''          <button class="nav-item active" data-page="dashboard">
+            🏠 Dashboard
+          </button>
+
+          <button class="nav-item" data-page="customers">
+            👥 Customers
+          </button>
+
+          <button class="nav-item" data-page="jobs">
+            📋 Jobs
+          </button>
+
+          <button class="nav-item" data-page="quotes">
+            💷 Quotes
+          </button>
+
+          <button class="nav-item" data-page="invoices">
+            🧾 Invoices
+          </button>
+
+          <button class="nav-item" data-page="connections">
+           🔗 Connections
+          </button>
+'''
+
+          new = '''          <button class="nav-item" data-page="customers" style="display:none">
+            👥 Customers
+          </button>
+
+          <button class="nav-item" data-page="jobs" style="display:none">
+            📋 Jobs
+          </button>
+
+          <button class="nav-item" data-page="quotes" style="display:none">
+            💷 Quotes
+          </button>
+
+          <button class="nav-item" data-page="invoices" style="display:none">
+            🧾 Invoices
+          </button>
+
+          <button class="nav-item" data-page="connections">
+           🔗 Connections
+          </button>
+'''
+
+          if old not in text:
+              raise SystemExit('Expected sidebar navigation block not found')
+          text = text.replace(old, new, 1)
+
+          old_bottom = '''        <div class="sidebar-bottom">
+
+          <button class="nav-item" data-page="settings" type="button">
+            ⚙️ Settings
+          </button>
+'''
+
+          new_bottom = '''        <div class="sidebar-bottom">
+
+          <button class="nav-item active" data-page="dashboard">
+            🏠 Dashboard
+          </button>
+
+          <button class="nav-item" data-page="settings" type="button">
+            ⚙️ Settings
+          </button>
+'''
+
+          if old_bottom not in text:
+              raise SystemExit('Expected sidebar bottom block not found')
+          text = text.replace(old_bottom, new_bottom, 1)
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Stop dashboard enhancer from moving sidebar items after render
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('dashboard-ui.js')
+          text = path.read_text(encoding='utf-8')
+
+          old = '''function balanceTopNavigation() {
+  const bottom = document.querySelector(".sidebar-bottom");
+  const dashboard = getPageButton("dashboard");
+  if (!bottom || !dashboard) return;
+
+  if (dashboard.parentElement !== bottom) bottom.insertBefore(dashboard, bottom.firstChild);
+
+  if (!document.getElementById("jobpilot-nav-balance-style")) {
+    const style = document.createElement("style");
+    style.id = "jobpilot-nav-balance-style";
+    style.textContent = `
+      .sidebar-bottom { display:grid!important; grid-template-columns:repeat(2,minmax(0,1fr))!important; grid-template-rows:repeat(2,auto)!important; gap:5px!important; width:100%!important; align-items:stretch!important; }
+      .sidebar-bottom .nav-item { width:100%!important; min-width:0!important; box-sizing:border-box!important; margin:0!important; }
+    `;
+    document.head.appendChild(style);
+  }
+}
+'''
+
+          new = '''function balanceTopNavigation() {
+  // Sidebar order and visibility are now established by app.js on the first render.
+  // Do not move or restyle navigation after startup; that caused visible flicker.
+}
+'''
+
+          if old not in text:
+              raise SystemExit('Expected balanceTopNavigation block not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commit and remove trigger
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.js dashboard-ui.js
+          git commit -m "Fix sidebar startup flicker" || true
+          git rm .github/workflows/fix-sidebar-initial-layout.yml
+          git commit -m "Remove sidebar fix trigger" || true
+          git push

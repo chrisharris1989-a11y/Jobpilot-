@@ -1,8 +1,8 @@
 // =====================================================
 // JOBPILOT SETTINGS UI
 // =====================================================
-// Keeps integrations off Settings and provides the shared
-// visual treatment for the Settings sections.
+// Settings landing page contains ONLY the 9 category cards.
+// Actual settings sections live inside their category.
 // =====================================================
 
 (function () {
@@ -13,7 +13,7 @@
     ["Integrations", "Connect JobPilot with your other business services.", ["Connections", "Integrations"]],
     ["Billing & Subscription", "Manage your plan, subscription and billing.", ["Billing & Subscription", "Billing", "Subscription"]],
     ["Team", "Manage team members, roles and access.", ["Team", "Users", "Team Members"]],
-    ["App / Preferences", "Choose your app and business preferences.", ["Preferences", "App Preferences", "Quote Message", "Quote Templates"]],
+    ["App / Preferences", "Choose your app and business preferences.", ["Preferences", "App Preferences"]],
     ["Security", "Manage account security and access.", ["Security"]],
     ["Danger Zone", "Export data or permanently delete your account.", ["Danger Zone"]]
   ];
@@ -41,9 +41,8 @@
       .settings-category-back { flex:0 0 auto; border:1px solid var(--border,#e5e7eb); background:var(--surface,#fff); color:inherit; border-radius:10px; padding:9px 13px; cursor:pointer; font:inherit; font-weight:600; }
       .settings-category-view-title { margin:0; font-size:22px; }
       .settings-category-view-description { margin:3px 0 0; opacity:.7; font-size:14px; }
-      .settings-category-grid.is-hidden,.settings-section.is-hidden,#deleteAccountCard.is-hidden { display:none!important; }
-      .settings-category-view-header.is-hidden,.settings-save-actions.is-hidden { display:none!important; }
       .settings-category-content.is-hidden { display:none!important; }
+      .settings-category-view-header.is-hidden,.settings-save-actions.is-hidden { display:none!important; }
       @media (min-width:700px) {
         .settings-section.settings-business-details { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:20px; row-gap:7px; }
         .settings-section.settings-business-details > h2 { grid-column:1/-1; margin-bottom:5px; }
@@ -69,25 +68,40 @@
     heading?.closest(".settings-section")?.classList.add("settings-business-details");
   }
 
-  function moveQuoteSettingsIntoAppPreferences(panel) {
-    const quoteSections = Array.from(panel.querySelectorAll(":scope > .settings-section")).filter(section => {
-      const heading = section.querySelector(":scope > h2")?.textContent.trim();
-      return heading === "Quote Message" || heading === "Quote Templates";
-    });
-    if (!quoteSections.length) return;
-    let content = panel.querySelector(":scope > .settings-category-content[data-category=\"App / Preferences\"]");
-    if (!content) {
-      content = document.createElement("div");
-      content.className = "settings-category-content is-hidden";
-      content.dataset.category = "App / Preferences";
-      panel.appendChild(content);
-    }
-    quoteSections.forEach(section => content.appendChild(section));
+  function categoryForHeading(headingText) {
+    const heading = String(headingText || "").trim().toLowerCase();
+    return SETTINGS_CATEGORIES.find(([, , keywords]) => keywords.some(keyword => {
+      const key = keyword.toLowerCase();
+      return heading === key || heading.includes(key);
+    }))?.[0] || null;
   }
 
-  function showCategoryView(panel, title, description, keywords) {
+  function placeSectionsIntoCategories(panel) {
+    if (panel.dataset.sectionsPlaced === "true") return;
+    const sections = Array.from(panel.querySelectorAll(":scope > .settings-section"));
+    if (!sections.length) return;
+
+    const containers = new Map();
+    SETTINGS_CATEGORIES.forEach(([title]) => {
+      const content = document.createElement("div");
+      content.className = "settings-category-content is-hidden";
+      content.dataset.category = title;
+      panel.appendChild(content);
+      containers.set(title, content);
+    });
+
+    sections.forEach(section => {
+      const heading = section.querySelector(":scope > h2")?.textContent.trim() || "";
+      const category = categoryForHeading(heading);
+      if (category && containers.has(category)) containers.get(category).appendChild(section);
+      else section.remove();
+    });
+
+    panel.dataset.sectionsPlaced = "true";
+  }
+
+  function showCategoryView(panel, title, description) {
     const grid = panel.querySelector(".settings-category-grid");
-    const sections = Array.from(panel.querySelectorAll(".settings-section"));
     const saveActions = panel.parentElement?.querySelector(".settings-save-actions");
     const header = panel.querySelector(".settings-category-view-header");
     const deleteCard = document.getElementById("deleteAccountCard");
@@ -96,34 +110,21 @@
     const descriptionElement = header.querySelector(".settings-category-view-description");
     if (titleElement) titleElement.textContent = title;
     if (descriptionElement) descriptionElement.textContent = description;
-    const matchingSections = sections.filter(section => {
-      const heading = section.querySelector(":scope > h2")?.textContent.trim().toLowerCase() || "";
-      return keywords.some(keyword => heading === keyword.toLowerCase() || heading.includes(keyword.toLowerCase()));
-    });
-    const isDangerZone = title === "Danger Zone";
     grid.classList.add("is-hidden");
     header.classList.remove("is-hidden");
     panel.querySelectorAll(":scope > .settings-category-content").forEach(content => content.classList.toggle("is-hidden", content.dataset.category !== title));
-    sections.forEach(section => {
-      const isNestedQuoteSection = section.parentElement?.classList.contains("settings-category-content");
-      if (isNestedQuoteSection) { section.classList.remove("is-hidden"); return; }
-      section.classList.toggle("is-hidden", !matchingSections.includes(section));
-      if (matchingSections.includes(section)) section.querySelectorAll(":scope > .settings-section").forEach(child => child.classList.remove("is-hidden"));
-    });
-    deleteCard?.classList.toggle("is-hidden", !isDangerZone);
+    deleteCard?.classList.toggle("is-hidden", title !== "Danger Zone");
     saveActions?.classList.remove("is-hidden");
   }
 
   function showSettingsCategories(panel) {
     const grid = panel.querySelector(".settings-category-grid");
-    const sections = Array.from(panel.querySelectorAll(".settings-section"));
     const saveActions = panel.parentElement?.querySelector(".settings-save-actions");
     const header = panel.querySelector(".settings-category-view-header");
     const deleteCard = document.getElementById("deleteAccountCard");
     grid?.classList.remove("is-hidden");
     header?.classList.add("is-hidden");
     panel.querySelectorAll(":scope > .settings-category-content").forEach(content => content.classList.add("is-hidden"));
-    sections.forEach(section => section.classList.add("is-hidden"));
     deleteCard?.classList.add("is-hidden");
     saveActions?.classList.add("is-hidden");
   }
@@ -143,21 +144,20 @@
     const grid=document.createElement("div");
     grid.className="settings-category-grid";
     grid.setAttribute("aria-label","Settings categories");
-    SETTINGS_CATEGORIES.forEach(([title,description,keywords]) => {
+    SETTINGS_CATEGORIES.forEach(([title,description]) => {
       const card=document.createElement("button");
       card.type="button"; card.className="settings-category-card";
       card.innerHTML=`<span class="settings-category-card-title">${title}</span><span class="settings-category-card-description">${description}</span>`;
       card.addEventListener("click",()=>{
         if(title === "Account") return;
-        showCategoryView(panel,title,description,keywords);
+        showCategoryView(panel,title,description);
         const pageTitle=document.getElementById("pageTitle"); const pageSubtitle=document.getElementById("pageSubtitle");
         if(pageTitle) pageTitle.textContent=title;
         if(pageSubtitle) pageSubtitle.textContent=description;
       });
       grid.appendChild(card);
     });
-    panel.insertBefore(grid,panel.querySelector(":scope > .settings-section"));
-    showSettingsCategories(panel);
+    panel.insertBefore(grid,panel.querySelector(":scope > .settings-section") || null);
   }
 
   function sectionizeSettings() {
@@ -184,10 +184,11 @@
       }
     });
     addSettingsCategoryCards(panel);
-    moveQuoteSettingsIntoAppPreferences(panel);
+    placeSectionsIntoCategories(panel);
     panel.classList.add("settings-sectionized");
     panel.dataset.sectionized="true";
     markBusinessDetailsSection();
+    showSettingsCategories(panel);
   }
 
   function moveSaveActionOutsideCards(panel) {
@@ -210,8 +211,6 @@
   let settingsTimer = null;
   const observer=new MutationObserver(()=>{
     removeStripeFromSettings();
-    const panel=document.querySelector(".settings-panel");
-    if(panel) moveQuoteSettingsIntoAppPreferences(panel);
     clearTimeout(settingsTimer);
     settingsTimer=setTimeout(sectionizeSettings,100);
   });

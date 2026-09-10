@@ -50,6 +50,15 @@ function renderSettingsOverview(content) {
           </span>
           <span class="jp-settings-card-arrow">→</span>
         </button>
+
+        <button class="jp-settings-card" type="button" data-settings-section="notifications">
+          <span class="jp-settings-card-icon">🔔</span>
+          <span class="jp-settings-card-body">
+            <strong>Notifications</strong>
+            <small>Manage your JobPilot notification preferences.</small>
+          </span>
+          <span class="jp-settings-card-arrow">→</span>
+        </button>
       </div>
     </section>
   `;

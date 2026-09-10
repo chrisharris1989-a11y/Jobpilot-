@@ -14,7 +14,6 @@ import { supabase } from "./supabase.js";
     return new Promise((resolve) => {
       const existing = document.getElementById("jobpilotPlanSelector");
       if (existing) existing.remove();
-
       const overlay = document.createElement("div");
       overlay.id = "jobpilotPlanSelector";
       overlay.innerHTML = `
@@ -35,9 +34,7 @@ import { supabase } from "./supabase.js";
             `).join("")}
           </div>
           <p class="jobpilot-plan-note">You will be charged according to the plan you select.</p>
-        </div>
-      `;
-
+        </div>`;
       const style = document.createElement("style");
       style.id = "jobpilotPlanSelectorStyles";
       style.textContent = `
@@ -55,34 +52,33 @@ import { supabase } from "./supabase.js";
         .jobpilot-plan-card strong { font-size: 18px; color: #2563eb; }
         .jobpilot-plan-card span:last-child { font-size: 13px; color: #64748b; }
         .jobpilot-plan-note { margin: 18px 0 0; text-align: center; color: #64748b; font-size: 13px; }
-        @media (max-width: 560px) { .jobpilot-plan-grid { grid-template-columns: 1fr; } .jobpilot-plan-modal { padding: 22px; } }
-      `;
+        @media (max-width: 560px) { .jobpilot-plan-grid { grid-template-columns: 1fr; } .jobpilot-plan-modal { padding: 22px; } }`;
       document.head.appendChild(style);
       document.body.appendChild(overlay);
-
-      const finish = (plan) => {
-        overlay.remove();
-        resolve(plan || null);
-      };
-
-      overlay.querySelectorAll("[data-plan]").forEach((button) => {
-        button.addEventListener("click", () => finish(button.dataset.plan));
-      });
+      const finish = (plan) => { overlay.remove(); resolve(plan || null); };
+      overlay.querySelectorAll("[data-plan]").forEach((button) => button.addEventListener("click", () => finish(button.dataset.plan)));
       overlay.querySelector(".jobpilot-plan-close")?.addEventListener("click", () => finish(null));
       overlay.querySelector(".jobpilot-plan-backdrop")?.addEventListener("click", () => finish(null));
     });
   }
 
+  function showError(message) {
+    const element = document.getElementById("authMessage");
+    if (!element) return;
+    element.textContent = message;
+    element.style.color = "#dc2626";
+    element.style.display = "block";
+  }
+
   async function startSubscription(user) {
     if (!user || processingUserId === user.id) return;
     if (user.user_metadata?.jobpilot_subscription_signup !== true) return;
-
     processingUserId = user.id;
-
     try {
       const selectedPlan = String(user.user_metadata?.jobpilot_plan || "").trim().toLowerCase();
       const businessName = String(user.user_metadata?.jobpilot_business_name || "").trim();
-      if (!PLANS[selectedPlan] || !businessName) return;
+      if (!PLANS[selectedPlan]) throw new Error("The selected JobPilot plan is invalid.");
+      if (!businessName) throw new Error("Your business name is missing. Please start signup again.");
 
       const { error: companyError } = await supabase.rpc("create_my_company", {
         requested_plan: selectedPlan,
@@ -91,27 +87,18 @@ import { supabase } from "./supabase.js";
       if (companyError) throw companyError;
 
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error("Your account session is not ready yet. Please sign in again.");
+      if (!session?.access_token) throw new Error("Your new account was created, but the login session was not returned. Please make sure Supabase email confirmation is disabled and try again.");
 
       const { data, error } = await supabase.functions.invoke("synapto-billing-v1", {
-        body: {
-          action: "checkout",
-          plan: selectedPlan,
-          origin: window.location.origin
-        },
+        body: { action: "checkout", plan: selectedPlan, origin: window.location.origin },
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
       if (error) throw error;
       if (!data?.url) throw new Error(data?.error || "Synapto did not return a checkout link.");
-
       window.location.href = data.url;
     } catch (error) {
       console.error("JobPilot subscription signup:", error);
-      const message = document.getElementById("authMessage");
-      if (message) {
-        message.textContent = error?.message || "We could not start your subscription. Please try again.";
-        message.style.color = "#dc2626";
-      }
+      showError(error?.message || "We could not start your subscription. Please try again.");
     } finally {
       processingUserId = null;
     }
@@ -120,69 +107,40 @@ import { supabase } from "./supabase.js";
   document.addEventListener("click", async (event) => {
     const button = event.target?.closest?.("#signupButton");
     if (!button) return;
-
     event.preventDefault();
     event.stopImmediatePropagation();
 
     const email = document.getElementById("email")?.value.trim() || "";
     const password = document.getElementById("password")?.value || "";
     const message = document.getElementById("authMessage");
-
-    if (!email || password.length < 6) {
-      if (message) {
-        message.textContent = "Enter an email and a password of at least 6 characters.";
-        message.style.color = "#dc2626";
-      }
-      return;
-    }
+    if (!email || password.length < 6) return showError("Enter an email and a password of at least 6 characters.");
 
     const selectedPlan = await showPlanSelector();
     if (!selectedPlan) return;
-
     const businessName = window.prompt("What's your business name?");
     if (businessName === null) return;
-    if (!businessName.trim() || businessName.trim().length > 120) {
-      if (message) {
-        message.textContent = "Enter a business name between 1 and 120 characters.";
-        message.style.color = "#dc2626";
-      }
-      return;
-    }
+    if (!businessName.trim() || businessName.trim().length > 120) return showError("Enter a business name between 1 and 120 characters.");
 
     if (message) {
       message.textContent = `Creating your ${PLANS[selectedPlan].label} account...`;
       message.style.color = "#2563eb";
+      message.style.display = "block";
     }
+
+    // Prevent a previous logged-in browser session from being reused for this new signup.
+    try { await supabase.auth.signOut({ scope: "local" }); } catch (error) { console.warn("Could not clear previous local session:", error); }
 
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          jobpilot_subscription_signup: true,
-          jobpilot_business_name: businessName.trim(),
-          jobpilot_plan: selectedPlan
-        }
-      }
+      options: { data: { jobpilot_subscription_signup: true, jobpilot_business_name: businessName.trim(), jobpilot_plan: selectedPlan } }
     });
-
-    if (error) {
-      if (message) {
-        message.textContent = error.message;
-        message.style.color = "#dc2626";
-      }
-      return;
-    }
+    if (error) return showError(error.message);
 
     if (data.session?.user) {
       await startSubscription(data.session.user);
-    } else if (message) {
-      message.textContent = "Account created. Please check your email (including junk/spam), confirm your account, then sign in to continue to payment.";
-      message.style.color = "#166534";
+    } else {
+      showError("Account created, but no login session was returned. Supabase email confirmation must be OFF for paid signup to continue directly to payment.");
     }
   }, true);
-
-  supabase.auth.onAuthStateChange((_event, session) => {
-    if (session?.user) void startSubscription(session.user);
-  });
 })();

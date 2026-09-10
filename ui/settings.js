@@ -23,6 +23,15 @@ function renderSettingsOverview(content) {
           </span>
           <span class="jp-settings-card-arrow">→</span>
         </button>
+
+        <button class="jp-settings-card" type="button" data-settings-section="company">
+          <span class="jp-settings-card-icon">🏢</span>
+          <span class="jp-settings-card-body">
+            <strong>Company</strong>
+            <small>Manage your company details, business information and logo.</small>
+          </span>
+          <span class="jp-settings-card-arrow">→</span>
+        </button>
       </div>
     </section>
   `;
@@ -31,6 +40,10 @@ function renderSettingsOverview(content) {
 
   content.querySelector('[data-settings-section="account"]')?.addEventListener("click", () => {
     renderAccountSettings(content);
+  });
+
+  content.querySelector('[data-settings-section="company"]')?.addEventListener("click", () => {
+    renderCompanySettings(content);
   });
 }
 
@@ -78,6 +91,65 @@ function renderAccountSettings(content) {
 
   content.querySelector('[data-settings-account="security"]')?.addEventListener("click", () => {
     showAccountMessage("Email & Password settings are ready to be populated.");
+  });
+}
+
+function renderCompanySettings(content) {
+  content.innerHTML = `
+    <section class="settings-page jp-settings-page">
+      <header class="page-header">
+        <h2>Company</h2>
+        <p>Manage your company information and branding.</p>
+      </header>
+
+      <button class="jp-settings-back" type="button" data-settings-back>← Settings</button>
+
+      <div class="jp-settings-grid">
+        <button class="jp-settings-card" type="button" data-settings-company="details">
+          <span class="jp-settings-card-icon">🏢</span>
+          <span class="jp-settings-card-body">
+            <strong>Company Details</strong>
+            <small>Manage your company name, address and contact details.</small>
+          </span>
+          <span class="jp-settings-card-arrow">→</span>
+        </button>
+
+        <button class="jp-settings-card" type="button" data-settings-company="business">
+          <span class="jp-settings-card-icon">📋</span>
+          <span class="jp-settings-card-body">
+            <strong>Business Information</strong>
+            <small>Manage your trading and business information.</small>
+          </span>
+          <span class="jp-settings-card-arrow">→</span>
+        </button>
+
+        <button class="jp-settings-card" type="button" data-settings-company="logo">
+          <span class="jp-settings-card-icon">🖼️</span>
+          <span class="jp-settings-card-body">
+            <strong>Company Logo</strong>
+            <small>Upload and manage the logo used across JobPilot.</small>
+          </span>
+          <span class="jp-settings-card-arrow">→</span>
+        </button>
+      </div>
+    </section>
+  `;
+
+  ensureSettingsStyles();
+
+  content.querySelector("[data-settings-back]")?.addEventListener("click", () => {
+    renderSettingsOverview(content);
+  });
+
+  content.querySelectorAll("[data-settings-company]").forEach(card => {
+    card.addEventListener("click", () => {
+      const labels = {
+        details: "Company Details settings are ready to be populated.",
+        business: "Business Information settings are ready to be populated.",
+        logo: "Company Logo settings are ready to be populated."
+      };
+      showAccountMessage(labels[card.dataset.settingsCompany]);
+    });
   });
 }
 

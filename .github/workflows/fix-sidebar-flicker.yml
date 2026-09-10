@@ -1,0 +1,91 @@
+name: Fix sidebar flicker architecture
+
+on:
+  push:
+    paths:
+      - .github/workflows/fix-sidebar-flicker-trigger.txt
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make sidebar static and remove injected nav buttons
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path('app.js')
+          s = p.read_text()
+
+          anchor = '''          <button class="nav-item" data-page="connections">\n           🔗 Connections\n          </button>\n\n'''
+          addition = anchor + '''          <button class="nav-item" id="jobpilot-management-button" type="button">\n            ⚙️ Management\n          </button>\n\n          <button class="nav-item" id="jobpilot-tools-button" type="button">\n            🛠️ Tools\n          </button>\n\n'''
+          if 'id="jobpilot-management-button"' not in s:
+              if anchor not in s:
+                  raise SystemExit('Sidebar Connections anchor not found in app.js')
+              s = s.replace(anchor, addition, 1)
+
+          marker = '''    connections: [\n      "Connections",\n     "Manage your connected services."\n    ],\n'''
+          titles_add = marker + '''\n    management: [\n      "Management",\n      "Manage your JobPilot company."\n    ],\n\n    tools: [\n      "Tools",\n      "Practical tools to help you plan and run your work."\n    ],\n'''
+          if 'management: [' not in s:
+              if marker not in s:
+                  raise SystemExit('Connections title marker not found in app.js')
+              s = s.replace(marker, titles_add, 1)
+
+          old_bottom = '''        <div class="sidebar-bottom">\n\n          <button class="nav-item" id="feedbackButton" >'''
+          new_bottom = '''        <div class="sidebar-bottom">\n\n          <button class="nav-item" data-page="settings" type="button">\n            ⚙️ Settings\n          </button>\n\n          <button class="nav-item" id="feedbackButton" >'''
+          if 'data-page="settings"' not in s:
+              if old_bottom not in s:
+                  raise SystemExit('Sidebar bottom marker not found in app.js')
+              s = s.replace(old_bottom, new_bottom, 1)
+
+          old_listener = '''  document\n    .querySelectorAll(".nav-item[data-page]")\n    .forEach(button => {\n      button.addEventListener(\n        "click",\n        () => showPage(button.dataset.page)\n      );\n    });\n'''
+          new_listener = old_listener + '''\n  document.getElementById("jobpilot-management-button")?.addEventListener("click", () => window.renderManagementPage?.());\n  document.getElementById("jobpilot-tools-button")?.addEventListener("click", () => window.JobPilotTools?.open?.());\n'''
+          if 'getElementById("jobpilot-management-button")?.addEventListener' not in s:
+              if old_listener not in s:
+                  raise SystemExit('Nav listener block not found in app.js')
+              s = s.replace(old_listener, new_listener, 1)
+
+          marker2 = '''  if (page === "connections") {\n  renderConnectionsPage(content);\n}\n'''
+          page_add = marker2 + '''\n  if (page === "management") {\n    window.renderManagementPage?.();\n  }\n\n  if (page === "tools") {\n    window.JobPilotTools?.open?.();\n  }\n'''
+          if 'page === "management"' not in s:
+              if marker2 not in s:
+                  raise SystemExit('Connections page marker not found in app.js')
+              s = s.replace(marker2, page_add, 1)
+
+          p.write_text(s)
+
+          p = Path('management-ui.js')
+          s = p.read_text()
+          start = s.find('async function syncManagementButton()')
+          if start == -1:
+              raise SystemExit('Management injection block not found')
+          s = s[:start]
+          s += '''\nwindow.renderManagementPage = renderManagementPage;\n'''
+          # Remove duplicate export if the retained prefix already contains it.
+          s = s.replace('window.renderManagementPage = renderManagementPage;\n\nwindow.renderManagementPage = renderManagementPage;\n', 'window.renderManagementPage = renderManagementPage;\n')
+          p.write_text(s)
+
+          p = Path('tools-ui.js')
+          s = p.read_text()
+          start = s.find('function addToolsButton()')
+          end = s.find('\nconst SPECIALIST_GROUPS', start)
+          if start == -1 or end == -1:
+              raise SystemExit('Tools injection block not found')
+          s = s[:start] + '''function exposeToolsButtonHandler() {\n  const button = document.getElementById("jobpilot-tools-button");\n  if (button) button.addEventListener("click", renderToolsPage);\n}\nwindow.JobPilotTools = { open: renderToolsPage };\n''' + s[end:]
+          p.write_text(s)
+
+      - name: Remove trigger and workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/fix-sidebar-flicker-trigger.txt
+          rm -f .github/workflows/fix-sidebar-flicker.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.js management-ui.js tools-ui.js .github/workflows/fix-sidebar-flicker-trigger.txt .github/workflows/fix-sidebar-flicker.yml
+          git commit -m "Stop Management and Tools sidebar injection" || exit 0
+          git push

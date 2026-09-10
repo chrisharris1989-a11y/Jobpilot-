@@ -248,7 +248,7 @@
   function splitPersonalDetailsSection(panel) {
     if (panel.querySelector(".settings-section-personal-details")) return;
 
-    const accountSection = Array.from(panel.querySelectorAll(":scope > .settings-section"))
+    const accountSection = Array.from(panel.querySelectorAll(".settings-section"))
       .find(section => section.querySelector(":scope > h2")?.textContent.trim() === "Account");
     if (!accountSection) return;
 
@@ -256,7 +256,6 @@
     const phoneInput = accountSection.querySelector("#settingsPhone");
     if (!nameInput && !phoneInput) return;
 
-    // The original Account section becomes Account Details.
     const accountHeading = accountSection.querySelector(":scope > h2");
     if (accountHeading) accountHeading.textContent = "Account Details";
 
@@ -277,8 +276,8 @@
     accountSection.insertAdjacentElement("afterend", personalSection);
   }
 
-  function findCategorySections(keywords) {
-    const sections = Array.from(document.querySelectorAll(".settings-section"));
+  function findCategorySections(keywords, panel) {
+    const sections = Array.from(panel.querySelectorAll(".settings-section"));
     return sections.filter((section) => {
       const heading = section.querySelector(":scope > h2");
       const text = heading?.textContent.trim().toLowerCase() || "";
@@ -288,7 +287,7 @@
 
   function showCategoryView(panel, title, description, keywords) {
     const grid = panel.querySelector(".settings-category-grid");
-    const sections = Array.from(panel.querySelectorAll(":scope > .settings-section"));
+    const sections = Array.from(panel.querySelectorAll(".settings-section"));
     const saveActions = panel.parentElement?.querySelector(".settings-save-actions");
     const header = panel.querySelector(".settings-category-view-header");
     const deleteCard = document.getElementById("deleteAccountCard");
@@ -300,13 +299,12 @@
     if (titleElement) titleElement.textContent = title;
     if (descriptionElement) descriptionElement.textContent = description;
 
-    let matchingSections = findCategorySections(keywords);
+    let matchingSections = findCategorySections(keywords, panel);
     const isAccount = title === "Account";
     const isDangerZone = title === "Danger Zone";
 
-    // Account is a parent category containing exactly two information cards.
     if (isAccount) {
-      matchingSections = findCategorySections(["Account Details", "Personal Details"]);
+      matchingSections = findCategorySections(["Account Details", "Personal Details"], panel);
     }
 
     grid.classList.add("is-hidden");
@@ -317,6 +315,9 @@
 
     if (isAccount) {
       const visibleSections = matchingSections.filter(section => !section.classList.contains("is-hidden"));
+      const existingWrapper = panel.querySelector(":scope > .settings-account-cards");
+      if (existingWrapper) existingWrapper.remove();
+
       if (visibleSections.length >= 2) {
         const wrapper = document.createElement("div");
         wrapper.className = "settings-account-cards";
@@ -333,7 +334,6 @@
     const header = panel.querySelector(".settings-category-view-header");
     const deleteCard = document.getElementById("deleteAccountCard");
 
-    // If Account cards were wrapped, put the sections back directly under the panel.
     const accountWrapper = panel.querySelector(":scope > .settings-account-cards");
     if (accountWrapper) {
       Array.from(accountWrapper.children).forEach(section => panel.appendChild(section));

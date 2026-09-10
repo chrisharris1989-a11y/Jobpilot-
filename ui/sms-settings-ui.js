@@ -17,7 +17,7 @@ import { supabase } from "../supabase.js";
   let saving = false;
 
   function isSettingsPage() {
-    return document.getElementById("pageTitle")?.textContent.trim() === "Settings";
+    return document.getElementById("pageTitle")?.textContent.trim() === "Settings" && !document.querySelector(".jobpilot-account-page");
   }
 
   async function getCompanyId() {
@@ -138,18 +138,14 @@ import { supabase } from "../supabase.js";
       return;
     }
 
-    // Lock rendering immediately so repeated MutationObserver callbacks cannot
-    // start multiple async renders before the first one finishes.
     rendering = true;
 
     try {
       addStyles();
 
       if (!companyId) companyId = await getCompanyId();
-      if (!companyId) return;
+      if (!companyId || !isSettingsPage()) return;
 
-      // Re-check after the async lookup because another render may have
-      // completed while this one was waiting.
       if (document.getElementById("sms-settings-section")) {
         loaded = true;
         return;
@@ -161,8 +157,8 @@ import { supabase } from "../supabase.js";
         .eq("id", companyId)
         .maybeSingle();
 
-      if (error) {
-        console.error("SMS settings load:", error);
+      if (error || !isSettingsPage()) {
+        if (error) console.error("SMS settings load:", error);
         return;
       }
 
@@ -213,6 +209,7 @@ import { supabase } from "../supabase.js";
         <div id="smsSettingsStatus" class="sms-settings-status" aria-live="polite"></div>
       `;
 
+      if (!isSettingsPage()) return;
       panel.appendChild(section);
       loaded = true;
 
@@ -238,6 +235,4 @@ import { supabase } from "../supabase.js";
   });
 
   observer.observe(document.body, { childList: true, subtree: true });
-
-  if (isSettingsPage()) renderSmsSettings();
 })();

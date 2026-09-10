@@ -3,13 +3,46 @@
 
 export function renderSettings(content = document.getElementById("pageContent")) {
   if (!content) return;
+  renderSettingsOverview(content);
+}
 
+function renderSettingsOverview(content) {
+  content.innerHTML = `
+    <section class="settings-page jp-settings-page">
+      <header class="page-header">
+        <h2>Settings</h2>
+        <p>Manage your JobPilot settings.</p>
+      </header>
+
+      <div class="jp-settings-grid">
+        <button class="jp-settings-card" type="button" data-settings-section="account">
+          <span class="jp-settings-card-icon">👤</span>
+          <span class="jp-settings-card-body">
+            <strong>Account</strong>
+            <small>Manage your profile, email address and password.</small>
+          </span>
+          <span class="jp-settings-card-arrow">→</span>
+        </button>
+      </div>
+    </section>
+  `;
+
+  ensureSettingsStyles();
+
+  content.querySelector('[data-settings-section="account"]')?.addEventListener("click", () => {
+    renderAccountSettings(content);
+  });
+}
+
+function renderAccountSettings(content) {
   content.innerHTML = `
     <section class="settings-page jp-settings-page">
       <header class="page-header">
         <h2>Account</h2>
         <p>Manage your personal JobPilot account details and login information.</p>
       </header>
+
+      <button class="jp-settings-back" type="button" data-settings-back>← Settings</button>
 
       <div class="jp-settings-grid">
         <button class="jp-settings-card" type="button" data-settings-account="profile">
@@ -30,34 +63,14 @@ export function renderSettings(content = document.getElementById("pageContent"))
           <span class="jp-settings-card-arrow">→</span>
         </button>
       </div>
-
-      <div class="jp-settings-note">
-        <strong>Account settings</strong>
-        <p>Your account details are separate from your company information, which will be managed under Company settings.</p>
-      </div>
     </section>
   `;
 
-  if (!document.getElementById("jp-account-settings-styles")) {
-    const style = document.createElement("style");
-    style.id = "jp-account-settings-styles";
-    style.textContent = `
-      .jp-settings-page { width:100%; }
-      .jp-settings-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-top:20px; max-width:900px; }
-      .jp-settings-card { appearance:none; border:1px solid rgba(0,0,0,.10); background:var(--card-bg,#fff); border-radius:14px; padding:20px; display:flex; align-items:center; gap:15px; text-align:left; cursor:pointer; color:inherit; box-shadow:0 2px 8px rgba(0,0,0,.04); transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
-      .jp-settings-card:hover { transform:translateY(-1px); box-shadow:0 5px 16px rgba(0,0,0,.08); border-color:rgba(0,0,0,.18); }
-      .jp-settings-card-icon { width:42px; height:42px; display:grid; place-items:center; border-radius:10px; background:rgba(0,0,0,.05); font-size:20px; flex:0 0 42px; }
-      .jp-settings-card-body { display:flex; flex-direction:column; gap:5px; min-width:0; flex:1; }
-      .jp-settings-card-body strong { font-size:15px; }
-      .jp-settings-card-body small { font-size:13px; opacity:.68; line-height:1.4; }
-      .jp-settings-card-arrow { font-size:20px; opacity:.5; }
-      .jp-settings-note { max-width:900px; margin-top:20px; padding:16px 18px; border-radius:12px; background:rgba(0,0,0,.035); }
-      .jp-settings-note strong { font-size:14px; }
-      .jp-settings-note p { margin:5px 0 0; font-size:13px; opacity:.68; line-height:1.5; }
-      @media (max-width:700px) { .jp-settings-grid { grid-template-columns:1fr; } }
-    `;
-    document.head.appendChild(style);
-  }
+  ensureSettingsStyles();
+
+  content.querySelector("[data-settings-back]")?.addEventListener("click", () => {
+    renderSettingsOverview(content);
+  });
 
   content.querySelector('[data-settings-account="profile"]')?.addEventListener("click", () => {
     showAccountMessage("Profile settings are ready to be populated.");
@@ -66,6 +79,28 @@ export function renderSettings(content = document.getElementById("pageContent"))
   content.querySelector('[data-settings-account="security"]')?.addEventListener("click", () => {
     showAccountMessage("Email & Password settings are ready to be populated.");
   });
+}
+
+function ensureSettingsStyles() {
+  if (document.getElementById("jp-account-settings-styles")) return;
+
+  const style = document.createElement("style");
+  style.id = "jp-account-settings-styles";
+  style.textContent = `
+    .jp-settings-page { width:100%; }
+    .jp-settings-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-top:20px; max-width:900px; }
+    .jp-settings-card { appearance:none; border:1px solid rgba(0,0,0,.10); background:var(--card-bg,#fff); border-radius:14px; padding:20px; display:flex; align-items:center; gap:15px; text-align:left; cursor:pointer; color:inherit; box-shadow:0 2px 8px rgba(0,0,0,.04); transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+    .jp-settings-card:hover { transform:translateY(-1px); box-shadow:0 5px 16px rgba(0,0,0,.08); border-color:rgba(0,0,0,.18); }
+    .jp-settings-card-icon { width:42px; height:42px; display:grid; place-items:center; border-radius:10px; background:rgba(0,0,0,.05); font-size:20px; flex:0 0 42px; }
+    .jp-settings-card-body { display:flex; flex-direction:column; gap:5px; min-width:0; flex:1; }
+    .jp-settings-card-body strong { font-size:15px; }
+    .jp-settings-card-body small { font-size:13px; opacity:.68; line-height:1.4; }
+    .jp-settings-card-arrow { font-size:20px; opacity:.5; }
+    .jp-settings-back { margin-top:4px; border:0; background:none; padding:6px 0; color:inherit; opacity:.7; cursor:pointer; font-size:13px; }
+    .jp-settings-back:hover { opacity:1; }
+    @media (max-width:700px) { .jp-settings-grid { grid-template-columns:1fr; } }
+  `;
+  document.head.appendChild(style);
 }
 
 function showAccountMessage(message) {
@@ -81,7 +116,6 @@ function showAccountMessage(message) {
 }
 
 // Handle the static Settings button before app.js's generic page router.
-// This avoids the legacy router trying to access a missing settings title.
 document.addEventListener("click", event => {
   const button = event.target.closest?.('.nav-item[data-page="settings"]');
   if (!button) return;

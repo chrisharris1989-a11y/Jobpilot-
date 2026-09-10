@@ -80,6 +80,26 @@ function showAccountMessage(message) {
   setTimeout(() => messageBox.remove(), 2500);
 }
 
+// Handle the static Settings button before app.js's generic page router.
+// This avoids the legacy router trying to access a missing settings title.
+document.addEventListener("click", event => {
+  const button = event.target.closest?.('.nav-item[data-page="settings"]');
+  if (!button) return;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+
+  document.querySelectorAll(".nav-item").forEach(item => item.classList.remove("active"));
+  button.classList.add("active");
+
+  const title = document.getElementById("pageTitle");
+  const subtitle = document.getElementById("pageSubtitle");
+  if (title) title.textContent = "Settings";
+  if (subtitle) subtitle.textContent = "Manage your JobPilot account settings.";
+
+  renderSettings();
+}, true);
+
 function addSettingsTab() {
   const bottom = document.querySelector(".sidebar .sidebar-bottom");
   if (!bottom || bottom.querySelector('[data-page="settings"]')) return;
@@ -89,20 +109,6 @@ function addSettingsTab() {
   button.type = "button";
   button.dataset.page = "settings";
   button.textContent = "⚙️ Settings";
-
-  button.addEventListener("click", () => {
-    document.querySelectorAll(".nav-item").forEach(item => {
-      item.classList.remove("active");
-    });
-    button.classList.add("active");
-
-    const title = document.getElementById("pageTitle");
-    const subtitle = document.getElementById("pageSubtitle");
-    if (title) title.textContent = "Settings";
-    if (subtitle) subtitle.textContent = "Manage your JobPilot settings.";
-
-    renderSettings();
-  });
 
   bottom.insertBefore(button, bottom.firstChild);
 }

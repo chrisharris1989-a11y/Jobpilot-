@@ -1,29 +1,20 @@
 // =====================================================
-// JOBPILOT ACCOUNT PAGE
+// JOBPILOT ACCOUNT SETTINGS
 // =====================================================
 // Settings > Account
-// Account is rendered as one clean page with two sections.
+// The Account page physically moves the existing Account and
+// Business Details fields into exactly two sections. Nothing is
+// cloned or hidden as a workaround.
 // =====================================================
 
 (function () {
-  const GROUPS = [
-    {
-      title: "Personal Details",
-      description: "Your name and contact details.",
-      fields: [["settingsContactName", "Name"], ["settingsPhone", "Phone"]]
-    },
-    {
-      title: "Business Details",
-      description: "Your business name, email and address.",
-      fields: [["settingsBusinessName", "Business name"], ["settingsBusinessEmail", "Business email"], ["settingsAddress", "Address"]]
-    }
-  ];
-
   let boundPanel = null;
   let accountPage = null;
+  let moved = false;
 
-  function getPanel() { return document.querySelector(".settings-panel"); }
-  function getSource(id) { return document.getElementById(id); }
+  function getPanel() {
+    return document.querySelector(".settings-panel");
+  }
 
   function addStyles() {
     if (document.getElementById("jobpilot-account-page-css")) return;
@@ -31,7 +22,6 @@
     style.id = "jobpilot-account-page-css";
     style.textContent = `
       .jobpilot-account-page { display:block; }
-      .jobpilot-account-page.is-hidden { display:none!important; }
       .jobpilot-account-back { margin:0 0 18px; border:1px solid var(--border,#e5e7eb); background:var(--surface,#fff); color:inherit; border-radius:10px; padding:9px 13px; cursor:pointer; font:inherit; font-weight:600; }
       .jobpilot-account-sections { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
       .jobpilot-account-section { box-sizing:border-box; background:var(--surface,#fff); border:1px solid var(--border,#e5e7eb); border-radius:var(--radius,12px); box-shadow:var(--shadow,0 2px 8px rgba(15,23,42,.04)); padding:24px; }
@@ -46,118 +36,118 @@
     document.head.appendChild(style);
   }
 
-  function hideSettingsHome(panel) {
-    panel.querySelector(".settings-category-grid")?.classList.add("is-hidden");
-    panel.querySelector(".settings-category-view-header")?.classList.add("is-hidden");
-    panel.querySelectorAll(":scope > .settings-category-content").forEach(content => content.classList.add("is-hidden"));
-    panel.querySelectorAll(".settings-section").forEach(section => section.classList.add("is-hidden"));
-    panel.querySelector(".settings-save-actions")?.classList.add("is-hidden");
-    document.getElementById("deleteAccountCard")?.classList.add("is-hidden");
+  function findSection(panel, headingText) {
+    return Array.from(panel.querySelectorAll(":scope > .settings-category-content > .settings-section"))
+      .find(section => section.querySelector(":scope > h2")?.textContent.trim() === headingText)
+      || Array.from(panel.querySelectorAll(":scope > .settings-section"))
+        .find(section => section.querySelector(":scope > h2")?.textContent.trim() === headingText)
+      || null;
   }
 
-  function showSettingsHome(panel) {
-    accountPage?.classList.add("is-hidden");
-    panel.querySelector(".settings-category-grid")?.classList.remove("is-hidden");
-    panel.querySelectorAll(":scope > .settings-category-content").forEach(content => content.classList.add("is-hidden"));
-    panel.querySelectorAll(".settings-section").forEach(section => section.classList.add("is-hidden"));
-    panel.querySelector(".settings-category-view-header")?.classList.add("is-hidden");
-    panel.querySelector(".settings-save-actions")?.classList.add("is-hidden");
-    document.getElementById("deleteAccountCard")?.classList.add("is-hidden");
+  function moveField(sourceSection, id, target) {
+    const field = sourceSection?.querySelector(`#${id}`);
+    if (!field) return false;
 
-    const title = document.getElementById("pageTitle");
-    const subtitle = document.getElementById("pageSubtitle");
-    if (title) title.textContent = "Settings";
-    if (subtitle) subtitle.textContent = "Manage your JobPilot account.";
+    const wrapper = document.createElement("div");
+    wrapper.className = "jobpilot-account-field";
+
+    const label = sourceSection.querySelector(`label[for="${id}"]`)
+      || Array.from(sourceSection.querySelectorAll("label"))
+        .find(item => item.nextElementSibling === field);
+
+    if (label) wrapper.appendChild(label);
+    wrapper.appendChild(field);
+    target.appendChild(wrapper);
+    return true;
   }
 
-  function makeField(id, labelText) {
-    const original = getSource(id);
-    if (!original) return null;
-    const row = document.createElement("div");
-    row.className = "jobpilot-account-field";
-    const label = document.createElement("label");
-    label.textContent = labelText;
+  function moveAccountFields(panel) {
+    if (moved) return;
 
-    let field;
-    if (original.tagName === "TEXTAREA") {
-      field = document.createElement("textarea");
-      field.rows = original.rows || 3;
-    } else if (original.tagName === "SELECT") {
-      field = document.createElement("select");
-      field.innerHTML = original.innerHTML;
-    } else {
-      field = document.createElement("input");
-      field.type = original.type || "text";
-    }
+    const accountSource = findSection(panel, "Account");
+    const businessSource = findSection(panel, "Business Details");
+    if (!accountSource || !businessSource) return;
 
-    field.id = `${id}-account-page`;
-    field.value = original.value || "";
-    field.placeholder = original.placeholder || "";
-    field.autocomplete = original.autocomplete || "off";
-    label.htmlFor = field.id;
+    const personal = document.createElement("section");
+    personal.className = "jobpilot-account-section";
+    personal.innerHTML = `
+      <h2>Personal Details</h2>
+      <p class="account-description">Your name and contact details.</p>
+      <div class="jobpilot-account-fields"></div>
+    `;
 
-    field.addEventListener("input", () => {
-      original.value = field.value;
-      original.dispatchEvent(new Event("input", { bubbles:true }));
-    });
-    field.addEventListener("change", () => {
-      original.value = field.value;
-      original.dispatchEvent(new Event("change", { bubbles:true }));
-    });
+    const business = document.createElement("section");
+    business.className = "jobpilot-account-section";
+    business.innerHTML = `
+      <h2>Business Details</h2>
+      <p class="account-description">Your business name, email and address.</p>
+      <div class="jobpilot-account-fields"></div>
+    `;
 
-    row.append(label, field);
-    return row;
+    const personalFields = personal.querySelector(".jobpilot-account-fields");
+    const businessFields = business.querySelector(".jobpilot-account-fields");
+
+    // Move the actual existing DOM fields. These are not cloned.
+    moveField(accountSource, "settingsContactName", personalFields);
+    moveField(accountSource, "settingsPhone", personalFields);
+    moveField(businessSource, "settingsBusinessName", businessFields);
+    moveField(businessSource, "settingsBusinessEmail", businessFields);
+    moveField(businessSource, "settingsAddress", businessFields);
+
+    const accountHeading = accountSource.querySelector(":scope > h2");
+    const businessHeading = businessSource.querySelector(":scope > h2");
+    accountHeading?.remove();
+    businessHeading?.remove();
+
+    // The old Account section is no longer a Settings category.
+    // The selected fields have been moved out of it, so remove the old wrapper.
+    accountSource.remove();
+
+    // Business Details remains available for any business-only fields that were
+    // not requested on the Account page (for example postcode/website).
+    // It is still a real section, not a hidden duplicate.
+
+    accountPage.querySelector(".jobpilot-account-sections").append(personal, business);
+    moved = true;
   }
 
   function buildAccountPage(panel) {
-    if (accountPage && accountPage.isConnected) return;
+    if (accountPage?.isConnected) return;
     accountPage = document.createElement("div");
-    accountPage.className = "jobpilot-account-page is-hidden";
+    accountPage.className = "jobpilot-account-page";
     accountPage.innerHTML = `
       <button type="button" class="jobpilot-account-back">← Back to Settings</button>
-      <div class="jobpilot-account-sections">
-        ${GROUPS.map((group, index) => `
-          <section class="jobpilot-account-section" data-account-group="${index}">
-            <h2>${group.title}</h2>
-            <p class="account-description">${group.description}</p>
-            <div class="jobpilot-account-fields"></div>
-          </section>
-        `).join("")}
-      </div>
+      <div class="jobpilot-account-sections"></div>
     `;
     panel.appendChild(accountPage);
+
     accountPage.querySelector(".jobpilot-account-back")?.addEventListener("click", event => {
       event.preventDefault();
       event.stopImmediatePropagation();
-      showSettingsHome(panel);
-    });
-  }
-
-  function populateAccountPage() {
-    if (!accountPage) return;
-    GROUPS.forEach((group, index) => {
-      const body = accountPage.querySelector(`[data-account-group="${index}"] .jobpilot-account-fields`);
-      if (!body) return;
-      body.replaceChildren();
-      group.fields.forEach(([id, label]) => {
-        const field = makeField(id, label);
-        if (field) body.appendChild(field);
-      });
+      accountPage.remove();
+      accountPage = null;
+      moved = false;
+      const title = document.getElementById("pageTitle");
+      const subtitle = document.getElementById("pageSubtitle");
+      if (title) title.textContent = "Settings";
+      if (subtitle) subtitle.textContent = "Manage your JobPilot account.";
     });
   }
 
   function openAccount(panel) {
-    // Account is a standalone view. No settings category or other settings cards are shown.
-    panel.querySelectorAll(":scope > .settings-category-content").forEach(content => content.classList.add("is-hidden"));
-    panel.querySelector(".settings-category-view-header")?.classList.add("is-hidden");
-    panel.querySelector(".settings-category-grid")?.classList.add("is-hidden");
-    panel.querySelector(".settings-save-actions")?.classList.add("is-hidden");
-    document.getElementById("deleteAccountCard")?.classList.add("is-hidden");
-    panel.querySelectorAll(".settings-section").forEach(section => section.classList.add("is-hidden"));
+    if (panel.dataset.sectionsPlaced !== "true") return;
 
     buildAccountPage(panel);
-    populateAccountPage();
-    accountPage.classList.remove("is-hidden");
+    moveAccountFields(panel);
+    if (!moved) return;
+
+    panel.querySelector(".settings-category-grid")?.remove();
+    panel.querySelector(".settings-category-view-header")?.remove();
+    panel.querySelectorAll(":scope > .settings-category-content").forEach(content => {
+      if (content.childElementCount === 0) content.remove();
+    });
+    panel.querySelector(".settings-save-actions")?.remove();
+    document.getElementById("deleteAccountCard")?.remove();
 
     const title = document.getElementById("pageTitle");
     const subtitle = document.getElementById("pageSubtitle");
@@ -169,9 +159,10 @@
     if (!panel || boundPanel === panel) return;
     boundPanel = panel;
     addStyles();
-    buildAccountPage(panel);
+
     const grid = panel.querySelector(".settings-category-grid");
     if (!grid) return;
+
     grid.addEventListener("click", event => {
       const card = event.target.closest(".settings-category-card");
       if (!card || !grid.contains(card)) return;
@@ -188,6 +179,12 @@
     if (!panel) return;
     bind(panel);
   }
+
+  const observer = new MutationObserver(() => {
+    const panel = getPanel();
+    if (panel) init();
+  });
+  observer.observe(document.body, { childList:true, subtree:true });
 
   const starter = setInterval(() => {
     const panel = getPanel();

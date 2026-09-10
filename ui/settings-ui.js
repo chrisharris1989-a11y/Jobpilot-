@@ -45,6 +45,7 @@
       .settings-category-view-description { margin:3px 0 0; opacity:.7; font-size:14px; }
       .settings-category-grid.is-hidden,.settings-section.is-hidden,#deleteAccountCard.is-hidden { display:none!important; }
       .settings-category-view-header.is-hidden,.settings-save-actions.is-hidden { display:none!important; }
+      .settings-category-content.is-hidden { display:none!important; }
       @media (min-width:700px) {
         .settings-section.settings-business-details { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:20px; row-gap:7px; }
         .settings-section.settings-business-details > h2 { grid-column:1/-1; margin-bottom:5px; }
@@ -70,12 +71,21 @@
     heading?.closest(".settings-section")?.classList.add("settings-business-details");
   }
 
-  function findCategorySections(keywords, panel) {
-    return Array.from(panel.querySelectorAll(".settings-section")).filter(section => {
-      const heading = section.querySelector(":scope > h2");
-      const text = heading?.textContent.trim().toLowerCase() || "";
-      return keywords.some(keyword => text === keyword.toLowerCase() || text.includes(keyword.toLowerCase()));
+  function moveQuoteSettingsIntoAppPreferences(panel) {
+    const quoteSections = Array.from(panel.querySelectorAll(":scope > .settings-section")).filter(section => {
+      const heading = section.querySelector(":scope > h2")?.textContent.trim();
+      return heading === "Quote Message" || heading === "Quote Templates";
     });
+    if (!quoteSections.length) return;
+
+    let content = panel.querySelector(":scope > .settings-category-content[data-category=\"App / Preferences\"]");
+    if (!content) {
+      content = document.createElement("div");
+      content.className = "settings-category-content is-hidden";
+      content.dataset.category = "App / Preferences";
+      panel.appendChild(content);
+    }
+    quoteSections.forEach(section => content.appendChild(section));
   }
 
   function showCategoryView(panel, title, description, keywords) {
@@ -89,11 +99,24 @@
     const descriptionElement = header.querySelector(".settings-category-view-description");
     if (titleElement) titleElement.textContent = title;
     if (descriptionElement) descriptionElement.textContent = description;
-    const matchingSections = findCategorySections(keywords, panel);
+    const matchingSections = sections.filter(section => {
+      const heading = section.querySelector(":scope > h2")?.textContent.trim().toLowerCase() || "";
+      return keywords.some(keyword => heading === keyword.toLowerCase() || heading.includes(keyword.toLowerCase()));
+    });
     const isDangerZone = title === "Danger Zone";
     grid.classList.add("is-hidden");
     header.classList.remove("is-hidden");
+
+    panel.querySelectorAll(":scope > .settings-category-content").forEach(content => {
+      content.classList.toggle("is-hidden", content.dataset.category !== title);
+    });
+
     sections.forEach(section => {
+      const isNestedQuoteSection = section.parentElement?.classList.contains("settings-category-content");
+      if (isNestedQuoteSection) {
+        section.classList.remove("is-hidden");
+        return;
+      }
       const isMatch = matchingSections.includes(section);
       section.classList.toggle("is-hidden", !isMatch);
       if (isMatch) section.querySelectorAll(":scope > .settings-section").forEach(child => child.classList.remove("is-hidden"));
@@ -110,6 +133,7 @@
     const deleteCard = document.getElementById("deleteAccountCard");
     grid?.classList.remove("is-hidden");
     header?.classList.add("is-hidden");
+    panel.querySelectorAll(":scope > .settings-category-content").forEach(content => content.classList.add("is-hidden"));
     sections.forEach(section => section.classList.add("is-hidden"));
     deleteCard?.classList.add("is-hidden");
     saveActions?.classList.add("is-hidden");
@@ -171,6 +195,7 @@
       }
     });
     addSettingsCategoryCards(panel);
+    moveQuoteSettingsIntoAppPreferences(panel);
     panel.classList.add("settings-sectionized");
     panel.dataset.sectionized="true";
     markBusinessDetailsSection();

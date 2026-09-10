@@ -7,8 +7,7 @@
 
 (function () {
   const SETTINGS_CATEGORIES = [
-    ["Account", "Account access and login details.", ["Account"]],
-    ["Personal Details", "Manage your personal contact details.", ["Personal Details"]],
+    ["Account", "Manage your personal details and account access.", ["Account"]],
     ["Business", "Business details, branding and company information.", ["Business Details", "Business"]],
     ["Notifications", "Control email, push and SMS notifications.", ["Notifications", "SMS Automation"]],
     ["Integrations", "Connect JobPilot with your other business services.", ["Connections", "Integrations"]],
@@ -178,6 +177,17 @@
         font-size: 14px;
       }
 
+      .settings-account-cards {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+
+      .settings-account-cards > .settings-section {
+        margin: 0;
+      }
+
       .settings-category-grid.is-hidden,
       .settings-section.is-hidden,
       #deleteAccountCard.is-hidden {
@@ -218,6 +228,7 @@
 
       @media (max-width: 900px) {
         .settings-category-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .settings-account-cards { grid-template-columns: 1fr; }
       }
 
       @media (max-width: 560px) {
@@ -244,6 +255,10 @@
     const nameInput = accountSection.querySelector("#settingsContactName");
     const phoneInput = accountSection.querySelector("#settingsPhone");
     if (!nameInput && !phoneInput) return;
+
+    // The original Account section becomes Account Details.
+    const accountHeading = accountSection.querySelector(":scope > h2");
+    if (accountHeading) accountHeading.textContent = "Account Details";
 
     const personalSection = document.createElement("section");
     personalSection.className = "settings-section settings-section-personal-details";
@@ -285,22 +300,45 @@
     if (titleElement) titleElement.textContent = title;
     if (descriptionElement) descriptionElement.textContent = description;
 
-    const matchingSections = findCategorySections(keywords);
+    let matchingSections = findCategorySections(keywords);
+    const isAccount = title === "Account";
     const isDangerZone = title === "Danger Zone";
+
+    // Account is a parent category containing exactly two information cards.
+    if (isAccount) {
+      matchingSections = findCategorySections(["Account Details", "Personal Details"]);
+    }
 
     grid.classList.add("is-hidden");
     header.classList.remove("is-hidden");
     sections.forEach(section => section.classList.toggle("is-hidden", !matchingSections.includes(section)));
     deleteCard?.classList.toggle("is-hidden", !isDangerZone);
     saveActions?.classList.remove("is-hidden");
+
+    if (isAccount) {
+      const visibleSections = matchingSections.filter(section => !section.classList.contains("is-hidden"));
+      if (visibleSections.length >= 2) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "settings-account-cards";
+        visibleSections.forEach(section => wrapper.appendChild(section));
+        panel.appendChild(wrapper);
+      }
+    }
   }
 
   function showSettingsCategories(panel) {
     const grid = panel.querySelector(".settings-category-grid");
-    const sections = Array.from(panel.querySelectorAll(":scope > .settings-section"));
+    const sections = Array.from(panel.querySelectorAll(".settings-section"));
     const saveActions = panel.parentElement?.querySelector(".settings-save-actions");
     const header = panel.querySelector(".settings-category-view-header");
     const deleteCard = document.getElementById("deleteAccountCard");
+
+    // If Account cards were wrapped, put the sections back directly under the panel.
+    const accountWrapper = panel.querySelector(":scope > .settings-account-cards");
+    if (accountWrapper) {
+      Array.from(accountWrapper.children).forEach(section => panel.appendChild(section));
+      accountWrapper.remove();
+    }
 
     grid?.classList.remove("is-hidden");
     header?.classList.add("is-hidden");

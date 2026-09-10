@@ -41,6 +41,15 @@ function renderSettingsOverview(content) {
           </span>
           <span class="jp-settings-card-arrow">→</span>
         </button>
+
+        <button class="jp-settings-card" type="button" data-settings-section="app-preferences">
+          <span class="jp-settings-card-icon">⚙️</span>
+          <span class="jp-settings-card-body">
+            <strong>App Preferences</strong>
+            <small>Manage how JobPilot looks and behaves.</small>
+          </span>
+          <span class="jp-settings-card-arrow">→</span>
+        </button>
       </div>
     </section>
   `;

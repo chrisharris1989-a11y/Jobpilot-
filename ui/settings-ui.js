@@ -2,7 +2,8 @@
 // JOBPILOT SETTINGS UI
 // =====================================================
 // Settings landing page contains ONLY the 9 category cards.
-// Actual settings sections live inside their category.
+// Account is a standalone page containing only Personal Details
+// and Business Details. Other settings are not rendered into it.
 // =====================================================
 
 (function () {
@@ -43,12 +44,17 @@
       .settings-category-view-description { margin:3px 0 0; opacity:.7; font-size:14px; }
       .settings-category-content.is-hidden { display:none!important; }
       .settings-category-view-header.is-hidden,.settings-save-actions.is-hidden { display:none!important; }
-      @media (min-width:700px) {
-        .settings-section.settings-business-details { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:20px; row-gap:7px; }
-        .settings-section.settings-business-details > h2 { grid-column:1/-1; margin-bottom:5px; }
-        .settings-section.settings-business-details > input,.settings-section.settings-business-details > textarea,.settings-section.settings-business-details > select { margin-bottom:12px; }
-      }
-      @media (max-width:900px) { .settings-category-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+      .jobpilot-account-page { display:block; }
+      .jobpilot-account-sections { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+      .jobpilot-account-section { box-sizing:border-box; background:var(--surface,#fff); border:1px solid var(--border,#e5e7eb); border-radius:var(--radius,12px); box-shadow:var(--shadow,0 2px 8px rgba(15,23,42,.04)); padding:24px; }
+      .jobpilot-account-section h2 { margin:0 0 6px; font-size:19px; }
+      .jobpilot-account-section .account-description { margin:0 0 20px; opacity:.7; font-size:14px; }
+      .jobpilot-account-field { margin-bottom:16px; }
+      .jobpilot-account-field:last-child { margin-bottom:0; }
+      .jobpilot-account-field label { display:block; margin-bottom:7px; font-weight:600; }
+      .jobpilot-account-field input,.jobpilot-account-field textarea,.jobpilot-account-field select { width:100%; box-sizing:border-box; }
+      @media (min-width:700px) { .settings-section.settings-business-details { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:20px; row-gap:7px; } .settings-section.settings-business-details > h2 { grid-column:1/-1; margin-bottom:5px; } .settings-section.settings-business-details > input,.settings-section.settings-business-details > textarea,.settings-section.settings-business-details > select { margin-bottom:12px; } }
+      @media (max-width:900px) { .settings-category-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .jobpilot-account-sections { grid-template-columns:1fr; } }
       @media (max-width:560px) { .settings-category-grid { grid-template-columns:1fr; } .settings-category-view-header { align-items:flex-start; } }
     `;
     document.head.appendChild(style);
@@ -129,6 +135,82 @@
     saveActions?.classList.add("is-hidden");
   }
 
+  function findSection(panel, headingText) {
+    return Array.from(panel.querySelectorAll(".settings-section")).find(section => section.querySelector(":scope > h2")?.textContent.trim() === headingText) || null;
+  }
+
+  function moveField(sourceSection, id, target) {
+    const field = sourceSection?.querySelector(`#${id}`);
+    if (!field) return false;
+    const wrapper = document.createElement("div");
+    wrapper.className = "jobpilot-account-field";
+    const label = sourceSection.querySelector(`label[for="${id}"]`) || Array.from(sourceSection.querySelectorAll("label")).find(item => item.nextElementSibling === field);
+    if (label) wrapper.appendChild(label);
+    wrapper.appendChild(field);
+    target.appendChild(wrapper);
+    return true;
+  }
+
+  function openAccountPage(panel) {
+    if (panel.querySelector(".jobpilot-account-page")) return;
+
+    const accountSource = findSection(panel, "Account");
+    const businessSource = findSection(panel, "Business Details");
+    if (!accountSource || !businessSource) return;
+
+    const page = document.createElement("div");
+    page.className = "jobpilot-account-page";
+    page.innerHTML = `
+      <div class="jobpilot-account-sections">
+        <section class="jobpilot-account-section"><h2>Personal Details</h2><p class="account-description">Your name and contact details.</p><div class="jobpilot-account-fields"></div></section>
+        <section class="jobpilot-account-section"><h2>Business Details</h2><p class="account-description">Your business name, email and address.</p><div class="jobpilot-account-fields"></div></section>
+      </div>
+    `;
+
+    const personalFields = page.querySelectorAll(".jobpilot-account-fields")[0];
+    const businessFields = page.querySelectorAll(".jobpilot-account-fields")[1];
+    moveField(accountSource, "settingsContactName", personalFields);
+    moveField(accountSource, "settingsPhone", personalFields);
+    moveField(businessSource, "settingsBusinessName", businessFields);
+    moveField(businessSource, "settingsBusinessEmail", businessFields);
+    moveField(businessSource, "settingsAddress", businessFields);
+
+    accountSource.remove();
+    businessSource.remove();
+
+    panel.appendChild(page);
+
+    const grid = panel.querySelector(".settings-category-grid");
+    const header = panel.querySelector(".settings-category-view-header");
+    const saveActions = panel.parentElement?.querySelector(".settings-save-actions");
+    const deleteCard = document.getElementById("deleteAccountCard");
+    grid?.remove();
+    header?.remove();
+    saveActions?.remove();
+    deleteCard?.remove();
+
+    panel.querySelectorAll(":scope > .settings-category-content").forEach(content => content.remove());
+
+    const pageTitle = document.getElementById("pageTitle");
+    const pageSubtitle = document.getElementById("pageSubtitle");
+    if (pageTitle) pageTitle.textContent = "Account";
+    if (pageSubtitle) pageSubtitle.textContent = "Manage your personal and business details.";
+
+    const back = document.createElement("button");
+    back.type = "button";
+    back.className = "jobpilot-account-back settings-category-back";
+    back.textContent = "← Back to Settings";
+    page.prepend(back);
+    back.addEventListener("click", () => {
+      page.remove();
+      const pageTitle = document.getElementById("pageTitle");
+      const pageSubtitle = document.getElementById("pageSubtitle");
+      if (pageTitle) pageTitle.textContent = "Settings";
+      if (pageSubtitle) pageSubtitle.textContent = "Manage your JobPilot account.";
+      sectionizeSettings(true);
+    });
+  }
+
   function addSettingsCategoryCards(panel) {
     if (panel.querySelector(".settings-category-grid")) return;
     const header = document.createElement("div");
@@ -149,7 +231,10 @@
       card.type="button"; card.className="settings-category-card";
       card.innerHTML=`<span class="settings-category-card-title">${title}</span><span class="settings-category-card-description">${description}</span>`;
       card.addEventListener("click",()=>{
-        if(title === "Account") return;
+        if(title === "Account") {
+          openAccountPage(panel);
+          return;
+        }
         showCategoryView(panel,title,description);
         const pageTitle=document.getElementById("pageTitle"); const pageSubtitle=document.getElementById("pageSubtitle");
         if(pageTitle) pageTitle.textContent=title;
@@ -160,10 +245,10 @@
     panel.insertBefore(grid,panel.querySelector(":scope > .settings-section") || null);
   }
 
-  function sectionizeSettings() {
+  function sectionizeSettings(force) {
     if(!isSettingsPage()) return;
     const panel=document.querySelector(".settings-panel");
-    if(!panel || panel.dataset.sectionized === "true") return;
+    if(!panel || (!force && panel.dataset.sectionized === "true")) return;
     addSettingsSectionStyles();
     const headings=Array.from(panel.querySelectorAll(":scope > h2"));
     if(!headings.length) return;
@@ -210,8 +295,6 @@
   addSettingsSectionStyles();
   const observer=new MutationObserver(()=>{
     removeStripeFromSettings();
-    // Run immediately in the mutation microtask. Do not wait 100ms:
-    // the legacy Account section must be restructured before the browser paints.
     sectionizeSettings();
   });
   observer.observe(document.body,{childList:true,subtree:true});

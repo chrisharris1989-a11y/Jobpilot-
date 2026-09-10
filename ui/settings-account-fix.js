@@ -1,8 +1,8 @@
 // =====================================================
 // JOBPILOT SETTINGS ACCOUNT VIEW FIX
 // =====================================================
-// Provides a clean Settings > Account view without moving
-// the existing Account section or exposing Delete Account.
+// Clean Settings > Account view:
+// Personal Details + Business Details.
 // =====================================================
 
 (function () {
@@ -11,7 +11,6 @@
     ["Business Details", ["settingsBusinessName", "settingsBusinessEmail", "settingsAddress"]]
   ];
 
-  let currentPanel = null;
   let accountView = null;
 
   function getPanel() {
@@ -27,18 +26,19 @@
     const accountSection = Array.from(panel.querySelectorAll(".settings-section"))
       .find(section => section.querySelector(":scope > h2")?.textContent.trim() === "Account Details");
 
-    if (personalSection && accountSection) {
-      ["settingsContactName", "settingsPhone"].forEach((id) => {
-        const input = personalSection.querySelector(`#${id}`);
-        if (!input) return;
-        const label = personalSection.querySelector(`label[for="${id}"]`) || input.previousElementSibling;
-        if (label?.tagName === "LABEL") accountSection.appendChild(label);
-        accountSection.appendChild(input);
-      });
-      personalSection.remove();
-      const heading = accountSection.querySelector(":scope > h2");
-      if (heading) heading.textContent = "Account";
-    }
+    if (!personalSection || !accountSection) return;
+
+    ["settingsContactName", "settingsPhone"].forEach((id) => {
+      const input = personalSection.querySelector(`#${id}`);
+      if (!input) return;
+      const label = personalSection.querySelector(`label[for="${id}"]`) || input.previousElementSibling;
+      if (label?.tagName === "LABEL") accountSection.appendChild(label);
+      accountSection.appendChild(input);
+    });
+
+    personalSection.remove();
+    const heading = accountSection.querySelector(":scope > h2");
+    if (heading) heading.textContent = "Account";
   }
 
   function copyField(source, card, suffix) {
@@ -48,14 +48,16 @@
     row.className = "settings-account-field";
 
     const label = document.createElement("label");
-    label.textContent = source.previousElementSibling?.tagName === "LABEL"
-      ? source.previousElementSibling.textContent.trim()
-      : source.id === "settingsContactName" ? "Name"
-      : source.id === "settingsPhone" ? "Phone"
-      : source.id === "settingsBusinessName" ? "Business name"
-      : source.id === "settingsBusinessEmail" ? "Business email"
-      : source.id === "settingsAddress" ? "Address"
-      : source.name || source.id;
+    const sourceLabel = source.previousElementSibling;
+    label.textContent = sourceLabel?.tagName === "LABEL"
+      ? sourceLabel.textContent.trim()
+      : ({
+          settingsContactName: "Name",
+          settingsPhone: "Phone",
+          settingsBusinessName: "Business name",
+          settingsBusinessEmail: "Business email",
+          settingsAddress: "Address"
+        }[source.id] || source.id);
 
     const clone = source.cloneNode(true);
     clone.id = `${source.id}-${suffix}`;
@@ -90,12 +92,10 @@
     if (accountView?.isConnected) return accountView;
 
     accountView = document.createElement("div");
-    accountView.className = "settings-account-view";
-    accountView.innerHTML = `
-      <div class="settings-account-cards-clean"></div>
-    `;
-
-    const grid = accountView.querySelector(".settings-account-cards-clean");
+    accountView.className = "settings-account-view is-hidden";
+    const grid = document.createElement("div");
+    grid.className = "settings-account-cards-clean";
+    accountView.appendChild(grid);
 
     ACCOUNT_FIELDS.forEach(([title, ids]) => {
       const card = document.createElement("section");
@@ -118,8 +118,7 @@
   function hideAllSettingsContent(panel) {
     panel.querySelectorAll(".settings-section").forEach(section => section.classList.add("is-hidden"));
     panel.querySelector(".settings-category-grid")?.classList.add("is-hidden");
-    panel.querySelector(".settings-category-view-header")?.classList.remove("is-hidden");
-    panel.querySelector(".settings-save-actions")?.classList.remove("is-hidden");
+    panel.querySelector(".settings-save-actions")?.classList.add("is-hidden");
     document.getElementById("deleteAccountCard")?.classList.add("is-hidden");
   }
 
@@ -148,8 +147,8 @@
     panel.querySelector(".settings-category-view-header")?.classList.add("is-hidden");
     panel.querySelector(".settings-category-grid")?.classList.remove("is-hidden");
     panel.querySelectorAll(".settings-section").forEach(section => section.classList.add("is-hidden"));
+    panel.querySelector(".settings-save-actions")?.classList.add("is-hidden");
     document.getElementById("deleteAccountCard")?.classList.add("is-hidden");
-    panel.parentElement?.querySelector(".settings-save-actions")?.classList.add("is-hidden");
 
     const pageTitle = document.getElementById("pageTitle");
     const pageSubtitle = document.getElementById("pageSubtitle");
@@ -162,7 +161,7 @@
     panel.dataset.accountViewFixInstalled = "true";
 
     restoreLegacyAccountSection(panel);
-    createAccountView(panel).classList.add("is-hidden");
+    createAccountView(panel);
 
     if (!document.getElementById("jobpilot-settings-account-fix-styles")) {
       const style = document.createElement("style");
@@ -219,9 +218,7 @@
 
   function scan() {
     const panel = getPanel();
-    if (!panel) return;
-    currentPanel = panel;
-    install(panel);
+    if (panel) install(panel);
   }
 
   const observer = new MutationObserver(scan);

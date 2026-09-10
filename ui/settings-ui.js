@@ -7,7 +7,8 @@
 
 (function () {
   const SETTINGS_CATEGORIES = [
-    ["Account", "Account and personal details.", ["Account", "Personal Details", "Profile"]],
+    ["Account", "Account access and login details.", ["Account"]],
+    ["Personal Details", "Manage your personal contact details.", ["Personal Details"]],
     ["Business", "Business details, branding and company information.", ["Business Details", "Business"]],
     ["Notifications", "Control email, push and SMS notifications.", ["Notifications", "SMS Automation"]],
     ["Integrations", "Connect JobPilot with your other business services.", ["Connections", "Integrations"]],
@@ -27,11 +28,9 @@
 
     const status = document.getElementById("stripeConnectionStatus");
     const button = document.getElementById("connectStripeButton");
-
     if (!status && !button) return;
 
     const card = status?.closest(".connection-card") || button?.closest(".connection-card");
-
     if (card) {
       card.remove();
       return;
@@ -180,7 +179,8 @@
       }
 
       .settings-category-grid.is-hidden,
-      .settings-section.is-hidden {
+      .settings-section.is-hidden,
+      #deleteAccountCard.is-hidden {
         display: none !important;
       }
 
@@ -234,6 +234,34 @@
     heading?.closest(".settings-section")?.classList.add("settings-business-details");
   }
 
+  function splitPersonalDetailsSection(panel) {
+    if (panel.querySelector(".settings-section-personal-details")) return;
+
+    const accountSection = Array.from(panel.querySelectorAll(":scope > .settings-section"))
+      .find(section => section.querySelector(":scope > h2")?.textContent.trim() === "Account");
+    if (!accountSection) return;
+
+    const nameInput = accountSection.querySelector("#settingsContactName");
+    const phoneInput = accountSection.querySelector("#settingsPhone");
+    if (!nameInput && !phoneInput) return;
+
+    const personalSection = document.createElement("section");
+    personalSection.className = "settings-section settings-section-personal-details";
+
+    const heading = document.createElement("h2");
+    heading.textContent = "Personal Details";
+    personalSection.appendChild(heading);
+
+    [nameInput, phoneInput].forEach(input => {
+      if (!input) return;
+      const label = input.previousElementSibling;
+      if (label?.tagName === "LABEL") personalSection.appendChild(label);
+      personalSection.appendChild(input);
+    });
+
+    accountSection.insertAdjacentElement("afterend", personalSection);
+  }
+
   function findCategorySections(keywords) {
     const sections = Array.from(document.querySelectorAll(".settings-section"));
     return sections.filter((section) => {
@@ -248,6 +276,7 @@
     const sections = Array.from(panel.querySelectorAll(":scope > .settings-section"));
     const saveActions = panel.parentElement?.querySelector(".settings-save-actions");
     const header = panel.querySelector(".settings-category-view-header");
+    const deleteCard = document.getElementById("deleteAccountCard");
 
     if (!grid || !header) return;
 
@@ -257,15 +286,13 @@
     if (descriptionElement) descriptionElement.textContent = description;
 
     const matchingSections = findCategorySections(keywords);
+    const isDangerZone = title === "Danger Zone";
 
     grid.classList.add("is-hidden");
     header.classList.remove("is-hidden");
     sections.forEach(section => section.classList.toggle("is-hidden", !matchingSections.includes(section)));
+    deleteCard?.classList.toggle("is-hidden", !isDangerZone);
     saveActions?.classList.remove("is-hidden");
-
-    if (matchingSections.length) {
-      matchingSections.forEach(section => section.style.display = "");
-    }
   }
 
   function showSettingsCategories(panel) {
@@ -273,11 +300,13 @@
     const sections = Array.from(panel.querySelectorAll(":scope > .settings-section"));
     const saveActions = panel.parentElement?.querySelector(".settings-save-actions");
     const header = panel.querySelector(".settings-category-view-header");
+    const deleteCard = document.getElementById("deleteAccountCard");
 
     grid?.classList.remove("is-hidden");
     header?.classList.add("is-hidden");
-    sections.forEach(section => section.classList.remove("is-hidden"));
-    saveActions?.classList.remove("is-hidden");
+    sections.forEach(section => section.classList.add("is-hidden"));
+    deleteCard?.classList.add("is-hidden");
+    saveActions?.classList.add("is-hidden");
   }
 
   function addSettingsCategoryCards(panel) {
@@ -328,6 +357,7 @@
     });
 
     panel.insertBefore(grid, panel.querySelector(":scope > .settings-section"));
+    showSettingsCategories(panel);
   }
 
   function sectionizeSettings() {
@@ -363,6 +393,7 @@
       }
     });
 
+    splitPersonalDetailsSection(panel);
     addSettingsCategoryCards(panel);
     panel.classList.add("settings-sectionized");
     panel.dataset.sectionized = "true";

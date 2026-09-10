@@ -208,11 +208,11 @@
   }
 
   addSettingsSectionStyles();
-  let settingsTimer = null;
   const observer=new MutationObserver(()=>{
     removeStripeFromSettings();
-    clearTimeout(settingsTimer);
-    settingsTimer=setTimeout(sectionizeSettings,100);
+    // Run immediately in the mutation microtask. Do not wait 100ms:
+    // the legacy Account section must be restructured before the browser paints.
+    sectionizeSettings();
   });
   observer.observe(document.body,{childList:true,subtree:true});
   removeStripeFromSettings();

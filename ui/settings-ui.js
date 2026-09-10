@@ -22,20 +22,13 @@
     return document.getElementById("pageTitle")?.textContent.trim() === "Settings";
   }
 
-  function removeStripeFromSettings() {
-    if (!isSettingsPage()) return;
-    const status = document.getElementById("stripeConnectionStatus");
-    const button = document.getElementById("connectStripeButton");
-    if (!status && !button) return;
-    const card = status?.closest(".connection-card") || button?.closest(".connection-card");
-    if (card) { card.remove(); return; }
-  }
-
+  // Hide raw Settings panels immediately so users never see the page being rebuilt.
   function addSettingsSectionStyles() {
     if (document.getElementById("jobpilot-settings-section-styles")) return;
     const style = document.createElement("style");
     style.id = "jobpilot-settings-section-styles";
     style.textContent = `
+      .settings-panel:not(.settings-ready) { visibility:hidden !important; }
       .settings-panel.settings-sectionized { background:transparent; border:0; box-shadow:none; padding:0; }
       .settings-category-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin:0 0 24px; }
       .settings-category-card { appearance:none; width:100%; min-height:118px; text-align:left; font:inherit; color:inherit; background:var(--surface,#fff); border:1px solid var(--border,#e5e7eb); border-radius:var(--radius,12px); box-shadow:var(--shadow,0 2px 8px rgba(15,23,42,.04)); padding:18px; cursor:pointer; }
@@ -65,6 +58,15 @@
     document.head.appendChild(style);
   }
 
+  function removeStripeFromSettings() {
+    if (!isSettingsPage()) return;
+    const status = document.getElementById("stripeConnectionStatus");
+    const button = document.getElementById("connectStripeButton");
+    if (!status && !button) return;
+    const card = status?.closest(".connection-card") || button?.closest(".connection-card");
+    if (card) card.remove();
+  }
+
   function markBusinessDetailsSection() {
     const heading = Array.from(document.querySelectorAll(".settings-section > h2")).find(item => item.textContent.trim() === "Business Details");
     heading?.closest(".settings-section")?.classList.add("settings-business-details");
@@ -85,15 +87,12 @@
     const header = panel.querySelector(".settings-category-view-header");
     const deleteCard = document.getElementById("deleteAccountCard");
     if (!grid || !header) return;
-
     const titleElement = header.querySelector(".settings-category-view-title");
     const descriptionElement = header.querySelector(".settings-category-view-description");
     if (titleElement) titleElement.textContent = title;
     if (descriptionElement) descriptionElement.textContent = description;
-
     const matchingSections = findCategorySections(keywords, panel);
     const isDangerZone = title === "Danger Zone";
-
     grid.classList.add("is-hidden");
     header.classList.remove("is-hidden");
     sections.forEach(section => section.classList.toggle("is-hidden", !matchingSections.includes(section)));
@@ -116,7 +115,6 @@
 
   function addSettingsCategoryCards(panel) {
     if (panel.querySelector(".settings-category-grid")) return;
-
     const header = document.createElement("div");
     header.className = "settings-category-view-header is-hidden";
     header.innerHTML = `<button type="button" class="settings-category-back">← Back to Settings</button><div><h2 class="settings-category-view-title">Settings</h2><p class="settings-category-view-description"></p></div>`;
@@ -127,7 +125,6 @@
       if(pageTitle) pageTitle.textContent="Settings";
       if(pageSubtitle) pageSubtitle.textContent="Manage your JobPilot account.";
     });
-
     const grid=document.createElement("div");
     grid.className="settings-category-grid";
     grid.setAttribute("aria-label","Settings categories");
@@ -136,7 +133,6 @@
       card.type="button"; card.className="settings-category-card";
       card.innerHTML=`<span class="settings-category-card-title">${title}</span><span class="settings-category-card-description">${description}</span>`;
       card.addEventListener("click",()=>{
-        // Account is handled exclusively by settings-account-fix.js.
         if(title === "Account") return;
         showCategoryView(panel,title,description,keywords);
         const pageTitle=document.getElementById("pageTitle"); const pageSubtitle=document.getElementById("pageSubtitle");
@@ -153,9 +149,9 @@
     if(!isSettingsPage()) return;
     const panel=document.querySelector(".settings-panel");
     if(!panel || panel.dataset.sectionized === "true") return;
+    addSettingsSectionStyles();
     const headings=Array.from(panel.querySelectorAll(":scope > h2"));
     if(!headings.length) return;
-    addSettingsSectionStyles();
     removeStripeFromSettings();
     moveSaveActionOutsideCards(panel);
     const remainingHeadings=Array.from(panel.querySelectorAll(":scope > h2"));
@@ -176,6 +172,8 @@
     panel.classList.add("settings-sectionized");
     panel.dataset.sectionized="true";
     markBusinessDetailsSection();
+    // Reveal only after the complete Settings transformation is finished.
+    panel.classList.add("settings-ready");
   }
 
   function moveSaveActionOutsideCards(panel) {
@@ -194,8 +192,16 @@
     panel.dataset.saveActionMoved="true";
   }
 
-  const observer=new MutationObserver(()=>{ removeStripeFromSettings(); sectionizeSettings(); });
+  addSettingsSectionStyles();
+
+  let settingsTimer = null;
+  const observer=new MutationObserver(()=>{
+    removeStripeFromSettings();
+    clearTimeout(settingsTimer);
+    settingsTimer=setTimeout(sectionizeSettings,500);
+  });
   observer.observe(document.body,{childList:true,subtree:true});
+
   removeStripeFromSettings();
   sectionizeSettings();
 })();

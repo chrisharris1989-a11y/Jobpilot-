@@ -149,6 +149,46 @@
         margin: 0 0 18px;
       }
 
+      .settings-category-view-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin: 0 0 18px;
+      }
+
+      .settings-category-back {
+        flex: 0 0 auto;
+        border: 1px solid var(--border, #e5e7eb);
+        background: var(--surface, #ffffff);
+        color: inherit;
+        border-radius: 10px;
+        padding: 9px 13px;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 600;
+      }
+
+      .settings-category-view-title {
+        margin: 0;
+        font-size: 22px;
+      }
+
+      .settings-category-view-description {
+        margin: 3px 0 0;
+        opacity: .7;
+        font-size: 14px;
+      }
+
+      .settings-category-grid.is-hidden,
+      .settings-section.is-hidden {
+        display: none !important;
+      }
+
+      .settings-category-view-header.is-hidden,
+      .settings-save-actions.is-hidden {
+        display: none !important;
+      }
+
       @media (min-width: 700px) {
         .settings-section.settings-business-details {
           display: grid;
@@ -182,6 +222,7 @@
 
       @media (max-width: 560px) {
         .settings-category-grid { grid-template-columns: 1fr; }
+        .settings-category-view-header { align-items: flex-start; }
       }
     `;
     document.head.appendChild(style);
@@ -193,17 +234,73 @@
     heading?.closest(".settings-section")?.classList.add("settings-business-details");
   }
 
-  function findCategorySection(keywords) {
+  function findCategorySections(keywords) {
     const sections = Array.from(document.querySelectorAll(".settings-section"));
-    return sections.find((section) => {
+    return sections.filter((section) => {
       const heading = section.querySelector(":scope > h2");
       const text = heading?.textContent.trim().toLowerCase() || "";
       return keywords.some((keyword) => text === keyword.toLowerCase() || text.includes(keyword.toLowerCase()));
     });
   }
 
+  function showCategoryView(panel, title, description, keywords) {
+    const grid = panel.querySelector(".settings-category-grid");
+    const sections = Array.from(panel.querySelectorAll(":scope > .settings-section"));
+    const saveActions = panel.parentElement?.querySelector(".settings-save-actions");
+    const header = panel.querySelector(".settings-category-view-header");
+
+    if (!grid || !header) return;
+
+    const titleElement = header.querySelector(".settings-category-view-title");
+    const descriptionElement = header.querySelector(".settings-category-view-description");
+    if (titleElement) titleElement.textContent = title;
+    if (descriptionElement) descriptionElement.textContent = description;
+
+    const matchingSections = findCategorySections(keywords);
+
+    grid.classList.add("is-hidden");
+    header.classList.remove("is-hidden");
+    sections.forEach(section => section.classList.toggle("is-hidden", !matchingSections.includes(section)));
+    saveActions?.classList.remove("is-hidden");
+
+    if (matchingSections.length) {
+      matchingSections.forEach(section => section.style.display = "");
+    }
+  }
+
+  function showSettingsCategories(panel) {
+    const grid = panel.querySelector(".settings-category-grid");
+    const sections = Array.from(panel.querySelectorAll(":scope > .settings-section"));
+    const saveActions = panel.parentElement?.querySelector(".settings-save-actions");
+    const header = panel.querySelector(".settings-category-view-header");
+
+    grid?.classList.remove("is-hidden");
+    header?.classList.add("is-hidden");
+    sections.forEach(section => section.classList.remove("is-hidden"));
+    saveActions?.classList.remove("is-hidden");
+  }
+
   function addSettingsCategoryCards(panel) {
     if (panel.querySelector(".settings-category-grid")) return;
+
+    const header = document.createElement("div");
+    header.className = "settings-category-view-header is-hidden";
+    header.innerHTML = `
+      <button type="button" class="settings-category-back">← Back to Settings</button>
+      <div>
+        <h2 class="settings-category-view-title">Settings</h2>
+        <p class="settings-category-view-description"></p>
+      </div>
+    `;
+    panel.prepend(header);
+
+    header.querySelector(".settings-category-back")?.addEventListener("click", () => {
+      showSettingsCategories(panel);
+      const pageTitle = document.getElementById("pageTitle");
+      const pageSubtitle = document.getElementById("pageSubtitle");
+      if (pageTitle) pageTitle.textContent = "Settings";
+      if (pageSubtitle) pageSubtitle.textContent = "Manage your JobPilot account.";
+    });
 
     const grid = document.createElement("div");
     grid.className = "settings-category-grid";
@@ -219,27 +316,18 @@
       `;
 
       card.addEventListener("click", () => {
-        const target = findCategorySection(keywords);
-        if (target) {
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
-          return;
-        }
+        showCategoryView(panel, title, description, keywords);
 
-        card.animate(
-          [
-            { transform: "translateX(0)" },
-            { transform: "translateX(-3px)" },
-            { transform: "translateX(3px)" },
-            { transform: "translateX(0)" }
-          ],
-          { duration: 180 }
-        );
+        const pageTitle = document.getElementById("pageTitle");
+        const pageSubtitle = document.getElementById("pageSubtitle");
+        if (pageTitle) pageTitle.textContent = title;
+        if (pageSubtitle) pageSubtitle.textContent = description;
       });
 
       grid.appendChild(card);
     });
 
-    panel.prepend(grid);
+    panel.insertBefore(grid, panel.querySelector(":scope > .settings-section"));
   }
 
   function sectionizeSettings() {

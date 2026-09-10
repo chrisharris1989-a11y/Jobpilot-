@@ -1,11 +1,6 @@
 // =====================================================
 // JOBPILOT SETTINGS UI
 // =====================================================
-// Settings landing page contains the settings category cards.
-// Account is a real standalone page containing only Personal
-// Details and Business Details. Nothing unrelated is hidden into
-// the Account page; the existing fields are physically moved.
-// =====================================================
 
 (function () {
   const SETTINGS_CATEGORIES = [
@@ -20,8 +15,25 @@
     ["Danger Zone", "Export data or permanently delete your account.", ["Danger Zone"]]
   ];
 
+  const ACCOUNT_SUBTITLE = "Manage your personal and business details.";
+  const SETTINGS_SUBTITLE = "Manage your JobPilot account.";
+
   function isSettingsPage() {
     return document.getElementById("pageTitle")?.textContent.trim() === "Settings";
+  }
+
+  function isAccountPage(panel) {
+    return Boolean(panel?.querySelector(".jobpilot-account-page"));
+  }
+
+  function setAccountHeader() {
+    document.getElementById("pageTitle")?.replaceChildren(document.createTextNode("Account"));
+    document.getElementById("pageSubtitle")?.replaceChildren(document.createTextNode(ACCOUNT_SUBTITLE));
+  }
+
+  function setSettingsHeader() {
+    document.getElementById("pageTitle")?.replaceChildren(document.createTextNode("Settings"));
+    document.getElementById("pageSubtitle")?.replaceChildren(document.createTextNode(SETTINGS_SUBTITLE));
   }
 
   function addSettingsSectionStyles() {
@@ -68,9 +80,8 @@
     if (!isSettingsPage()) return;
     const status = document.getElementById("stripeConnectionStatus");
     const button = document.getElementById("connectStripeButton");
-    if (!status && !button) return;
     const card = status?.closest(".connection-card") || button?.closest(".connection-card");
-    if (card) card.remove();
+    card?.remove();
   }
 
   function markBusinessDetailsSection() {
@@ -78,8 +89,8 @@
     heading?.closest(".settings-section")?.classList.add("settings-business-details");
   }
 
-  function categoryForHeading(headingText) {
-    const heading = String(headingText || "").trim().toLowerCase();
+  function categoryForHeading(text) {
+    const heading = String(text || "").trim().toLowerCase();
     return SETTINGS_CATEGORIES.find(([, , keywords]) => keywords.some(keyword => {
       const key = keyword.toLowerCase();
       return heading === key || heading.includes(key);
@@ -90,7 +101,6 @@
     if (panel.dataset.sectionsPlaced === "true") return;
     const sections = Array.from(panel.querySelectorAll(":scope > .settings-section"));
     if (!sections.length) return;
-
     const containers = new Map();
     SETTINGS_CATEGORIES.forEach(([title]) => {
       const content = document.createElement("div");
@@ -99,27 +109,24 @@
       panel.appendChild(content);
       containers.set(title, content);
     });
-
     sections.forEach(section => {
       const heading = section.querySelector(":scope > h2")?.textContent.trim() || "";
       const category = categoryForHeading(heading);
       if (category && containers.has(category)) containers.get(category).appendChild(section);
       else section.remove();
     });
-
     panel.dataset.sectionsPlaced = "true";
   }
 
   function showCategoryView(panel, title, description) {
+    if (isAccountPage(panel)) return;
     const grid = panel.querySelector(".settings-category-grid");
     const saveActions = panel.parentElement?.querySelector(".settings-save-actions");
     const header = panel.querySelector(".settings-category-view-header");
     const deleteCard = document.getElementById("deleteAccountCard");
     if (!grid || !header) return;
-    const titleElement = header.querySelector(".settings-category-view-title");
-    const descriptionElement = header.querySelector(".settings-category-view-description");
-    if (titleElement) titleElement.textContent = title;
-    if (descriptionElement) descriptionElement.textContent = description;
+    header.querySelector(".settings-category-view-title")?.replaceChildren(document.createTextNode(title));
+    header.querySelector(".settings-category-view-description")?.replaceChildren(document.createTextNode(description));
     grid.classList.add("is-hidden");
     header.classList.remove("is-hidden");
     panel.querySelectorAll(":scope > .settings-category-content").forEach(content => content.classList.toggle("is-hidden", content.dataset.category !== title));
@@ -128,15 +135,12 @@
   }
 
   function showSettingsCategories(panel) {
-    const grid = panel.querySelector(".settings-category-grid");
-    const saveActions = panel.parentElement?.querySelector(".settings-save-actions");
-    const header = panel.querySelector(".settings-category-view-header");
-    const deleteCard = document.getElementById("deleteAccountCard");
-    grid?.classList.remove("is-hidden");
-    header?.classList.add("is-hidden");
+    if (isAccountPage(panel)) return;
+    panel.querySelector(".settings-category-grid")?.classList.remove("is-hidden");
+    panel.querySelector(".settings-category-view-header")?.classList.add("is-hidden");
     panel.querySelectorAll(":scope > .settings-category-content").forEach(content => content.classList.add("is-hidden"));
-    deleteCard?.classList.add("is-hidden");
-    saveActions?.classList.add("is-hidden");
+    document.getElementById("deleteAccountCard")?.classList.add("is-hidden");
+    panel.parentElement?.querySelector(".settings-save-actions")?.classList.add("is-hidden");
   }
 
   function findSection(panel, headingText) {
@@ -149,7 +153,7 @@
 
   function moveField(panel, id, target) {
     const field = findField(panel, id);
-    if (!field) return false;
+    if (!field || !target) return false;
     const wrapper = document.createElement("div");
     wrapper.className = "jobpilot-account-field";
     const label = Array.from(panel.querySelectorAll("label")).find(item => item.htmlFor === id || item.nextElementSibling === field);
@@ -160,26 +164,17 @@
   }
 
   function openAccountPage(panel) {
-    if (panel.querySelector(".jobpilot-account-page")) return;
-
+    if (isAccountPage(panel)) return;
     const accountSection = findSection(panel, "Account");
     const businessSection = findSection(panel, "Business Details");
     if (!accountSection || !businessSection) return;
 
-    // Keep the existing category containers and their remaining settings
-    // intact, but physically detach them while the Account page is open.
-    const categoryGrid = panel.querySelector(".settings-category-grid");
-    const categoryHeader = panel.querySelector(".settings-category-view-header");
-    const categoryContents = Array.from(panel.querySelectorAll(":scope > .settings-category-content"));
-    const saveActions = panel.parentElement?.querySelector(".settings-save-actions");
-    const deleteCard = document.getElementById("deleteAccountCard");
-
     const restoreNodes = {
-      categoryGrid,
-      categoryHeader,
-      categoryContents,
-      saveActions,
-      deleteCard,
+      categoryGrid: panel.querySelector(".settings-category-grid"),
+      categoryHeader: panel.querySelector(".settings-category-view-header"),
+      categoryContents: Array.from(panel.querySelectorAll(":scope > .settings-category-content")),
+      saveActions: panel.parentElement?.querySelector(".settings-save-actions"),
+      deleteCard: document.getElementById("deleteAccountCard"),
       accountSection,
       businessSection
     };
@@ -202,39 +197,24 @@
       </div>
     `;
 
-    const fieldContainers = page.querySelectorAll(".jobpilot-account-fields");
-    moveField(panel, "settingsContactName", fieldContainers[0]);
-    moveField(panel, "settingsPhone", fieldContainers[0]);
-    moveField(panel, "settingsBusinessName", fieldContainers[1]);
-    moveField(panel, "settingsBusinessEmail", fieldContainers[1]);
-    moveField(panel, "settingsAddress", fieldContainers[1]);
+    const containers = page.querySelectorAll(".jobpilot-account-fields");
+    moveField(panel, "settingsContactName", containers[0]);
+    moveField(panel, "settingsPhone", containers[0]);
+    moveField(panel, "settingsBusinessName", containers[1]);
+    moveField(panel, "settingsBusinessEmail", containers[1]);
+    moveField(panel, "settingsAddress", containers[1]);
 
-    // The original Account section has no remaining Account fields after
-    // the move, so remove that empty source section. Business remains in
-    // Business because it still contains its other business settings.
     accountSection.remove();
-
-    // Physically remove unrelated Settings UI from the document while the
-    // Account page is open. This is not CSS hiding.
-    categoryGrid?.remove();
-    categoryHeader?.remove();
-    categoryContents.forEach(node => node.remove());
-    saveActions?.remove();
-    deleteCard?.remove();
+    restoreNodes.categoryGrid?.remove();
+    restoreNodes.categoryHeader?.remove();
+    restoreNodes.categoryContents.forEach(node => node.remove());
+    restoreNodes.saveActions?.remove();
+    restoreNodes.deleteCard?.remove();
     panel.appendChild(page);
-
-    const pageTitle = document.getElementById("pageTitle");
-    const pageSubtitle = document.getElementById("pageSubtitle");
-    if (pageTitle) pageTitle.textContent = "Account";
-    if (pageSubtitle) pageSubtitle.textContent = "Manage your personal and business details.";
+    panel.dataset.accountOpen = "true";
+    setAccountHeader();
 
     page.querySelector(".jobpilot-account-back")?.addEventListener("click", () => {
-      // Move the existing fields back into their original settings sections.
-      const personalSection = restoreNodes.accountSection;
-      const businessSettingsSection = restoreNodes.businessSection;
-      const personalContainer = personalSection;
-      const businessContainer = businessSettingsSection;
-
       const restoreField = (id, targetSection) => {
         const field = page.querySelector(`#${id}`);
         if (!field) return;
@@ -245,31 +225,24 @@
         wrapper?.remove();
       };
 
-      restoreField("settingsContactName", personalContainer);
-      restoreField("settingsPhone", personalContainer);
-      restoreField("settingsBusinessName", businessContainer);
-      restoreField("settingsBusinessEmail", businessContainer);
-      restoreField("settingsAddress", businessContainer);
-
+      restoreField("settingsContactName", restoreNodes.accountSection);
+      restoreField("settingsPhone", restoreNodes.accountSection);
+      restoreField("settingsBusinessName", restoreNodes.businessSection);
+      restoreField("settingsBusinessEmail", restoreNodes.businessSection);
+      restoreField("settingsAddress", restoreNodes.businessSection);
       page.remove();
 
-      // Put the original sections back into their original category
-      // containers. Everything is moved back; nothing is hidden.
       const accountCategory = restoreNodes.categoryContents.find(node => node.dataset.category === "Account");
       const businessCategory = restoreNodes.categoryContents.find(node => node.dataset.category === "Business");
-      accountCategory?.appendChild(personalSection);
-      businessCategory?.appendChild(businessSettingsSection);
-
+      accountCategory?.appendChild(restoreNodes.accountSection);
+      businessCategory?.appendChild(restoreNodes.businessSection);
       restoreNodes.categoryContents.forEach(node => panel.appendChild(node));
       if (restoreNodes.categoryGrid) panel.insertBefore(restoreNodes.categoryGrid, panel.firstChild);
       if (restoreNodes.categoryHeader) panel.insertBefore(restoreNodes.categoryHeader, panel.firstChild);
       if (restoreNodes.saveActions && !restoreNodes.saveActions.isConnected) panel.parentElement?.appendChild(restoreNodes.saveActions);
       if (restoreNodes.deleteCard && !restoreNodes.deleteCard.isConnected) panel.parentElement?.appendChild(restoreNodes.deleteCard);
-
-      const title = document.getElementById("pageTitle");
-      const subtitle = document.getElementById("pageSubtitle");
-      if (title) title.textContent = "Settings";
-      if (subtitle) subtitle.textContent = "Manage your JobPilot account.";
+      panel.dataset.accountOpen = "false";
+      setSettingsHeader();
       markBusinessDetailsSection();
       showSettingsCategories(panel);
     });
@@ -277,23 +250,18 @@
 
   function addSettingsCategoryCards(panel) {
     if (panel.querySelector(".settings-category-grid")) return;
-
     const header = document.createElement("div");
     header.className = "settings-category-view-header is-hidden";
     header.innerHTML = `<button type="button" class="settings-category-back">← Back to Settings</button><div><h2 class="settings-category-view-title">Settings</h2><p class="settings-category-view-description"></p></div>`;
     panel.prepend(header);
     header.querySelector(".settings-category-back")?.addEventListener("click", () => {
       showSettingsCategories(panel);
-      const pageTitle = document.getElementById("pageTitle");
-      const pageSubtitle = document.getElementById("pageSubtitle");
-      if (pageTitle) pageTitle.textContent = "Settings";
-      if (pageSubtitle) pageSubtitle.textContent = "Manage your JobPilot account.";
+      setSettingsHeader();
     });
 
     const grid = document.createElement("div");
     grid.className = "settings-category-grid";
     grid.setAttribute("aria-label", "Settings categories");
-
     SETTINGS_CATEGORIES.forEach(([title, description]) => {
       const card = document.createElement("button");
       card.type = "button";
@@ -305,54 +273,12 @@
           return;
         }
         showCategoryView(panel, title, description);
-        const pageTitle = document.getElementById("pageTitle");
-        const pageSubtitle = document.getElementById("pageSubtitle");
-        if (pageTitle) pageTitle.textContent = title;
-        if (pageSubtitle) pageSubtitle.textContent = description;
+        document.getElementById("pageTitle")?.replaceChildren(document.createTextNode(title));
+        document.getElementById("pageSubtitle")?.replaceChildren(document.createTextNode(description));
       });
       grid.appendChild(card);
     });
-
     panel.insertBefore(grid, panel.querySelector(":scope > .settings-section") || null);
-  }
-
-  function sectionizeSettings() {
-    if (!isSettingsPage()) return;
-    const panel = document.querySelector(".settings-panel");
-    if (!panel || panel.dataset.sectionized === "true") return;
-
-    addSettingsSectionStyles();
-    const headings = Array.from(panel.querySelectorAll(":scope > h2"));
-    if (!headings.length) return;
-
-    removeStripeFromSettings();
-    moveSaveActionOutsideCards(panel);
-
-    const remainingHeadings = Array.from(panel.querySelectorAll(":scope > h2"));
-    remainingHeadings.forEach(heading => {
-      const section = document.createElement("section");
-      section.className = "settings-section";
-      panel.insertBefore(section, heading);
-      section.appendChild(heading);
-      let node = section.nextSibling;
-      while (node) {
-        const next = node.nextSibling;
-        if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "H2") break;
-        if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "HR") {
-          node.remove();
-          break;
-        }
-        section.appendChild(node);
-        node = next;
-      }
-    });
-
-    addSettingsCategoryCards(panel);
-    placeSectionsIntoCategories(panel);
-    panel.classList.add("settings-sectionized");
-    panel.dataset.sectionized = "true";
-    markBusinessDetailsSection();
-    showSettingsCategories(panel);
   }
 
   function moveSaveActionOutsideCards(panel) {
@@ -372,12 +298,48 @@
     panel.dataset.saveActionMoved = "true";
   }
 
+  function sectionizeSettings() {
+    if (!isSettingsPage()) return;
+    const panel = document.querySelector(".settings-panel");
+    if (!panel || panel.dataset.sectionized === "true" || isAccountPage(panel)) return;
+    addSettingsSectionStyles();
+    const headings = Array.from(panel.querySelectorAll(":scope > h2"));
+    if (!headings.length) return;
+    removeStripeFromSettings();
+    moveSaveActionOutsideCards(panel);
+    Array.from(panel.querySelectorAll(":scope > h2")).forEach(heading => {
+      const section = document.createElement("section");
+      section.className = "settings-section";
+      panel.insertBefore(section, heading);
+      section.appendChild(heading);
+      let node = section.nextSibling;
+      while (node) {
+        const next = node.nextSibling;
+        if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "H2") break;
+        if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "HR") { node.remove(); break; }
+        section.appendChild(node);
+        node = next;
+      }
+    });
+    addSettingsCategoryCards(panel);
+    placeSectionsIntoCategories(panel);
+    panel.classList.add("settings-sectionized");
+    panel.dataset.sectionized = "true";
+    markBusinessDetailsSection();
+    showSettingsCategories(panel);
+  }
+
   addSettingsSectionStyles();
   const observer = new MutationObserver(() => {
+    const panel = document.querySelector(".settings-panel");
+    if (panel && isAccountPage(panel)) {
+      setAccountHeader();
+      return;
+    }
     removeStripeFromSettings();
     sectionizeSettings();
   });
-  observer.observe(document.body, { childList: true, subtree: true });
+  observer.observe(document.body, { childList:true, subtree:true });
   removeStripeFromSettings();
   sectionizeSettings();
 })();

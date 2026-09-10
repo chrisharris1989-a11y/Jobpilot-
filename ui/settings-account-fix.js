@@ -11,6 +11,8 @@
   let boundPanel = null;
   let accountPage = null;
   let moved = false;
+  let settingsGrid = null;
+  let settingsHeader = null;
 
   function getPanel() {
     return document.querySelector(".settings-panel");
@@ -94,18 +96,11 @@
     moveField(businessSource, "settingsBusinessEmail", businessFields);
     moveField(businessSource, "settingsAddress", businessFields);
 
-    const accountHeading = accountSource.querySelector(":scope > h2");
-    const businessHeading = businessSource.querySelector(":scope > h2");
-    accountHeading?.remove();
-    businessHeading?.remove();
+    accountSource.querySelector(":scope > h2")?.remove();
+    businessSource.querySelector(":scope > h2")?.remove();
 
-    // The old Account section is no longer a Settings category.
-    // The selected fields have been moved out of it, so remove the old wrapper.
+    // The original Account section is removed after its real fields are moved.
     accountSource.remove();
-
-    // Business Details remains available for any business-only fields that were
-    // not requested on the Account page (for example postcode/website).
-    // It is still a real section, not a hidden duplicate.
 
     accountPage.querySelector(".jobpilot-account-sections").append(personal, business);
     moved = true;
@@ -124,8 +119,16 @@
     accountPage.querySelector(".jobpilot-account-back")?.addEventListener("click", event => {
       event.preventDefault();
       event.stopImmediatePropagation();
+
       accountPage.remove();
       accountPage = null;
+
+      if (settingsHeader && settingsHeader.isConnected === false) panel.prepend(settingsHeader);
+      if (settingsGrid && settingsGrid.isConnected === false) {
+        const firstContent = panel.querySelector(":scope > .settings-category-content");
+        panel.insertBefore(settingsGrid, firstContent || null);
+      }
+
       moved = false;
       const title = document.getElementById("pageTitle");
       const subtitle = document.getElementById("pageSubtitle");
@@ -137,17 +140,17 @@
   function openAccount(panel) {
     if (panel.dataset.sectionsPlaced !== "true") return;
 
+    settingsGrid = panel.querySelector(".settings-category-grid");
+    settingsHeader = panel.querySelector(".settings-category-view-header");
+
     buildAccountPage(panel);
     moveAccountFields(panel);
     if (!moved) return;
 
-    panel.querySelector(".settings-category-grid")?.remove();
-    panel.querySelector(".settings-category-view-header")?.remove();
-    panel.querySelectorAll(":scope > .settings-category-content").forEach(content => {
-      if (content.childElementCount === 0) content.remove();
-    });
-    panel.querySelector(".settings-save-actions")?.remove();
-    document.getElementById("deleteAccountCard")?.remove();
+    // Physically remove the Settings landing controls while Account is open.
+    // They are restored to the same panel on Back; no settings section is hidden.
+    settingsGrid?.remove();
+    settingsHeader?.remove();
 
     const title = document.getElementById("pageTitle");
     const subtitle = document.getElementById("pageSubtitle");

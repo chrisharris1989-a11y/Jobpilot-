@@ -6,6 +6,18 @@
 // =====================================================
 
 (function () {
+  const SETTINGS_CATEGORIES = [
+    ["Account", "Your personal account details and login settings.", ["Account", "Profile"]],
+    ["Business", "Business details, branding and company information.", ["Business Details", "Business"]],
+    ["Notifications", "Control email, push and SMS notifications.", ["Notifications", "SMS Automation"]],
+    ["Integrations", "Connect JobPilot with your other business services.", ["Connections", "Integrations"]],
+    ["Billing & Subscription", "Manage your plan, subscription and billing.", ["Billing & Subscription", "Billing", "Subscription"]],
+    ["Team", "Manage team members, roles and access.", ["Team", "Users", "Team Members"]],
+    ["App / Preferences", "Choose your app and business preferences.", ["Preferences", "App Preferences"]],
+    ["Security", "Manage account security and access.", ["Security"]],
+    ["Danger Zone", "Export data or permanently delete your account.", ["Danger Zone"]]
+  ];
+
   function isSettingsPage() {
     return document.getElementById("pageTitle")?.textContent.trim() === "Settings";
   }
@@ -49,6 +61,54 @@
         padding: 0;
       }
 
+      .settings-category-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin: 0 0 24px;
+      }
+
+      .settings-category-card {
+        appearance: none;
+        width: 100%;
+        min-height: 118px;
+        text-align: left;
+        font: inherit;
+        color: inherit;
+        background: var(--surface, #ffffff);
+        border: 1px solid var(--border, #e5e7eb);
+        border-radius: var(--radius, 12px);
+        box-shadow: var(--shadow, 0 2px 8px rgba(15, 23, 42, 0.04));
+        padding: 18px;
+        cursor: pointer;
+        transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+      }
+
+      .settings-category-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+        border-color: var(--primary, #cbd5e1);
+      }
+
+      .settings-category-card:focus-visible {
+        outline: 2px solid var(--primary, #2563eb);
+        outline-offset: 2px;
+      }
+
+      .settings-category-card-title {
+        display: block;
+        font-weight: 700;
+        font-size: 16px;
+        margin-bottom: 7px;
+      }
+
+      .settings-category-card-description {
+        display: block;
+        font-size: 13px;
+        line-height: 1.45;
+        opacity: .72;
+      }
+
       .settings-section {
         background: var(--surface, #ffffff);
         border: 1px solid var(--border, #e5e7eb);
@@ -56,6 +116,7 @@
         box-shadow: var(--shadow, 0 2px 8px rgba(15, 23, 42, 0.04));
         padding: 24px;
         margin: 0 0 18px;
+        scroll-margin-top: 24px;
       }
 
       .settings-section > h2:first-child { margin-top: 0; }
@@ -71,7 +132,6 @@
         padding-top: 2px;
       }
 
-      /* Business Details: spacious, consistent form layout. */
       .settings-section.settings-business-details {
         padding-bottom: 26px;
       }
@@ -115,6 +175,14 @@
           margin-bottom: 12px;
         }
       }
+
+      @media (max-width: 900px) {
+        .settings-category-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+
+      @media (max-width: 560px) {
+        .settings-category-grid { grid-template-columns: 1fr; }
+      }
     `;
     document.head.appendChild(style);
   }
@@ -123,6 +191,55 @@
     const heading = Array.from(document.querySelectorAll(".settings-section > h2"))
       .find((item) => item.textContent.trim() === "Business Details");
     heading?.closest(".settings-section")?.classList.add("settings-business-details");
+  }
+
+  function findCategorySection(keywords) {
+    const sections = Array.from(document.querySelectorAll(".settings-section"));
+    return sections.find((section) => {
+      const heading = section.querySelector(":scope > h2");
+      const text = heading?.textContent.trim().toLowerCase() || "";
+      return keywords.some((keyword) => text === keyword.toLowerCase() || text.includes(keyword.toLowerCase()));
+    });
+  }
+
+  function addSettingsCategoryCards(panel) {
+    if (panel.querySelector(".settings-category-grid")) return;
+
+    const grid = document.createElement("div");
+    grid.className = "settings-category-grid";
+    grid.setAttribute("aria-label", "Settings categories");
+
+    SETTINGS_CATEGORIES.forEach(([title, description, keywords]) => {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "settings-category-card";
+      card.innerHTML = `
+        <span class="settings-category-card-title">${title}</span>
+        <span class="settings-category-card-description">${description}</span>
+      `;
+
+      card.addEventListener("click", () => {
+        const target = findCategorySection(keywords);
+        if (target) {
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+          return;
+        }
+
+        card.animate(
+          [
+            { transform: "translateX(0)" },
+            { transform: "translateX(-3px)" },
+            { transform: "translateX(3px)" },
+            { transform: "translateX(0)" }
+          ],
+          { duration: 180 }
+        );
+      });
+
+      grid.appendChild(card);
+    });
+
+    panel.prepend(grid);
   }
 
   function sectionizeSettings() {
@@ -158,6 +275,7 @@
       }
     });
 
+    addSettingsCategoryCards(panel);
     panel.classList.add("settings-sectionized");
     panel.dataset.sectionized = "true";
     markBusinessDetailsSection();

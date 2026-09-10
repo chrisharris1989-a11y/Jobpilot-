@@ -7,7 +7,7 @@
 
 (function () {
   const SETTINGS_CATEGORIES = [
-    ["Account", "Your personal account details and login settings.", ["Account", "Profile"]],
+    ["Account", "Account and personal details.", ["Account", "Personal Details", "Profile"]],
     ["Business", "Business details, branding and company information.", ["Business Details", "Business"]],
     ["Notifications", "Control email, push and SMS notifications.", ["Notifications", "SMS Automation"]],
     ["Integrations", "Connect JobPilot with your other business services.", ["Connections", "Integrations"]],

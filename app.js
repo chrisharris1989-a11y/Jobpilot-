@@ -327,9 +327,21 @@ function renderApp() {
            🔗 Connections
           </button>
 
+          <button class="nav-item" id="jobpilot-management-button" type="button">
+            ⚙️ Management
+          </button>
+
+          <button class="nav-item" id="jobpilot-tools-button" type="button">
+            🛠️ Tools
+          </button>
+
         </nav>
 
         <div class="sidebar-bottom">
+
+          <button class="nav-item" data-page="settings" type="button">
+            ⚙️ Settings
+          </button>
 
           <button class="nav-item" id="feedbackButton" >
            🐛 Feedback
@@ -388,6 +400,9 @@ function renderApp() {
         () => showPage(button.dataset.page)
       );
     });
+
+  document.getElementById("jobpilot-management-button")?.addEventListener("click", () => window.renderManagementPage?.());
+  document.getElementById("jobpilot-tools-button")?.addEventListener("click", () => window.JobPilotTools?.open?.());
 
 
   // FEEDBACK BUTTON
@@ -501,6 +516,16 @@ function showPage(page) {
       "Connections",
      "Manage your connected services."
     ],
+
+    management: [
+      "Management",
+      "Manage your JobPilot company."
+    ],
+
+    tools: [
+      "Tools",
+      "Practical tools to help you plan and run your work."
+    ],
   };
 
   document.getElementById("pageTitle").textContent =
@@ -535,6 +560,14 @@ function showPage(page) {
   if (page === "connections") {
   renderConnectionsPage(content);
 }
+
+  if (page === "management") {
+    window.renderManagementPage?.();
+  }
+
+  if (page === "tools") {
+    window.JobPilotTools?.open?.();
+  }
 }
 
 

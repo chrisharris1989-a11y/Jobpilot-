@@ -20,8 +20,11 @@ function renderToolsPage() {
   document.getElementById("jp-open-job-planner")?.addEventListener("click",()=>window.JobPilotJobPlanner?.open());
   document.getElementById("jp-open-calculators")?.addEventListener("click",()=>window.JobPilotCalculators?.open());
 }
-function addToolsButton() { const managementButton=document.getElementById("jobpilot-management-button"); if (!managementButton || getToolsButton()) return; const button=document.createElement("button"); button.id="jobpilot-tools-button"; button.className="nav-item"; button.type="button"; button.textContent="🛠️ Tools"; button.addEventListener("click",renderToolsPage); managementButton.insertAdjacentElement("afterend",button); }
-addToolsButton(); const toolsNavObserver=new MutationObserver(()=>addToolsButton()); toolsNavObserver.observe(document.body,{childList:true,subtree:true});
+function exposeToolsButtonHandler() {
+  const button = document.getElementById("jobpilot-tools-button");
+  if (button) button.addEventListener("click", renderToolsPage);
+}
+window.JobPilotTools = { open: renderToolsPage };
 
 const SPECIALIST_GROUPS = {
   cleaning: { category:"cleaning-business", icon:"🧽", title:"Cleaning Business Calculators", description:"Contract pricing, staffing and recurring cleaning profitability." },

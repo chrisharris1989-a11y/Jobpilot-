@@ -55,8 +55,5 @@ async function hasManagementAccess() {
   try { const { data: { user } = {} } = await supabase.auth.getUser(); if (!user) return false; const { data, error } = await supabase.from("company_members").select("role").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle(); if (error) { console.error("JobPilot management access:", error); return false; } return MANAGEMENT_ROLES.includes(String(data?.role || "").toLowerCase()); } catch (error) { console.error("JobPilot management access:", error); return false; }
 }
 
-async function syncManagementButton() { const allowed = await hasManagementAccess(); const existing = getManagementButton(); if (allowed) { if (!existing) addManagementButton(); } else if (existing) existing.remove(); }
-function addManagementButton() { const nav = document.querySelector(".sidebar nav"); if (!nav || getManagementButton()) return; const button = document.createElement("button"); button.id = "jobpilot-management-button"; button.className = "nav-item"; button.type = "button"; button.textContent = "⚙️ Management"; button.addEventListener("click", renderManagementPage); nav.appendChild(button); }
-syncManagementButton();
-const navObserver = new MutationObserver(() => { if (!getManagementButton()) syncManagementButton(); });
-navObserver.observe(document.body, { childList: true, subtree: true });
+
+window.renderManagementPage = renderManagementPage;

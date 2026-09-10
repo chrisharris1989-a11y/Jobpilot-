@@ -1,7 +1,7 @@
 import { supabase } from "../supabase.js";
 
-// Keep Settings focused on personal/app preferences.
-// Company, connections/accounting and billing administration live under Management.
+// Keep Settings focused on the category structure. Quote Message is created
+// directly inside Business Details after Settings has been structured.
 
 const REMOVED_SETTINGS_IDS = [
   "jobpilot-subscription-section",
@@ -10,7 +10,6 @@ const REMOVED_SETTINGS_IDS = [
 ];
 
 const REMOVED_SETTINGS_HEADINGS = new Set([
-  "Business Details",
   "Connections",
   "📚 Accounting",
   "💳 Payments",
@@ -77,10 +76,14 @@ function preserveDocumentSettings() {
 }
 
 function getBusinessDetailsContainer(panel) {
-  const section = Array.from(panel.querySelectorAll(":scope > .settings-section")).find(section => section.querySelector(":scope > h2")?.textContent.trim() === "Business Details");
-  if (section) return section;
-  const heading = Array.from(panel.querySelectorAll(":scope > h2")).find(item => item.textContent.trim() === "Business Details");
-  return heading?.parentElement || null;
+  // Do not create the Quote Message section until settings-ui.js has moved
+  // the real Business Details section into the Business category container.
+  if (panel.dataset.sectionsPlaced !== "true") return null;
+
+  const section = Array.from(panel.querySelectorAll(".settings-section")).find(
+    section => section.querySelector(":scope > h2")?.textContent.trim() === "Business Details"
+  );
+  return section || null;
 }
 
 async function installQuoteMessageSettings() {

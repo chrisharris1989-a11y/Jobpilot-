@@ -18,9 +18,7 @@
     ["Danger Zone", "Export data or permanently delete your account.", ["Danger Zone"]]
   ];
 
-  function isSettingsPage() {
-    return document.getElementById("pageTitle")?.textContent.trim() === "Settings";
-  }
+  function isSettingsPage() { return document.getElementById("pageTitle")?.textContent.trim() === "Settings"; }
 
   function addSettingsSectionStyles() {
     if (document.getElementById("jobpilot-settings-section-styles")) return;
@@ -77,7 +75,6 @@
       return heading === "Quote Message" || heading === "Quote Templates";
     });
     if (!quoteSections.length) return;
-
     let content = panel.querySelector(":scope > .settings-category-content[data-category=\"App / Preferences\"]");
     if (!content) {
       content = document.createElement("div");
@@ -106,20 +103,12 @@
     const isDangerZone = title === "Danger Zone";
     grid.classList.add("is-hidden");
     header.classList.remove("is-hidden");
-
-    panel.querySelectorAll(":scope > .settings-category-content").forEach(content => {
-      content.classList.toggle("is-hidden", content.dataset.category !== title);
-    });
-
+    panel.querySelectorAll(":scope > .settings-category-content").forEach(content => content.classList.toggle("is-hidden", content.dataset.category !== title));
     sections.forEach(section => {
       const isNestedQuoteSection = section.parentElement?.classList.contains("settings-category-content");
-      if (isNestedQuoteSection) {
-        section.classList.remove("is-hidden");
-        return;
-      }
-      const isMatch = matchingSections.includes(section);
-      section.classList.toggle("is-hidden", !isMatch);
-      if (isMatch) section.querySelectorAll(":scope > .settings-section").forEach(child => child.classList.remove("is-hidden"));
+      if (isNestedQuoteSection) { section.classList.remove("is-hidden"); return; }
+      section.classList.toggle("is-hidden", !matchingSections.includes(section));
+      if (matchingSections.includes(section)) section.querySelectorAll(":scope > .settings-section").forEach(child => child.classList.remove("is-hidden"));
     });
     deleteCard?.classList.toggle("is-hidden", !isDangerZone);
     saveActions?.classList.remove("is-hidden");
@@ -218,15 +207,15 @@
   }
 
   addSettingsSectionStyles();
-
   let settingsTimer = null;
   const observer=new MutationObserver(()=>{
     removeStripeFromSettings();
+    const panel=document.querySelector(".settings-panel");
+    if(panel) moveQuoteSettingsIntoAppPreferences(panel);
     clearTimeout(settingsTimer);
     settingsTimer=setTimeout(sectionizeSettings,100);
   });
   observer.observe(document.body,{childList:true,subtree:true});
-
   removeStripeFromSettings();
   sectionizeSettings();
 })();

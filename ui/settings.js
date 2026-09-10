@@ -28,7 +28,7 @@ function renderSettingsOverview(content) {
           <span class="jp-settings-card-icon">🏢</span>
           <span class="jp-settings-card-body">
             <strong>Company</strong>
-            <small>Manage your company details, business information and logo.</small>
+            <small>Manage your company details and logo.</small>
           </span>
           <span class="jp-settings-card-arrow">→</span>
         </button>
@@ -99,7 +99,7 @@ function renderCompanySettings(content) {
     <section class="settings-page jp-settings-page">
       <header class="page-header">
         <h2>Company</h2>
-        <p>Manage your company information and branding.</p>
+        <p>Manage your company details and branding.</p>
       </header>
 
       <button class="jp-settings-back" type="button" data-settings-back>← Settings</button>
@@ -110,15 +110,6 @@ function renderCompanySettings(content) {
           <span class="jp-settings-card-body">
             <strong>Company Details</strong>
             <small>Manage your company name, address and contact details.</small>
-          </span>
-          <span class="jp-settings-card-arrow">→</span>
-        </button>
-
-        <button class="jp-settings-card" type="button" data-settings-company="business">
-          <span class="jp-settings-card-icon">📋</span>
-          <span class="jp-settings-card-body">
-            <strong>Business Information</strong>
-            <small>Manage your trading and business information.</small>
           </span>
           <span class="jp-settings-card-arrow">→</span>
         </button>
@@ -145,7 +136,6 @@ function renderCompanySettings(content) {
     card.addEventListener("click", () => {
       const labels = {
         details: "Company Details settings are ready to be populated.",
-        business: "Business Information settings are ready to be populated.",
         logo: "Company Logo settings are ready to be populated."
       };
       showAccountMessage(labels[card.dataset.settingsCompany]);

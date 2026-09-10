@@ -69,7 +69,7 @@ import { supabase } from "../supabase.js";
       if (error) throw error;
       const result = Array.isArray(data) ? data[0] : data;
       if (message) {
-        message.textContent = `Test plan changed to ${PLANS[plan].label}. No Stripe payment was made.`;
+        message.textContent = `Test plan changed to ${PLANS[plan].label}. No Synapto payment was made.`;
         message.style.color = "#166534";
       }
       return result;
@@ -85,15 +85,16 @@ import { supabase } from "../supabase.js";
 
   async function openBilling(action, plan, message) {
     if (message) {
-      message.textContent = "Opening Stripe billing...";
+      message.textContent = "Opening Synapto secure checkout...";
       message.style.color = "#64748b";
     }
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
       if (!session) throw new Error("You are not logged in.");
+      if (action !== "checkout") throw new Error("Billing management is not available yet.");
 
-      const response = await fetch("https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-billing-v1", {
+      const response = await fetch("https://qxoynttvipducubmczwl.supabase.co/functions/v1/synapto-billing-v1", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -102,8 +103,8 @@ import { supabase } from "../supabase.js";
         body: JSON.stringify({ action, plan, origin: window.location.origin })
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Could not open Stripe billing.");
-      if (!result.url) throw new Error("Stripe did not return a billing URL.");
+      if (!response.ok) throw new Error(result.error || "Could not open Synapto checkout.");
+      if (!result.url) throw new Error("Synapto did not return a checkout URL.");
       window.location.assign(result.url);
     } catch (error) {
       console.error("JobPilot billing error:", error);
@@ -208,8 +209,8 @@ import { supabase } from "../supabase.js";
 
       const status = String(entitlement?.subscription_status || "").toLowerCase();
       if (!isTest && ["active", "trialing", "past_due", "canceled"].includes(status)) {
-        const manage = button("Manage billing", "button");
-        manage.addEventListener("click", () => openBilling("portal", null, message));
+        const manage = button("Change payment method", "button secondary");
+        manage.addEventListener("click", () => openBilling("checkout", planName, message));
         actions.appendChild(manage);
       }
     }

@@ -13,6 +13,7 @@ import { supabase } from "../supabase.js";
 
   let companyId = null;
   let loaded = false;
+  let rendering = false;
   let saving = false;
 
   function isSettingsPage() {
@@ -129,90 +130,111 @@ import { supabase } from "../supabase.js";
   }
 
   async function renderSmsSettings() {
-    if (!isSettingsPage()) return;
+    if (!isSettingsPage() || loaded || rendering) return;
 
     const panel = document.querySelector(".settings-panel");
-    if (!panel || document.getElementById("sms-settings-section")) return;
-
-    addStyles();
-
-    if (!companyId) companyId = await getCompanyId();
-    if (!companyId) return;
-
-    const { data: company, error } = await supabase
-      .from("companies")
-      .select("sms_automation_enabled, sms_automation_types")
-      .eq("id", companyId)
-      .maybeSingle();
-
-    if (error) {
-      console.error("SMS settings load:", error);
+    if (!panel || document.getElementById("sms-settings-section")) {
+      if (document.getElementById("sms-settings-section")) loaded = true;
       return;
     }
 
-    const enabled = Boolean(company?.sms_automation_enabled);
-    const selected = Array.isArray(company?.sms_automation_types)
-      ? company.sms_automation_types
-      : [];
+    // Lock rendering immediately so repeated MutationObserver callbacks cannot
+    // start multiple async renders before the first one finishes.
+    rendering = true;
 
-    const section = document.createElement("section");
-    section.id = "sms-settings-section";
-    section.className = "settings-section sms-settings-section";
-    section.innerHTML = `
-      <div class="sms-settings-header">
-        <div>
-          <h2>SMS Automation</h2>
-          <p>Choose which SMS messages JobPilot can send automatically.</p>
+    try {
+      addStyles();
+
+      if (!companyId) companyId = await getCompanyId();
+      if (!companyId) return;
+
+      // Re-check after the async lookup because another render may have
+      // completed while this one was waiting.
+      if (document.getElementById("sms-settings-section")) {
+        loaded = true;
+        return;
+      }
+
+      const { data: company, error } = await supabase
+        .from("companies")
+        .select("sms_automation_enabled, sms_automation_types")
+        .eq("id", companyId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("SMS settings load:", error);
+        return;
+      }
+
+      const enabled = Boolean(company?.sms_automation_enabled);
+      const selected = Array.isArray(company?.sms_automation_types)
+        ? company.sms_automation_types
+        : [];
+
+      const section = document.createElement("section");
+      section.id = "sms-settings-section";
+      section.className = "settings-section sms-settings-section";
+      section.innerHTML = `
+        <div class="sms-settings-header">
+          <div>
+            <h2>SMS Automation</h2>
+            <p>Choose which SMS messages JobPilot can send automatically.</p>
+          </div>
         </div>
-      </div>
 
-      <div class="sms-toggle-row">
-        <div class="sms-toggle-copy">
-          <strong>SMS Automation</strong>
-          <span>Manual SMS can still be sent when automation is off.</span>
-        </div>
-        <label class="sms-switch" aria-label="SMS Automation">
-          <input id="smsAutomationEnabled" type="checkbox" ${enabled ? "checked" : ""}>
-          <span class="sms-slider"></span>
-        </label>
-      </div>
-
-      <div id="smsAutomationList" class="sms-automation-list" ${enabled ? "" : "hidden"}>
-        <h3 class="sms-automation-title">Select SMS to automate</h3>
-        ${AUTOMATIONS.map(([value, title, description]) => `
-          <label class="sms-automation-option">
-            <input type="checkbox" data-sms-automation value="${value}" ${selected.includes(value) ? "checked" : ""}>
-            <span>
-              <strong>${title}</strong>
-              <span>${description}</span>
-            </span>
+        <div class="sms-toggle-row">
+          <div class="sms-toggle-copy">
+            <strong>SMS Automation</strong>
+            <span>Manual SMS can still be sent when automation is off.</span>
+          </div>
+          <label class="sms-switch" aria-label="SMS Automation">
+            <input id="smsAutomationEnabled" type="checkbox" ${enabled ? "checked" : ""}>
+            <span class="sms-slider"></span>
           </label>
-        `).join("")}
-      </div>
+        </div>
 
-      <div id="smsAutomationDisabled" class="sms-settings-disabled" ${enabled ? "hidden" : ""}>
-        Automated SMS are currently switched off for this account.
-      </div>
+        <div id="smsAutomationList" class="sms-automation-list" ${enabled ? "" : "hidden"}>
+          <h3 class="sms-automation-title">Select SMS to automate</h3>
+          ${AUTOMATIONS.map(([value, title, description]) => `
+            <label class="sms-automation-option">
+              <input type="checkbox" data-sms-automation value="${value}" ${selected.includes(value) ? "checked" : ""}>
+              <span>
+                <strong>${title}</strong>
+                <span>${description}</span>
+              </span>
+            </label>
+          `).join("")}
+        </div>
 
-      <div id="smsSettingsStatus" class="sms-settings-status" aria-live="polite"></div>
-    `;
+        <div id="smsAutomationDisabled" class="sms-settings-disabled" ${enabled ? "hidden" : ""}>
+          Automated SMS are currently switched off for this account.
+        </div>
 
-    panel.appendChild(section);
-    loaded = true;
+        <div id="smsSettingsStatus" class="sms-settings-status" aria-live="polite"></div>
+      `;
 
-    document.getElementById("smsAutomationEnabled")?.addEventListener("change", async (event) => {
-      setEnabledState(event.target.checked);
-      await saveSettings();
-    });
+      panel.appendChild(section);
+      loaded = true;
 
-    document.querySelectorAll("[data-sms-automation]").forEach(input => {
-      input.addEventListener("change", saveSettings);
-    });
+      document.getElementById("smsAutomationEnabled")?.addEventListener("change", async (event) => {
+        setEnabledState(event.target.checked);
+        await saveSettings();
+      });
+
+      document.querySelectorAll("[data-sms-automation]").forEach(input => {
+        input.addEventListener("change", saveSettings);
+      });
+    } finally {
+      rendering = false;
+    }
   }
 
   const observer = new MutationObserver(() => {
-    if (isSettingsPage() && !loaded) renderSmsSettings();
-    if (!isSettingsPage()) loaded = false;
+    if (isSettingsPage()) renderSmsSettings();
+    else {
+      loaded = false;
+      rendering = false;
+    }
   });
 
   observer.observe(document.body, { childList: true, subtree: true });

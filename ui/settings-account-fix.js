@@ -3,8 +3,6 @@
 // =====================================================
 // Settings > Account
 // Account is rendered as one clean page with two sections.
-// This module binds once per Settings panel and does not
-// observe the whole document or rebuild on every mutation.
 // =====================================================
 
 (function () {
@@ -17,24 +15,15 @@
     {
       title: "Business Details",
       description: "Your business name, email and address.",
-      fields: [
-        ["settingsBusinessName", "Business name"],
-        ["settingsBusinessEmail", "Business email"],
-        ["settingsAddress", "Address"]
-      ]
+      fields: [["settingsBusinessName", "Business name"], ["settingsBusinessEmail", "Business email"], ["settingsAddress", "Address"]]
     }
   ];
 
   let boundPanel = null;
   let accountPage = null;
 
-  function getPanel() {
-    return document.querySelector(".settings-panel");
-  }
-
-  function getSource(id) {
-    return document.getElementById(id);
-  }
+  function getPanel() { return document.querySelector(".settings-panel"); }
+  function getSource(id) { return document.getElementById(id); }
 
   function addStyles() {
     if (document.getElementById("jobpilot-account-page-css")) return;
@@ -60,6 +49,7 @@
   function hideSettingsHome(panel) {
     panel.querySelector(".settings-category-grid")?.classList.add("is-hidden");
     panel.querySelector(".settings-category-view-header")?.classList.add("is-hidden");
+    panel.querySelectorAll(":scope > .settings-category-content").forEach(content => content.classList.add("is-hidden"));
     panel.querySelectorAll(".settings-section").forEach(section => section.classList.add("is-hidden"));
     panel.querySelector(".settings-save-actions")?.classList.add("is-hidden");
     document.getElementById("deleteAccountCard")?.classList.add("is-hidden");
@@ -68,6 +58,7 @@
   function showSettingsHome(panel) {
     accountPage?.classList.add("is-hidden");
     panel.querySelector(".settings-category-grid")?.classList.remove("is-hidden");
+    panel.querySelectorAll(":scope > .settings-category-content").forEach(content => content.classList.add("is-hidden"));
     panel.querySelectorAll(".settings-section").forEach(section => section.classList.add("is-hidden"));
     panel.querySelector(".settings-category-view-header")?.classList.add("is-hidden");
     panel.querySelector(".settings-save-actions")?.classList.add("is-hidden");
@@ -82,10 +73,8 @@
   function makeField(id, labelText) {
     const original = getSource(id);
     if (!original) return null;
-
     const row = document.createElement("div");
     row.className = "jobpilot-account-field";
-
     const label = document.createElement("label");
     label.textContent = labelText;
 
@@ -122,7 +111,6 @@
 
   function buildAccountPage(panel) {
     if (accountPage && accountPage.isConnected) return;
-
     accountPage = document.createElement("div");
     accountPage.className = "jobpilot-account-page is-hidden";
     accountPage.innerHTML = `
@@ -137,9 +125,7 @@
         `).join("")}
       </div>
     `;
-
     panel.appendChild(accountPage);
-
     accountPage.querySelector(".jobpilot-account-back")?.addEventListener("click", event => {
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -149,7 +135,6 @@
 
   function populateAccountPage() {
     if (!accountPage) return;
-
     GROUPS.forEach((group, index) => {
       const body = accountPage.querySelector(`[data-account-group="${index}"] .jobpilot-account-fields`);
       if (!body) return;
@@ -162,9 +147,16 @@
   }
 
   function openAccount(panel) {
+    // Account is a standalone view. No settings category or other settings cards are shown.
+    panel.querySelectorAll(":scope > .settings-category-content").forEach(content => content.classList.add("is-hidden"));
+    panel.querySelector(".settings-category-view-header")?.classList.add("is-hidden");
+    panel.querySelector(".settings-category-grid")?.classList.add("is-hidden");
+    panel.querySelector(".settings-save-actions")?.classList.add("is-hidden");
+    document.getElementById("deleteAccountCard")?.classList.add("is-hidden");
+    panel.querySelectorAll(".settings-section").forEach(section => section.classList.add("is-hidden"));
+
     buildAccountPage(panel);
     populateAccountPage();
-    hideSettingsHome(panel);
     accountPage.classList.remove("is-hidden");
 
     const title = document.getElementById("pageTitle");
@@ -178,16 +170,13 @@
     boundPanel = panel;
     addStyles();
     buildAccountPage(panel);
-
     const grid = panel.querySelector(".settings-category-grid");
     if (!grid) return;
-
     grid.addEventListener("click", event => {
       const card = event.target.closest(".settings-category-card");
       if (!card || !grid.contains(card)) return;
       const title = card.querySelector(".settings-category-card-title")?.textContent.trim();
       if (title !== "Account") return;
-
       event.preventDefault();
       event.stopImmediatePropagation();
       openAccount(panel);
@@ -200,8 +189,6 @@
     bind(panel);
   }
 
-  // Settings UI creates its category grid after page navigation. Wait for
-  // that single element rather than observing/rebuilding the entire body.
   const starter = setInterval(() => {
     const panel = getPanel();
     if (panel?.querySelector(".settings-category-grid")) {
@@ -209,6 +196,5 @@
       init();
     }
   }, 50);
-
   setTimeout(() => clearInterval(starter), 10000);
 })();

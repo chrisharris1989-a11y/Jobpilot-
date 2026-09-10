@@ -23,7 +23,7 @@ import { supabase } from "./supabase.js";
           <button type="button" class="jobpilot-plan-close" aria-label="Close">&times;</button>
           <div class="jobpilot-plan-header">
             <h2 id="jobpilotPlanTitle">Choose your JobPilot plan</h2>
-            <p>Your first 7 days are free. Choose the plan that best fits your business.</p>
+            <p>Choose the plan that best fits your business.</p>
           </div>
           <div class="jobpilot-plan-grid">
             ${Object.entries(PLANS).map(([id, plan]) => `
@@ -34,7 +34,7 @@ import { supabase } from "./supabase.js";
               </button>
             `).join("")}
           </div>
-          <p class="jobpilot-plan-note">You won't be charged during the 7-day trial.</p>
+          <p class="jobpilot-plan-note">You will be charged according to the plan you select.</p>
         </div>
       `;
 
@@ -73,57 +73,45 @@ import { supabase } from "./supabase.js";
     });
   }
 
-  async function ensureTrialCompany(user) {
+  async function startSubscription(user) {
     if (!user || processingUserId === user.id) return;
-    if (user.user_metadata?.jobpilot_trial_signup !== true) return;
+    if (user.user_metadata?.jobpilot_subscription_signup !== true) return;
 
     processingUserId = user.id;
 
     try {
-      const { data: existingMembership, error: membershipError } = await supabase
-        .from("company_members")
-        .select("id,company_id")
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .limit(1)
-        .maybeSingle();
-
-      if (membershipError) throw membershipError;
-      if (existingMembership?.company_id) return;
-
-      const businessName = String(user.user_metadata?.jobpilot_business_name || "").trim();
       const selectedPlan = String(user.user_metadata?.jobpilot_plan || "").trim().toLowerCase();
-      if (!businessName) {
-        console.error("JobPilot trial: missing business name.");
-        return;
-      }
-      if (!PLANS[selectedPlan]) {
-        console.error("JobPilot trial: missing or invalid plan.");
-        return;
-      }
+      const businessName = String(user.user_metadata?.jobpilot_business_name || "").trim();
+      if (!PLANS[selectedPlan] || !businessName) return;
 
-      const { error } = await supabase.rpc("create_my_company", {
+      const { error: companyError } = await supabase.rpc("create_my_company", {
         requested_plan: selectedPlan,
         requested_name: businessName
       });
+      if (companyError) throw companyError;
 
-      if (error) {
-        console.error("JobPilot trial signup:", error);
-        if (error.message?.includes("five free JobPilot trial places")) {
-          window.__jobpilotTrialSignupError = "The five free JobPilot trial places have already been claimed. Please contact us if you would like to subscribe.";
-        } else if (error.message?.includes("already used a JobPilot free trial")) {
-          window.__jobpilotTrialSignupError = "This email address has already used a JobPilot free trial.";
-        } else {
-          window.__jobpilotTrialSignupError = error.message || "We could not start your free trial.";
-        }
-        return;
-      }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Your account session is not ready yet. Please sign in again.");
 
-      window.__jobpilotTrialStarted = true;
-      window.dispatchEvent(new CustomEvent("jobpilot:trial-ready"));
+      const { data, error } = await supabase.functions.invoke("synapto-billing-v1", {
+        body: {
+          action: "checkout",
+          plan: selectedPlan,
+          origin: window.location.origin
+        },
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
+      if (error) throw error;
+      if (!data?.url) throw new Error(data?.error || "Synapto did not return a checkout link.");
+
+      window.location.href = data.url;
     } catch (error) {
-      console.error("JobPilot trial onboarding:", error);
-      window.__jobpilotTrialSignupError = error.message || "We could not start your free trial.";
+      console.error("JobPilot subscription signup:", error);
+      const message = document.getElementById("authMessage");
+      if (message) {
+        message.textContent = error?.message || "We could not start your subscription. Please try again.";
+        message.style.color = "#dc2626";
+      }
     } finally {
       processingUserId = null;
     }
@@ -162,7 +150,7 @@ import { supabase } from "./supabase.js";
     }
 
     if (message) {
-      message.textContent = `Creating your ${PLANS[selectedPlan].label} free 7-day trial...`;
+      message.textContent = `Creating your ${PLANS[selectedPlan].label} account...`;
       message.style.color = "#2563eb";
     }
 
@@ -171,7 +159,7 @@ import { supabase } from "./supabase.js";
       password,
       options: {
         data: {
-          jobpilot_trial_signup: true,
+          jobpilot_subscription_signup: true,
           jobpilot_business_name: businessName.trim(),
           jobpilot_plan: selectedPlan
         }
@@ -187,36 +175,14 @@ import { supabase } from "./supabase.js";
     }
 
     if (data.session?.user) {
-      await ensureTrialCompany(data.session.user);
-      if (window.__jobpilotTrialSignupError) {
-        await supabase.auth.signOut();
-        if (message) {
-          message.textContent = window.__jobpilotTrialSignupError;
-          message.style.color = "#dc2626";
-        }
-        return;
-      }
-    }
-
-    if (message) {
-      message.textContent = data.session
-        ? `Your ${PLANS[selectedPlan].label} 7-day trial is ready. Loading JobPilot...`
-        : `Account created. Please check your email (including your junk/spam folder) to confirm your account, then sign in to start your ${PLANS[selectedPlan].label} 7-day trial.`;
+      await startSubscription(data.session.user);
+    } else if (message) {
+      message.textContent = "Account created. Please check your email (including junk/spam), confirm your account, then sign in to continue to payment.";
       message.style.color = "#166534";
     }
   }, true);
 
   supabase.auth.onAuthStateChange((_event, session) => {
-    if (session?.user) {
-      void ensureTrialCompany(session.user);
-    }
-  });
-
-  window.addEventListener("jobpilot:trial-ready", () => {
-    const message = document.getElementById("authMessage");
-    if (message) {
-      message.textContent = "Your free 7-day trial is ready. Loading JobPilot...";
-      message.style.color = "#166534";
-    }
+    if (session?.user) void startSubscription(session.user);
   });
 })();

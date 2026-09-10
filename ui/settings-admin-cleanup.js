@@ -76,23 +76,29 @@ function preserveDocumentSettings() {
   });
 }
 
+function getBusinessDetailsContainer(panel) {
+  const section = Array.from(panel.querySelectorAll(":scope > .settings-section")).find(section => section.querySelector(":scope > h2")?.textContent.trim() === "Business Details");
+  if (section) return section;
+  const heading = Array.from(panel.querySelectorAll(":scope > h2")).find(item => item.textContent.trim() === "Business Details");
+  return heading?.parentElement || null;
+}
+
 async function installQuoteMessageSettings() {
   if (!isSettingsPage()) return;
 
   const existing = document.getElementById("jobpilot-quote-message-settings");
   if (existing) return;
 
-  // Quote message configuration is a management/company setting.
-  // Normal users (members) must not see it.
   if (!(await hasQuoteMessageAccess())) return;
 
   const panel = document.querySelector(".settings-panel");
   if (!panel) return;
 
+  const businessContainer = getBusinessDetailsContainer(panel);
+  if (!businessContainer) return;
+
   let settings = {};
-  try {
-    settings = JSON.parse(localStorage.getItem("jobpilot_settings") || "{}");
-  } catch {}
+  try { settings = JSON.parse(localStorage.getItem("jobpilot_settings") || "{}"); } catch {}
 
   const defaultTemplate = [
     "Hi {customer_name},",
@@ -125,7 +131,7 @@ async function installQuoteMessageSettings() {
     <div id="jobpilotQuoteMessageStatus" class="muted" style="margin-top:8px"></div>
   `;
 
-  panel.insertBefore(section, panel.firstElementChild);
+  businessContainer.appendChild(section);
 
   document.getElementById("jobpilotSaveQuoteMessage")?.addEventListener("click", () => {
     const textarea = document.getElementById("jobpilotQuoteMessageTemplate");
@@ -174,9 +180,7 @@ async function sendCustomQuote(quoteId, button) {
 
     if (quoteError) throw quoteError;
     if (!quote) throw new Error("Quote could not be found.");
-    if (String(quote.status).toLowerCase() === "converted") {
-      throw new Error("This quote has already been converted to a job.");
-    }
+    if (String(quote.status).toLowerCase() === "converted") throw new Error("This quote has already been converted to a job.");
 
     const { data: customer, error: customerError } = await supabase
       .from("customers")
@@ -209,7 +213,6 @@ async function sendCustomQuote(quoteId, button) {
     ].join("\n");
 
     const template = String(settings.quoteMessageTemplate || defaultTemplate);
-
     const replacements = {
       "{customer_name}": customer.name || "Customer",
       "{quote_number}": quote.quote_number || "—",
@@ -217,16 +220,10 @@ async function sendCustomQuote(quoteId, button) {
       "{valid_until}": quote.valid_until || "",
       "{business_name}": settings.businessName || "our business"
     };
-
     const message = template.replace(/\{customer_name\}|\{quote_number\}|\{quote_total\}|\{valid_until\}|\{business_name\}/g, match => replacements[match]);
 
-    const { error: statusError } = await supabase
-      .from("quotes")
-      .update({ status: "sent" })
-      .eq("id", quote.id);
-
+    const { error: statusError } = await supabase.from("quotes").update({ status: "sent" }).eq("id", quote.id);
     if (statusError) throw statusError;
-
     window.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
   } catch (error) {
     console.error("JobPilot send quote:", error);
@@ -239,11 +236,9 @@ async function sendCustomQuote(quoteId, button) {
 function installCustomQuoteSendButtons() {
   document.querySelectorAll(".quote-send[data-quote-id]").forEach(originalButton => {
     if (originalButton.dataset.quoteMessageCustomized === "true") return;
-
     const button = originalButton.cloneNode(true);
     button.dataset.quoteMessageCustomized = "true";
     originalButton.replaceWith(button);
-
     button.addEventListener("click", event => {
       event.stopPropagation();
       sendCustomQuote(button.dataset.quoteId, button);
@@ -256,27 +251,20 @@ function removeSettingsAdminSections() {
 
   REMOVED_SETTINGS_IDS.forEach(id => document.getElementById(id)?.remove());
 
-  // Connections is a top-level navigation item. It must never be removed here.
-  // Only remove old Connections content if it is actually inside Settings.
   document.querySelectorAll(".settings-section, .settings-group, .settings-card, .connection-group, section").forEach(section => {
     const heading = section.querySelector(":scope > h2, :scope > h3")?.textContent.trim();
     if (heading && REMOVED_SETTINGS_HEADINGS.has(heading)) section.remove();
   });
 
-  // Remove document/invoice sections if they are rendered directly in the Settings panel.
   document.querySelectorAll(".settings-panel h2").forEach(heading => {
     const text = heading.textContent.trim();
     if (!REMOVED_SETTINGS_HEADINGS.has(text)) return;
-
     let node = heading;
     while (node) {
       const next = node.nextElementSibling;
       node.remove();
       if (!next) break;
-      if (next.tagName === "HR") {
-        next.remove();
-        break;
-      }
+      if (next.tagName === "HR") { next.remove(); break; }
       if (next.tagName === "H2") break;
       node = next;
     }

@@ -22,13 +22,11 @@
     return document.getElementById("pageTitle")?.textContent.trim() === "Settings";
   }
 
-  // Hide raw Settings panels immediately so users never see the page being rebuilt.
   function addSettingsSectionStyles() {
     if (document.getElementById("jobpilot-settings-section-styles")) return;
     const style = document.createElement("style");
     style.id = "jobpilot-settings-section-styles";
     style.textContent = `
-      .settings-panel:not(.settings-ready) { visibility:hidden !important; }
       .settings-panel.settings-sectionized { background:transparent; border:0; box-shadow:none; padding:0; }
       .settings-category-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin:0 0 24px; }
       .settings-category-card { appearance:none; width:100%; min-height:118px; text-align:left; font:inherit; color:inherit; background:var(--surface,#fff); border:1px solid var(--border,#e5e7eb); border-radius:var(--radius,12px); box-shadow:var(--shadow,0 2px 8px rgba(15,23,42,.04)); padding:18px; cursor:pointer; }
@@ -172,8 +170,6 @@
     panel.classList.add("settings-sectionized");
     panel.dataset.sectionized="true";
     markBusinessDetailsSection();
-    // Reveal only after the complete Settings transformation is finished.
-    panel.classList.add("settings-ready");
   }
 
   function moveSaveActionOutsideCards(panel) {
@@ -198,7 +194,7 @@
   const observer=new MutationObserver(()=>{
     removeStripeFromSettings();
     clearTimeout(settingsTimer);
-    settingsTimer=setTimeout(sectionizeSettings,500);
+    settingsTimer=setTimeout(sectionizeSettings,100);
   });
   observer.observe(document.body,{childList:true,subtree:true});
 

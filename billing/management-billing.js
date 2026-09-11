@@ -16,15 +16,11 @@ import { supabase } from "../supabase.js";
   };
 
   const SMS_AUTOMATIONS = [
-    { key: "quote_sent", label: "Quote sent", description: "Send an SMS when a quote is sent to a customer." },
-    { key: "quote_accepted", label: "Quote accepted", description: "Send an SMS when a customer accepts a quote." },
-    { key: "job_booked", label: "Job booked", description: "Send an SMS when a job is booked or confirmed." },
+    { key: "quote_follow_up", label: "Quote follow up", description: "Send an SMS follow up for a quote." },
+    { key: "appointment_confirmed", label: "Appointment confirmed", description: "Send an SMS when an appointment is confirmed." },
     { key: "appointment_reminder", label: "Appointment reminder", description: "Send an SMS reminder before an upcoming appointment." },
-    { key: "job_rescheduled", label: "Job rescheduled", description: "Send an SMS when an appointment is rescheduled." },
-    { key: "job_completed", label: "Job completed", description: "Send an SMS when a job is marked as completed." },
-    { key: "invoice_sent", label: "Invoice sent", description: "Send an SMS when an invoice is issued." },
-    { key: "payment_received", label: "Payment received", description: "Send an SMS when payment is received." },
-    { key: "payment_overdue", label: "Payment overdue", description: "Send an SMS when an invoice becomes overdue." }
+    { key: "appointment_rescheduled", label: "Appointment rescheduled", description: "Send an SMS when an appointment is rescheduled." },
+    { key: "invoice_overdue", label: "Invoice overdue", description: "Send an SMS when an invoice becomes overdue." }
   ];
 
   function isBillingPage() {

@@ -1,3 +1,4 @@
+import "./app-preferences.js";
 import { supabase } from "../supabase.js";
 
 (() => {

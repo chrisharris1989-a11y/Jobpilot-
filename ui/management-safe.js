@@ -50,6 +50,14 @@ function renderSafeManagementLanding() {
       window.renderManagementBillingPage();
     }
   });
+
+  content.querySelector('[data-management-section="import"]')?.addEventListener("click", () => {
+    if (typeof window.renderManagementImportExport === "function") {
+      window.renderManagementImportExport();
+      return;
+    }
+    console.error("JobPilot: Import & Export module is not loaded.");
+  });
 }
 
 window.renderSafeManagementLanding = renderSafeManagementLanding;

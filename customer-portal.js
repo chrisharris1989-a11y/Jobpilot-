@@ -61,6 +61,24 @@ export async function getPortalDashboard(customerId) {
   return { jobs: jobs.data || [], quotes: quotes.data || [], invoices: invoices.data || [] };
 }
 
+export async function reschedulePortalJob(jobId, customerId, scheduledDate, scheduledTime) {
+  const date = String(scheduledDate || '').trim();
+  const time = String(scheduledTime || '').trim();
+  if (!date) throw new Error('Please choose a new appointment date.');
+  if (!customerId) throw new Error('Customer portal session is invalid.');
+
+  const { data, error } = await supabase
+    .from('jobs')
+    .update({ scheduled_date: date, scheduled_time: time || null })
+    .eq('id', jobId)
+    .eq('customer_id', customerId)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 async function quoteAction(quoteId, action) {
   const { data: { session } = {} } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('Your portal session has expired. Please sign in again.');

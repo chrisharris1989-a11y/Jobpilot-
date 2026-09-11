@@ -98,17 +98,44 @@ import { supabase } from "../supabase.js";
         <div><h2>💳 Billing</h2><p>Manage your JobPilot subscription.</p></div>
         <button id="jobpilot-billing-back" class="button secondary" type="button">← Back to Management</button>
       </div>
-      <div class="content-grid"><div class="panel" id="jobpilot-management-billing-card">
-        <div class="panel-header"><div><h2>Current Plan</h2><p id="jobpilot-management-plan-summary">Loading plan...</p></div><div id="jobpilot-management-plan-price"></div></div>
-        <div id="jobpilot-management-test-badge" style="display:none;margin-top:10px;"></div>
-        <div id="jobpilot-management-billing-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:20px;"></div>
-        <div id="jobpilot-management-upgrade-options" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;"></div>
-        <div id="jobpilot-management-billing-message" style="margin-top:12px;font-size:13px;"></div>
-      </div></div>`;
+      <div class="content-grid">
+        <div class="panel" id="jobpilot-management-billing-card">
+          <div class="panel-header"><div><h2>Current Plan</h2><p id="jobpilot-management-plan-summary">Loading plan...</p></div><div id="jobpilot-management-plan-price"></div></div>
+          <div id="jobpilot-management-test-badge" style="display:none;margin-top:10px;"></div>
+          <div id="jobpilot-management-billing-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:20px;"></div>
+          <div id="jobpilot-management-upgrade-options" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;"></div>
+          <div id="jobpilot-management-billing-message" style="margin-top:12px;font-size:13px;"></div>
+        </div>
+
+        <div class="panel" id="jobpilot-management-sms-settings-card">
+          <div class="panel-header">
+            <div>
+              <h2>SMS Settings</h2>
+              <p>Set up SMS messaging for your JobPilot account.</p>
+            </div>
+          </div>
+          <div style="margin-top:12px;padding:12px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;">
+            <div style="font-weight:600;">Manual SMS</div>
+            <div style="margin-top:4px;font-size:13px;color:#64748b;">SMS messaging is not configured yet.</div>
+          </div>
+          <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button id="jobpilot-sms-settings-button" class="button secondary" type="button">SMS Settings</button>
+          </div>
+          <div id="jobpilot-sms-settings-message" style="margin-top:10px;font-size:13px;"></div>
+        </div>
+      </div>`;
 
     document.getElementById("jobpilot-billing-back")?.addEventListener("click", () => {
       if (typeof window.renderSafeManagementLanding === "function") window.renderSafeManagementLanding();
       else if (typeof window.renderManagementPage === "function") window.renderManagementPage();
+    });
+
+    document.getElementById("jobpilot-sms-settings-button")?.addEventListener("click", () => {
+      const message = document.getElementById("jobpilot-sms-settings-message");
+      if (message) {
+        message.textContent = "SMS settings will be configured here when the manual SMS connection is added.";
+        message.style.color = "#64748b";
+      }
     });
 
     const summary = document.getElementById("jobpilot-management-plan-summary");

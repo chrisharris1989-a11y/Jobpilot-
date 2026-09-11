@@ -150,6 +150,14 @@ import { supabase } from "../supabase.js";
             <button id="jobpilot-sms-settings-button" class="button secondary" type="button">SMS Settings</button>
           </div>
           <div id="jobpilot-sms-settings-message" style="margin-top:10px;font-size:13px;"></div>
+          <div id="jobpilot-sms-provider-card" class="panel" style="display:none;margin-top:12px;">
+            <div class="panel-header">
+              <div>
+                <h2>SMS Settings</h2>
+              </div>
+            </div>
+            <div style="min-height:120px;"></div>
+          </div>
         </div>
       </div>`;
 
@@ -269,11 +277,12 @@ import { supabase } from "../supabase.js";
     });
 
     document.getElementById("jobpilot-sms-settings-button")?.addEventListener("click", () => {
+      const card = document.getElementById("jobpilot-sms-provider-card");
       const message = document.getElementById("jobpilot-sms-settings-message");
-      if (message) {
-        message.textContent = "SMS provider settings will be configured here when the manual SMS connection is added.";
-        message.style.color = "#64748b";
-      }
+      if (!card) return;
+      const isOpen = card.style.display !== "none";
+      card.style.display = isOpen ? "none" : "block";
+      if (message) message.textContent = "";
     });
 
     const summary = document.getElementById("jobpilot-management-plan-summary");

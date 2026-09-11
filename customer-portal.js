@@ -2,6 +2,7 @@ import { supabase } from './supabase.js';
 import './portal-auth.js';
 
 const QUOTE_ACTION_URL = 'https://qxoynttvipducubmczwl.supabase.co/functions/v1/customer-quote-action';
+let activePortalJobId = new URLSearchParams(window.location.search).get('job') || null;
 
 export async function getCustomerPortalSession() {
   const { data: { session } = {} } = await supabase.auth.getSession();
@@ -49,6 +50,60 @@ const portalRootObserver = new MutationObserver(() => setTimeout(applyPortalBran
 const portalRoot = document.getElementById('portal-root');
 if (portalRoot) portalRootObserver.observe(portalRoot, { childList: true, subtree: true });
 
+function escPortal(v) {
+  return String(v ?? '').replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function addReschedulePanel() {
+  if (!activePortalJobId) return;
+  const detail = document.querySelector('.jp-portal-detail .jp-portal-card');
+  if (!detail || document.getElementById('portal-reschedule-panel')) return;
+
+  const scheduleText = detail.querySelector('p.jp-portal-muted')?.textContent || '';
+  const dateMatch = scheduleText.match(/(\d{4}-\d{2}-\d{2})/);
+  const timeMatch = scheduleText.match(/·\s*(\d{1,2}:\d{2})/);
+  const date = dateMatch?.[1] || '';
+  const time = timeMatch?.[1] || '';
+
+  const panel = document.createElement('div');
+  panel.id = 'portal-reschedule-panel';
+  panel.className = 'jp-portal-muted-box';
+  panel.innerHTML = `<strong>Need to change your appointment?</strong><p class="jp-portal-muted" style="margin:6px 0 12px">Choose a new date and time and we will update your appointment request.</p><form id="portal-reschedule-form"><label style="display:block;margin-bottom:10px">New date<br><input id="portal-reschedule-date" type="date" value="${escPortal(date)}" required style="padding:10px;margin-top:5px;max-width:220px;width:100%;box-sizing:border-box"></label><label style="display:block;margin-bottom:10px">New time<br><input id="portal-reschedule-time" type="time" value="${escPortal(time)}" style="padding:10px;margin-top:5px;max-width:220px;width:100%;box-sizing:border-box"></label><button id="portal-reschedule-submit" class="jp-portal-button" type="submit">Request new appointment time</button><p id="portal-reschedule-message" class="jp-portal-muted" style="margin:10px 0 0"></p></form>`;
+  detail.appendChild(panel);
+
+  document.getElementById('portal-reschedule-form').onsubmit = async e => {
+    e.preventDefault();
+    const button = document.getElementById('portal-reschedule-submit');
+    const message = document.getElementById('portal-reschedule-message');
+    const newDate = document.getElementById('portal-reschedule-date').value;
+    const newTime = document.getElementById('portal-reschedule-time').value;
+    if (!newDate) return;
+    if (!confirm('Change your appointment to ' + newDate + (newTime ? ' at ' + newTime : '') + '?')) return;
+    button.disabled = true;
+    button.textContent = 'Updating appointment...';
+    message.textContent = '';
+    try {
+      await reschedulePortalJob(activePortalJobId, null, newDate, newTime);
+      message.textContent = 'Your appointment has been updated.';
+      history.replaceState({}, '', `${location.pathname}?job=${encodeURIComponent(activePortalJobId)}`);
+      setTimeout(() => location.reload(), 400);
+    } catch (error) {
+      message.textContent = error.message || 'Could not update the appointment.';
+      button.disabled = false;
+      button.textContent = 'Request new appointment time';
+    }
+  };
+}
+
+document.addEventListener('click', event => {
+  const jobButton = event.target.closest?.('[data-job]');
+  if (jobButton?.dataset.job) activePortalJobId = jobButton.dataset.job;
+});
+
+const rescheduleObserver = new MutationObserver(() => setTimeout(addReschedulePanel, 0));
+if (portalRoot) rescheduleObserver.observe(portalRoot, { childList: true, subtree: true });
+setTimeout(addReschedulePanel, 0);
+
 export async function getPortalDashboard(customerId) {
   const [jobs, quotes, invoices] = await Promise.all([
     supabase.from('jobs').select('*').eq('customer_id', customerId).order('scheduled_date', { ascending: true }),
@@ -65,16 +120,12 @@ export async function reschedulePortalJob(jobId, customerId, scheduledDate, sche
   const date = String(scheduledDate || '').trim();
   const time = String(scheduledTime || '').trim();
   if (!date) throw new Error('Please choose a new appointment date.');
-  if (!customerId) throw new Error('Customer portal session is invalid.');
+  if (!jobId) throw new Error('Appointment could not be identified.');
 
-  const { data, error } = await supabase
-    .from('jobs')
-    .update({ scheduled_date: date, scheduled_time: time || null })
-    .eq('id', jobId)
-    .eq('customer_id', customerId)
-    .select('*')
-    .single();
+  let query = supabase.from('jobs').update({ scheduled_date: date, scheduled_time: time || null }).eq('id', jobId);
+  if (customerId) query = query.eq('customer_id', customerId);
 
+  const { data, error } = await query.select('*').single();
   if (error) throw error;
   return data;
 }

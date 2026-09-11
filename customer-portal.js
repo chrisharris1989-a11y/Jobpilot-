@@ -2,6 +2,7 @@ import { supabase } from './supabase.js';
 import './portal-auth.js';
 
 const QUOTE_ACTION_URL = 'https://qxoynttvipducubmczwl.supabase.co/functions/v1/customer-quote-action';
+const APPOINTMENT_RESCHEDULE_URL = 'https://qxoynttvipducubmczwl.supabase.co/functions/v1/customer-appointment-reschedule';
 let activePortalJobId = new URLSearchParams(window.location.search).get('job') || null;
 
 export async function getCustomerPortalSession() {
@@ -122,19 +123,24 @@ export async function reschedulePortalJob(jobId, scheduledDate, scheduledTime) {
   if (!date) throw new Error('Please choose a new appointment date.');
   if (!jobId) throw new Error('Appointment could not be identified.');
 
-  const portalSession = await getCustomerPortalSession();
-  if (!portalSession?.customer_id) throw new Error('Your portal session has expired. Please sign in again.');
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Your portal session has expired. Please sign in again.');
 
-  const { data, error } = await supabase
-    .from('jobs')
-    .update({ scheduled_date: date, scheduled_time: time || null })
-    .eq('id', jobId)
-    .eq('customer_id', portalSession.customer_id)
-    .select('*')
-    .single();
-
-  if (error) throw error;
-  return data;
+  const response = await fetch(APPOINTMENT_RESCHEDULE_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`
+    },
+    body: JSON.stringify({
+      job_id: jobId,
+      scheduled_date: date,
+      scheduled_time: time || null
+    })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'Could not update the appointment.');
+  return result;
 }
 
 async function quoteAction(quoteId, action) {

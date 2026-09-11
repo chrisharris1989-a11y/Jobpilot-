@@ -135,7 +135,7 @@ import { supabase } from "./supabase.js";
     if (!jobId) return null;
     const { data, error } = await supabase
       .from("jobs")
-      .select("id,status,completed_at,completion_notes,customer_signoff_name,customer_signoff_comments,customer_signature,customer_signed_at,recurring,recurring_active")
+      .select("id,company_id,status,completed_at,completion_notes,customer_signoff_name,customer_signoff_comments,customer_signature,customer_signed_at,recurring,recurring_active")
       .eq("id", jobId)
       .maybeSingle();
     if (error) {
@@ -143,6 +143,21 @@ import { supabase } from "./supabase.js";
       return null;
     }
     return data || null;
+  }
+
+  async function loadJobCompletionTemplate(companyId) {
+    if (!companyId) return "";
+    const { data, error } = await supabase
+      .from("company_document_templates")
+      .select("content")
+      .eq("company_id", companyId)
+      .eq("document_type", "job_completion")
+      .maybeSingle();
+    if (error) {
+      console.warn("JobPilot job completion template lookup:", error);
+      return "";
+    }
+    return data?.content || "";
   }
 
   async function saveCompletionNotes(jobId, notes) {
@@ -267,8 +282,6 @@ import { supabase } from "./supabase.js";
     try {
       await saveCompletionNotes(job.id, notes);
 
-      // Use the existing Edit Job workflow so recurring jobs retain their
-      // existing behaviour of creating the next appointment when completed.
       const editButton = document.getElementById("editJob");
       if (!editButton) throw new Error("The job editor could not be opened.");
       editButton.click();
@@ -296,6 +309,11 @@ import { supabase } from "./supabase.js";
     const existing = page.querySelector("#jpCompletionSection");
     if (existing) existing.remove();
 
+    // The Job Completion template in Settings is the default wording for new
+    // completion notes. Existing notes are always preserved.
+    const template = job.completion_notes ? "" : await loadJobCompletionTemplate(job.company_id);
+    const initialNotes = job.completion_notes || template;
+
     const section = document.createElement("div");
     section.id = "jpCompletionSection";
     section.className = "panel";
@@ -312,7 +330,8 @@ import { supabase } from "./supabase.js";
         ${completed ? '<span class="muted">✓ Job completed</span>' : ''}
       </div>
       <label>Completion Notes</label>
-      <textarea id="jpCompletionNotes" placeholder="What was completed? Any issues, materials used or follow-up required?">${escapeHtml(job.completion_notes || "")}</textarea>
+      <textarea id="jpCompletionNotes" placeholder="What was completed? Any issues, materials used or follow-up required?">${escapeHtml(initialNotes)}</textarea>
+      ${template ? '<p class="muted" style="margin-top:6px">Pre-filled from your Job Completion document template.</p>' : ''}
       ${job.completed_at ? `<p class="muted" style="margin-top:8px">Completed ${new Date(job.completed_at).toLocaleString("en-GB")}</p>` : ""}
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:15px">
         ${completed ? '<button type="button" id="jpSaveCompletionNotes" class="button secondary">Save Completion Notes</button>' : '<button type="button" id="jpMarkComplete" class="button primary">✓ Mark Job Complete</button>'}

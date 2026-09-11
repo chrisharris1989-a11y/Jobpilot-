@@ -111,12 +111,26 @@ import { supabase } from "../supabase.js";
           <div class="panel-header">
             <div>
               <h2>SMS Settings</h2>
-              <p>Set up SMS messaging for your JobPilot account.</p>
+              <p>Control automatic SMS while keeping manual SMS available.</p>
+            </div>
+          </div>
+          <div style="margin-top:12px;padding:12px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+              <div>
+                <div style="font-weight:600;">Auto SMS</div>
+                <div id="jobpilot-auto-sms-description" style="margin-top:4px;font-size:13px;color:#64748b;">Automatically send SMS when your configured automations are triggered.</div>
+              </div>
+              <label style="position:relative;display:inline-flex;align-items:center;cursor:pointer;flex:0 0 auto;">
+                <input id="jobpilot-auto-sms-toggle" type="checkbox" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;">
+                <span id="jobpilot-auto-sms-track" style="display:block;width:46px;height:26px;border-radius:999px;background:#cbd5e1;transition:background .2s;position:relative;">
+                  <span id="jobpilot-auto-sms-knob" style="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .2s;"></span>
+                </span>
+              </label>
             </div>
           </div>
           <div style="margin-top:12px;padding:12px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;">
             <div style="font-weight:600;">Manual SMS</div>
-            <div style="margin-top:4px;font-size:13px;color:#64748b;">SMS messaging is not configured yet.</div>
+            <div style="margin-top:4px;font-size:13px;color:#64748b;">Manual SMS remains available whether Auto SMS is switched on or off.</div>
           </div>
           <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
             <button id="jobpilot-sms-settings-button" class="button secondary" type="button">SMS Settings</button>
@@ -130,10 +144,36 @@ import { supabase } from "../supabase.js";
       else if (typeof window.renderManagementPage === "function") window.renderManagementPage();
     });
 
+    const company = await resolveCompany();
+    const companyId = company?.id || "default";
+    const autoSmsKey = `jobpilot_auto_sms_${companyId}`;
+    const autoSmsToggle = document.getElementById("jobpilot-auto-sms-toggle");
+    const autoSmsTrack = document.getElementById("jobpilot-auto-sms-track");
+    const autoSmsKnob = document.getElementById("jobpilot-auto-sms-knob");
+    const autoSmsDescription = document.getElementById("jobpilot-auto-sms-description");
+    const storedAutoSms = localStorage.getItem(autoSmsKey);
+    const autoSmsEnabled = storedAutoSms === "true";
+
+    function paintAutoSms(enabled) {
+      if (autoSmsToggle) autoSmsToggle.checked = enabled;
+      if (autoSmsTrack) autoSmsTrack.style.background = enabled ? "#2563eb" : "#cbd5e1";
+      if (autoSmsKnob) autoSmsKnob.style.left = enabled ? "23px" : "3px";
+      if (autoSmsDescription) autoSmsDescription.textContent = enabled
+        ? "Auto SMS is ON. Configured automations can send SMS automatically. Manual SMS remains available."
+        : "Auto SMS is OFF. No automatic SMS will be sent. Manual SMS remains available.";
+    }
+
+    paintAutoSms(autoSmsEnabled);
+    autoSmsToggle?.addEventListener("change", () => {
+      const enabled = Boolean(autoSmsToggle.checked);
+      localStorage.setItem(autoSmsKey, String(enabled));
+      paintAutoSms(enabled);
+    });
+
     document.getElementById("jobpilot-sms-settings-button")?.addEventListener("click", () => {
       const message = document.getElementById("jobpilot-sms-settings-message");
       if (message) {
-        message.textContent = "SMS settings will be configured here when the manual SMS connection is added.";
+        message.textContent = "SMS provider settings will be configured here when the manual SMS connection is added.";
         message.style.color = "#64748b";
       }
     });
@@ -144,7 +184,6 @@ import { supabase } from "../supabase.js";
     const actions = document.getElementById("jobpilot-management-billing-actions");
     const options = document.getElementById("jobpilot-management-upgrade-options");
     const message = document.getElementById("jobpilot-management-billing-message");
-    const company = await resolveCompany();
     const contextPlan = String(company?.plan || "solo").toLowerCase();
     const fallback = PLANS[contextPlan] || PLANS.solo;
     const isTest = company?.test_mode === true;

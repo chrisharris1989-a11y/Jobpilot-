@@ -70,6 +70,19 @@ import { supabase } from "./supabase.js";
     element.style.display = "block";
   }
 
+  async function getFunctionError(error, data) {
+    if (data?.error) return String(data.error);
+    if (!error) return "We could not start your subscription. Please try again.";
+    if (error.context instanceof Response) {
+      try {
+        const body = await error.context.json();
+        if (body?.error) return String(body.error);
+        if (body?.message) return String(body.message);
+      } catch (_) {}
+    }
+    return error.message || "We could not start your subscription. Please try again.";
+  }
+
   async function startSubscription(user) {
     if (!user || processingUserId === user.id) return;
     if (user.user_metadata?.jobpilot_subscription_signup !== true) return;
@@ -87,14 +100,20 @@ import { supabase } from "./supabase.js";
       if (companyError) throw companyError;
 
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error("Your new account was created, but the login session was not returned. Please make sure Supabase email confirmation is disabled and try again.");
+      if (!session?.access_token) throw new Error("Your new account was created, but the login session was not returned. Please try again.");
 
       const { data, error } = await supabase.functions.invoke("synapto-billing-v1", {
         body: { action: "checkout", plan: selectedPlan, origin: window.location.origin },
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
-      if (error) throw error;
-      if (!data?.url) throw new Error(data?.error || "Synapto did not return a checkout link.");
+      if (error || !data?.url) {
+        const message = await getFunctionError(error, data);
+        // Do not leave a newly-created user logged into JobPilot if billing setup failed.
+        // The normal app auth listener would otherwise immediately open the CRM.
+        try { await supabase.auth.signOut({ scope: "local" }); } catch (_) {}
+        throw new Error(message);
+      }
+
       window.location.href = data.url;
     } catch (error) {
       console.error("JobPilot subscription signup:", error);
@@ -127,7 +146,6 @@ import { supabase } from "./supabase.js";
       message.style.display = "block";
     }
 
-    // Prevent a previous logged-in browser session from being reused for this new signup.
     try { await supabase.auth.signOut({ scope: "local" }); } catch (error) { console.warn("Could not clear previous local session:", error); }
 
     const { data, error } = await supabase.auth.signUp({

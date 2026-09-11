@@ -110,6 +110,23 @@ import { supabase } from "../supabase.js";
         </div>
         <div class="panel" id="jobpilot-management-sms-settings-card">
           <div class="panel-header"><div><h2>SMS Settings</h2><p>Control automatic SMS while keeping manual SMS available.</p></div></div>
+
+          <div style="margin-top:12px;padding:12px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;">
+            <div style="font-weight:600;">Default messaging service</div>
+            <div style="margin-top:4px;font-size:13px;color:#64748b;">Choose which messaging service should be used by default.</div>
+            <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+              <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;background:#fff;">
+                <input id="jobpilot-default-messaging-sms" type="radio" name="jobpilot-default-messaging-service" value="sms">
+                <span>SMS</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;background:#fff;">
+                <input id="jobpilot-default-messaging-whatsapp" type="radio" name="jobpilot-default-messaging-service" value="whatsapp">
+                <span>WhatsApp</span>
+              </label>
+            </div>
+            <div id="jobpilot-default-messaging-message" style="margin-top:10px;font-size:13px;color:#64748b;"></div>
+          </div>
+
           <div style="margin-top:12px;padding:12px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
               <div><div style="font-weight:600;">Auto SMS</div><div id="jobpilot-auto-sms-description" style="margin-top:4px;font-size:13px;color:#64748b;">Automatically send SMS when your configured automations are triggered.</div></div>
@@ -120,6 +137,7 @@ import { supabase } from "../supabase.js";
             <div style="font-weight:600;">Choose automated messages</div><div style="margin-top:4px;font-size:13px;color:#64748b;">Select which messages JobPilot is allowed to send automatically.</div>
             <div id="jobpilot-auto-sms-checklist" style="margin-top:12px;display:grid;gap:8px;"></div><div id="jobpilot-auto-sms-save-message" style="margin-top:10px;font-size:13px;color:#64748b;"></div>
           </div>
+
           <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;"><button id="jobpilot-sms-settings-button" class="button secondary" type="button">SMS Settings</button></div>
           <div id="jobpilot-sms-settings-message" style="margin-top:10px;font-size:13px;"></div>
           <div id="jobpilot-sms-provider-card" class="panel" style="display:none;margin-top:12px;">
@@ -142,11 +160,26 @@ import { supabase } from "../supabase.js";
     const autoSmsOptions = document.getElementById("jobpilot-auto-sms-options");
     const autoSmsChecklist = document.getElementById("jobpilot-auto-sms-checklist");
     const autoSmsSaveMessage = document.getElementById("jobpilot-auto-sms-save-message");
+    const defaultMessagingSms = document.getElementById("jobpilot-default-messaging-sms");
+    const defaultMessagingWhatsapp = document.getElementById("jobpilot-default-messaging-whatsapp");
+    const defaultMessagingMessage = document.getElementById("jobpilot-default-messaging-message");
     const autoSmsEnabled = company?.sms_automation_enabled === true;
     let automationSettings = (company?.sms_automation_settings && typeof company.sms_automation_settings === "object") ? { ...company.sms_automation_settings } : {};
     let smsConfig = {};
     Object.keys(SMS_DEFAULT_CONFIG).forEach(key => { smsConfig[key] = { ...SMS_DEFAULT_CONFIG[key], ...(automationSettings.config?.[key] || {}) }; });
 
+    function paintDefaultMessagingService() {
+      const service = automationSettings.default_messaging_service === "whatsapp" ? "whatsapp" : "sms";
+      if (defaultMessagingSms) defaultMessagingSms.checked = service === "sms";
+      if (defaultMessagingWhatsapp) defaultMessagingWhatsapp.checked = service === "whatsapp";
+    }
+    async function saveDefaultMessagingService(service) {
+      if (!company?.id) throw new Error("Your company could not be identified.");
+      automationSettings.default_messaging_service = service;
+      const { error } = await supabase.from("companies").update({ sms_automation_settings: automationSettings }).eq("id", company.id);
+      if (error) throw error;
+      if (defaultMessagingMessage) { defaultMessagingMessage.textContent = "Default messaging service saved."; defaultMessagingMessage.style.color = "#166534"; }
+    }
     function paintAutoSms(enabled) {
       if (autoSmsToggle) autoSmsToggle.checked = enabled;
       if (autoSmsTrack) autoSmsTrack.style.background = enabled ? "#2563eb" : "#cbd5e1";
@@ -212,7 +245,17 @@ import { supabase } from "../supabase.js";
         list.appendChild(card);
       });
     }
-    renderAutomationChecklist(); renderSmsConfig(); paintAutoSms(autoSmsEnabled);
+    renderAutomationChecklist(); renderSmsConfig(); paintDefaultMessagingService(); paintAutoSms(autoSmsEnabled);
+    [defaultMessagingSms, defaultMessagingWhatsapp].forEach(radio => radio?.addEventListener("change", async () => {
+      if (!radio.checked) return;
+      const previous = automationSettings.default_messaging_service === "whatsapp" ? "whatsapp" : "sms";
+      const service = radio.value;
+      radio.disabled = true;
+      if (defaultMessagingMessage) { defaultMessagingMessage.textContent = "Saving..."; defaultMessagingMessage.style.color = "#64748b"; }
+      try { await saveDefaultMessagingService(service); }
+      catch (error) { console.error("JobPilot default messaging service error:", error); automationSettings.default_messaging_service = previous; paintDefaultMessagingService(); if (defaultMessagingMessage) { defaultMessagingMessage.textContent = error.message || "Could not save the default messaging service."; defaultMessagingMessage.style.color = "#b91c1c"; } }
+      finally { radio.disabled = false; }
+    }));
     autoSmsToggle?.addEventListener("change", async () => {
       const enabled = Boolean(autoSmsToggle.checked); autoSmsToggle.disabled = true;
       try { if (!company?.id) throw new Error("Your company could not be identified."); const { error } = await supabase.from("companies").update({ sms_automation_enabled: enabled }).eq("id", company.id); if (error) throw error; paintAutoSms(enabled); }

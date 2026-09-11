@@ -3,6 +3,8 @@ import { supabase } from "./supabase.js";
 (() => {
   let opening = false;
   let currentJobId = null;
+  let completionRenderTimer = null;
+  let completionPageReady = false;
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
   async function loadPlanForJob(jobId) {
@@ -111,6 +113,7 @@ import { supabase } from "./supabase.js";
     const row = target?.closest("[data-job-id], [data-recurring-job-id], [data-history-job]");
     if (!row) return;
     currentJobId = row.dataset.jobId || row.dataset.recurringJobId || row.dataset.historyJob || null;
+    completionPageReady = false;
   }
 
   document.addEventListener("click", rememberJobFromClick, true);
@@ -273,7 +276,7 @@ import { supabase } from "./supabase.js";
         return;
       }
       modal.remove();
-      await renderCompletionSection();
+      await renderCompletionSection(true);
     });
   }
 
@@ -300,17 +303,28 @@ import { supabase } from "./supabase.js";
     }
   }
 
-  async function renderCompletionSection() {
+  async function renderCompletionSection(force = false) {
     const page = document.getElementById("pageContent");
-    if (!page || !page.querySelector("#backJobs")) return;
+    if (!page || !page.querySelector("#backJobs")) {
+      completionPageReady = false;
+      return;
+    }
+
+    // The section should only be created when the job detail page is opened.
+    // Do not rebuild it for unrelated DOM mutations, because replacing the
+    // section while the user is scrolling causes the page to jump.
+    if (!force && completionPageReady && page.querySelector("#jpCompletionSection")) return;
+
     const job = await getCurrentJob();
     if (!job) return;
 
     const existing = page.querySelector("#jpCompletionSection");
+    if (existing && !force) {
+      completionPageReady = true;
+      return;
+    }
     if (existing) existing.remove();
 
-    // The Job Completion template in Settings is the default wording for new
-    // completion notes. Existing notes are always preserved.
     const template = job.completion_notes ? "" : await loadJobCompletionTemplate(job.company_id);
     const initialNotes = job.completion_notes || template;
 
@@ -331,7 +345,7 @@ import { supabase } from "./supabase.js";
       </div>
       <label>Completion Notes</label>
       <textarea id="jpCompletionNotes" placeholder="What was completed? Any issues, materials used or follow-up required?">${escapeHtml(initialNotes)}</textarea>
-      ${template ? '<p class="muted" style="margin-top:6px">Pre-filled from your Job Completion document template.</p>' : ''}
+      ${template ? '<p class="muted" style="margin-top:8px">Pre-filled from your Job Completion document template.</p>' : ''}
       ${job.completed_at ? `<p class="muted" style="margin-top:8px">Completed ${new Date(job.completed_at).toLocaleString("en-GB")}</p>` : ""}
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:15px">
         ${completed ? '<button type="button" id="jpSaveCompletionNotes" class="button secondary">Save Completion Notes</button>' : '<button type="button" id="jpMarkComplete" class="button primary">✓ Mark Job Complete</button>'}
@@ -358,6 +372,7 @@ import { supabase } from "./supabase.js";
     `;
 
     page.appendChild(section);
+    completionPageReady = true;
 
     section.querySelector("#jpMarkComplete")?.addEventListener("click", () => markJobComplete(job));
     section.querySelector("#jpSaveCompletionNotes")?.addEventListener("click", async () => {
@@ -372,8 +387,8 @@ import { supabase } from "./supabase.js";
     section.querySelector("#jpEditSignoff")?.addEventListener("click", () => signatureModal(job));
   }
 
-  let completionRenderTimer = null;
   function scheduleCompletionRender() {
+    if (completionPageReady) return;
     clearTimeout(completionRenderTimer);
     completionRenderTimer = setTimeout(() => {
       renderCompletionSection().catch(error => console.warn("JobPilot completion section:", error));
@@ -382,6 +397,8 @@ import { supabase } from "./supabase.js";
 
   const observer = new MutationObserver(() => {
     decorateJobRows().catch(error => console.warn("JobPilot plan cards:", error));
+    // Only attempt the initial completion render. Once rendered, mutations
+    // elsewhere on the page must not replace it or affect scroll position.
     scheduleCompletionRender();
   });
   observer.observe(document.body, { childList: true, subtree: true });

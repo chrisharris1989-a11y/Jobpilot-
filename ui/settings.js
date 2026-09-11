@@ -19,39 +19,14 @@ function renderSettingsOverview(content) {
       </header>
 
       <div class="jp-settings-grid">
-        <button class="jp-settings-card" type="button" data-settings-section="account">
-          <span class="jp-settings-card-icon">👤</span>
-          <span class="jp-settings-card-body"><strong>Account</strong><small>Manage your profile, email address and password.</small></span>
-          <span class="jp-settings-card-arrow">→</span>
-        </button>
-        <button class="jp-settings-card" type="button" data-settings-section="company">
-          <span class="jp-settings-card-icon">🏢</span>
-          <span class="jp-settings-card-body"><strong>Company</strong><small>Manage your company details and logo.</small></span>
-          <span class="jp-settings-card-arrow">→</span>
-        </button>
-        <button class="jp-settings-card" type="button" data-settings-section="documents">
-          <span class="jp-settings-card-icon">📄</span>
-          <span class="jp-settings-card-body"><strong>Documents</strong><small>Manage your business documents.</small></span>
-          <span class="jp-settings-card-arrow">→</span>
-        </button>
-        <button class="jp-settings-card" type="button" data-settings-section="app-preferences">
-          <span class="jp-settings-card-icon">⚙️</span>
-          <span class="jp-settings-card-body"><strong>App Preferences</strong><small>Manage how JobPilot looks and behaves.</small></span>
-          <span class="jp-settings-card-arrow">→</span>
-        </button>
-        <button class="jp-settings-card" type="button" data-settings-section="notifications">
-          <span class="jp-settings-card-icon">🔔</span>
-          <span class="jp-settings-card-body"><strong>Notifications</strong><small>Manage your JobPilot notification preferences.</small></span>
-          <span class="jp-settings-card-arrow">→</span>
-        </button>
-        <button class="jp-settings-card jp-settings-danger-card" type="button" data-settings-section="danger-zone">
-          <span class="jp-settings-card-icon">⚠️</span>
-          <span class="jp-settings-card-body"><strong>Danger Zone</strong><small>Irreversible account and data actions.</small></span>
-          <span class="jp-settings-card-arrow">→</span>
-        </button>
+        <button class="jp-settings-card" type="button" data-settings-section="account"><span class="jp-settings-card-icon">👤</span><span class="jp-settings-card-body"><strong>Account</strong><small>Manage your profile, email address and password.</small></span><span class="jp-settings-card-arrow">→</span></button>
+        <button class="jp-settings-card" type="button" data-settings-section="company"><span class="jp-settings-card-icon">🏢</span><span class="jp-settings-card-body"><strong>Company</strong><small>Manage your company details and logo.</small></span><span class="jp-settings-card-arrow">→</span></button>
+        <button class="jp-settings-card" type="button" data-settings-section="documents"><span class="jp-settings-card-icon">📄</span><span class="jp-settings-card-body"><strong>Documents</strong><small>Manage your business documents.</small></span><span class="jp-settings-card-arrow">→</span></button>
+        <button class="jp-settings-card" type="button" data-settings-section="app-preferences"><span class="jp-settings-card-icon">⚙️</span><span class="jp-settings-card-body"><strong>App Preferences</strong><small>Manage how JobPilot looks and behaves.</small></span><span class="jp-settings-card-arrow">→</span></button>
+        <button class="jp-settings-card" type="button" data-settings-section="notifications"><span class="jp-settings-card-icon">🔔</span><span class="jp-settings-card-body"><strong>Notifications</strong><small>Manage your JobPilot notification preferences.</small></span><span class="jp-settings-card-arrow">→</span></button>
+        <button class="jp-settings-card jp-settings-danger-card" type="button" data-settings-section="danger-zone"><span class="jp-settings-card-icon">⚠️</span><span class="jp-settings-card-body"><strong>Danger Zone</strong><small>Irreversible account and data actions.</small></span><span class="jp-settings-card-arrow">→</span></button>
       </div>
-    </section>
-  `;
+    </section>`;
 
   ensureSettingsStyles();
   content.querySelector('[data-settings-section="account"]')?.addEventListener("click", () => renderAccountSettings(content));
@@ -61,38 +36,14 @@ function renderSettingsOverview(content) {
 
 function renderAccountSettings(content) {
   window.__jobpilotSettingsCompany = false;
-  content.innerHTML = `
-    <section class="settings-page jp-settings-page">
-      <header class="page-header"><h2>Account</h2><p>Manage your personal JobPilot account details and login information.</p></header>
-      <button class="jp-settings-back" type="button" data-settings-back>← Settings</button>
-      <div class="jp-settings-grid">
-        <button class="jp-settings-card" type="button" data-settings-account="profile"><span class="jp-settings-card-icon">👤</span><span class="jp-settings-card-body"><strong>Profile</strong><small>Manage your name and personal details.</small></span><span class="jp-settings-card-arrow">→</span></button>
-        <button class="jp-settings-card" type="button" data-settings-account="security"><span class="jp-settings-card-icon">🔐</span><span class="jp-settings-card-body"><strong>Email &amp; Password</strong><small>Manage the email address and password you use to sign in.</small></span><span class="jp-settings-card-arrow">→</span></button>
-      </div>
-    </section>
-  `;
+  content.innerHTML = `<section class="settings-page jp-settings-page"><header class="page-header"><h2>Account</h2><p>Manage your personal JobPilot account details and login information.</p></header><button class="jp-settings-back" type="button" data-settings-back>← Settings</button><div class="jp-settings-grid"><button class="jp-settings-card" type="button"><span class="jp-settings-card-icon">👤</span><span class="jp-settings-card-body"><strong>Profile</strong><small>Manage your name and personal details.</small></span><span class="jp-settings-card-arrow">→</span></button><button class="jp-settings-card" type="button"><span class="jp-settings-card-icon">🔐</span><span class="jp-settings-card-body"><strong>Email &amp; Password</strong><small>Manage the email address and password you use to sign in.</small></span><span class="jp-settings-card-arrow">→</span></button></div></section>`;
   ensureSettingsStyles();
   content.querySelector("[data-settings-back]")?.addEventListener("click", () => renderSettingsOverview(content));
-  content.querySelector('[data-settings-account="profile"]')?.addEventListener("click", () => showAccountMessage("Profile settings are ready to be populated."));
-  content.querySelector('[data-settings-account="security"]')?.addEventListener("click", () => showAccountMessage("Email & Password settings are ready to be populated."));
 }
 
 function renderDangerZone(content) {
   window.__jobpilotSettingsCompany = false;
-  content.innerHTML = `
-    <section class="settings-page jp-settings-page">
-      <header class="page-header"><h2>Danger Zone</h2><p>Irreversible account and data actions.</p></header>
-      <button class="jp-settings-back" type="button" data-settings-back>← Settings</button>
-      <div class="jp-danger-panel">
-        <div class="jp-danger-copy">
-          <strong>Delete account</strong>
-          <p>Permanently delete your JobPilot account. This cannot be undone.</p>
-        </div>
-        <button class="jp-delete-account-button" type="button">Delete account</button>
-      </div>
-      <div class="jp-danger-status" role="alert" aria-live="polite"></div>
-    </section>
-  `;
+  content.innerHTML = `<section class="settings-page jp-settings-page"><header class="page-header"><h2>Danger Zone</h2><p>Irreversible account and data actions.</p></header><button class="jp-settings-back" type="button" data-settings-back>← Settings</button><div class="jp-danger-panel"><div class="jp-danger-copy"><strong>Delete account</strong><p>Permanently delete your JobPilot account and your owned company data. This cannot be undone.</p></div><button class="jp-delete-account-button" type="button">Delete account</button></div><div class="jp-danger-status" role="alert" aria-live="polite"></div></section>`;
   ensureSettingsStyles();
   content.querySelector("[data-settings-back]")?.addEventListener("click", () => renderSettingsOverview(content));
   content.querySelector(".jp-delete-account-button")?.addEventListener("click", () => deleteCurrentAccount(content));
@@ -101,11 +52,8 @@ function renderDangerZone(content) {
 async function deleteCurrentAccount(content) {
   const button = content.querySelector(".jp-delete-account-button");
   const status = content.querySelector(".jp-danger-status");
-  const confirmed = window.confirm("Delete your JobPilot account permanently? This cannot be undone.");
-  if (!confirmed) return;
-
-  const secondConfirm = window.confirm("Final confirmation: permanently delete this account and sign you out?");
-  if (!secondConfirm) return;
+  if (!window.confirm("Delete your JobPilot account permanently? Your owned company data will also be deleted.")) return;
+  if (!window.confirm("Final confirmation: permanently delete this account and company data and sign you out?")) return;
 
   button.disabled = true;
   button.textContent = "Deleting…";
@@ -113,11 +61,12 @@ async function deleteCurrentAccount(content) {
   status.style.color = "#b91c1c";
 
   try {
-    const { error } = await supabase.rpc("delete_my_account");
+    const { data, error } = await supabase.functions.invoke("delete-account", { method: "POST", body: {} });
     if (error) throw error;
+    if (!data?.success) throw new Error(data?.error || "Account deletion failed");
     await supabase.auth.signOut({ scope: "local" });
     status.textContent = "Account deleted. Redirecting…";
-    window.location.reload();
+    setTimeout(() => window.location.reload(), 250);
   } catch (error) {
     console.error("JobPilot account deletion:", error);
     status.textContent = error?.message || "We could not delete your account. Please try again.";
@@ -136,24 +85,11 @@ function ensureSettingsStyles() {
   if (document.getElementById("jp-account-settings-styles")) return;
   const style = document.createElement("style");
   style.id = "jp-account-settings-styles";
-  style.textContent = `
-    .jp-settings-page{width:100%}.jp-settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:20px;max-width:900px}.jp-settings-card{appearance:none;border:1px solid rgba(0,0,0,.10);background:var(--card-bg,#fff);border-radius:14px;padding:20px;display:flex;align-items:center;gap:15px;text-align:left;cursor:pointer;color:inherit;box-shadow:0 2px 8px rgba(0,0,0,.04);transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}.jp-settings-card:hover{transform:translateY(-1px);box-shadow:0 5px 16px rgba(0,0,0,.08);border-color:rgba(0,0,0,.18)}.jp-settings-danger-card{border-color:rgba(185,28,28,.28)}.jp-settings-danger-card .jp-settings-card-icon{background:rgba(185,28,28,.08)}.jp-settings-card-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:10px;background:rgba(0,0,0,.05);font-size:20px;flex:0 0 42px}.jp-settings-card-body{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}.jp-settings-card-body strong{font-size:15px}.jp-settings-card-body small{font-size:13px;opacity:.68;line-height:1.4}.jp-settings-card-arrow{font-size:20px;opacity:.5}.jp-settings-back{margin-top:4px;border:0;background:none;padding:6px 0;color:inherit;opacity:.7;cursor:pointer;font-size:13px}.jp-settings-back:hover{opacity:1}.jp-danger-panel{max-width:900px;margin-top:20px;padding:22px;border:1px solid rgba(185,28,28,.3);border-radius:14px;background:rgba(185,28,28,.04);display:flex;align-items:center;justify-content:space-between;gap:20px}.jp-danger-copy strong{font-size:16px}.jp-danger-copy p{margin:6px 0 0;opacity:.7;font-size:13px}.jp-delete-account-button{border:1px solid #b91c1c;background:#b91c1c;color:#fff;border-radius:9px;padding:10px 16px;font-weight:700;cursor:pointer;white-space:nowrap}.jp-delete-account-button:hover{filter:brightness(.94)}.jp-delete-account-button:disabled{opacity:.6;cursor:wait}.jp-danger-status{max-width:900px;margin-top:12px;font-size:13px}@media(max-width:700px){.jp-settings-grid{grid-template-columns:1fr}.jp-danger-panel{align-items:flex-start;flex-direction:column}.jp-delete-account-button{width:100%}}
-  `;
+  style.textContent = `.jp-settings-page{width:100%}.jp-settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:20px;max-width:900px}.jp-settings-card{appearance:none;border:1px solid rgba(0,0,0,.10);background:var(--card-bg,#fff);border-radius:14px;padding:20px;display:flex;align-items:center;gap:15px;text-align:left;cursor:pointer;color:inherit;box-shadow:0 2px 8px rgba(0,0,0,.04);transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}.jp-settings-card:hover{transform:translateY(-1px);box-shadow:0 5px 16px rgba(0,0,0,.08);border-color:rgba(0,0,0,.18)}.jp-settings-danger-card{border-color:rgba(185,28,28,.28)}.jp-settings-danger-card .jp-settings-card-icon{background:rgba(185,28,28,.08)}.jp-settings-card-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:10px;background:rgba(0,0,0,.05);font-size:20px;flex:0 0 42px}.jp-settings-card-body{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}.jp-settings-card-body strong{font-size:15px}.jp-settings-card-body small{font-size:13px;opacity:.68;line-height:1.4}.jp-settings-card-arrow{font-size:20px;opacity:.5}.jp-settings-back{margin-top:4px;border:0;background:none;padding:6px 0;color:inherit;opacity:.7;cursor:pointer;font-size:13px}.jp-settings-back:hover{opacity:1}.jp-danger-panel{max-width:900px;margin-top:20px;padding:22px;border:1px solid rgba(185,28,28,.3);border-radius:14px;background:rgba(185,28,28,.04);display:flex;align-items:center;justify-content:space-between;gap:20px}.jp-danger-copy strong{font-size:16px}.jp-danger-copy p{margin:6px 0 0;opacity:.7;font-size:13px}.jp-delete-account-button{border:1px solid #b91c1c;background:#b91c1c;color:#fff;border-radius:9px;padding:10px 16px;font-weight:700;cursor:pointer;white-space:nowrap}.jp-delete-account-button:hover{filter:brightness(.94)}.jp-delete-account-button:disabled{opacity:.6;cursor:wait}.jp-danger-status{max-width:900px;margin-top:12px;font-size:13px}@media(max-width:700px){.jp-settings-grid{grid-template-columns:1fr}.jp-danger-panel{align-items:flex-start;flex-direction:column}.jp-delete-account-button{width:100%}}`;
   document.head.appendChild(style);
 }
 
-function showAccountMessage(message) {
-  const existing = document.querySelector(".jp-settings-message"); existing?.remove();
-  const messageBox = document.createElement("div"); messageBox.className="jp-settings-message"; messageBox.textContent=message; messageBox.style.cssText="position:fixed;right:24px;bottom:24px;z-index:9999;padding:12px 16px;border-radius:10px;background:var(--card-bg,#fff);border:1px solid rgba(0,0,0,.12);box-shadow:0 8px 24px rgba(0,0,0,.12);font-size:13px;"; document.body.appendChild(messageBox); setTimeout(()=>messageBox.remove(),2500);
-}
-
-document.addEventListener("click", event => {
-  const button = event.target.closest?.("#companyBackButton"); if(!button||!window.__jobpilotSettingsCompany)return; event.preventDefault(); event.stopImmediatePropagation(); window.__jobpilotSettingsCompany=false; renderSettings(document.getElementById("pageContent"));
-}, true);
-
-document.addEventListener("click", event => {
-  const button=event.target.closest?.('.nav-item[data-page="settings"]'); if(!button)return; event.preventDefault(); event.stopImmediatePropagation(); document.querySelectorAll(".nav-item").forEach(item=>item.classList.remove("active")); button.classList.add("active"); const title=document.getElementById("pageTitle"); const subtitle=document.getElementById("pageSubtitle"); if(title)title.textContent="Settings"; if(subtitle)subtitle.textContent="Manage your JobPilot account settings."; renderSettings();
-}, true);
-
+document.addEventListener("click", event => { const button=event.target.closest?.("#companyBackButton"); if(!button||!window.__jobpilotSettingsCompany)return; event.preventDefault(); event.stopImmediatePropagation(); window.__jobpilotSettingsCompany=false; renderSettings(document.getElementById("pageContent")); }, true);
+document.addEventListener("click", event => { const button=event.target.closest?.('.nav-item[data-page="settings"]'); if(!button)return; event.preventDefault(); event.stopImmediatePropagation(); document.querySelectorAll(".nav-item").forEach(item=>item.classList.remove("active")); button.classList.add("active"); const title=document.getElementById("pageTitle"); const subtitle=document.getElementById("pageSubtitle"); if(title)title.textContent="Settings"; if(subtitle)subtitle.textContent="Manage your JobPilot account settings."; renderSettings(); }, true);
 function addSettingsTab(){const bottom=document.querySelector(".sidebar .sidebar-bottom");if(!bottom||bottom.querySelector('[data-page="settings"]'))return;const button=document.createElement("button");button.className="nav-item";button.type="button";button.dataset.page="settings";button.textContent="⚙️ Settings";bottom.insertBefore(button,bottom.firstChild)}
 const observer=new MutationObserver(addSettingsTab);observer.observe(document.body,{childList:true,subtree:true});addSettingsTab();

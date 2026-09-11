@@ -16,11 +16,8 @@ const DEFAULTS = {
 };
 
 function readPreferences() {
-  try {
-    return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") };
-  } catch {
-    return { ...DEFAULTS };
-  }
+  try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") }; }
+  catch { return { ...DEFAULTS }; }
 }
 
 function writePreferences(next) {
@@ -35,33 +32,39 @@ function applyTheme(theme) {
   root.style.colorScheme = dark ? "dark" : "light";
 }
 
+function ensurePreferenceStyles() {
+  if (document.getElementById("jp-app-preferences-styles")) return;
+  const style = document.createElement("style");
+  style.id = "jp-app-preferences-styles";
+  style.textContent = `
+    .jp-pref-section{max-width:900px;margin:22px 0 0;padding:18px 20px;border:1px solid rgba(0,0,0,.10);border-radius:14px;background:var(--card-bg,#fff)}
+    .jp-pref-section h3{margin:0 0 4px;font-size:16px}
+    .jp-pref-row{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:14px 0;border-top:1px solid rgba(0,0,0,.07)}
+    .jp-pref-section h3 + .jp-pref-row{border-top:0}
+    .jp-pref-copy{display:flex;flex-direction:column;gap:4px;min-width:0}
+    .jp-pref-copy strong{font-size:14px}.jp-pref-copy small{font-size:12px;opacity:.65;line-height:1.4}
+    .jp-pref-row select{min-width:150px;border:1px solid rgba(0,0,0,.16);border-radius:8px;padding:9px 10px;background:var(--card-bg,#fff);color:inherit;font:inherit}
+    .jp-pref-switch{position:relative;width:44px;height:24px;display:inline-block;flex:0 0 auto}.jp-pref-switch input{opacity:0;width:0;height:0}
+    .jp-pref-switch span{position:absolute;inset:0;border-radius:999px;background:#cbd5e1;cursor:pointer;transition:.15s}.jp-pref-switch span:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+    .jp-pref-switch input:checked + span{background:#111827}.jp-pref-switch input:checked + span:before{transform:translateX(20px)}
+    .jp-dark-mode{background:#111827!important;color:#f3f4f6!important}.jp-dark-mode body{background:#111827;color:#f3f4f6}.jp-dark-mode .jp-settings-card,.jp-dark-mode .jp-pref-section{background:#1f2937;border-color:rgba(255,255,255,.12)}.jp-dark-mode .jp-pref-row{border-color:rgba(255,255,255,.08)}.jp-dark-mode .jp-pref-row select{background:#111827;color:#f3f4f6;border-color:rgba(255,255,255,.2)}
+    @media(max-width:700px){.jp-pref-row{align-items:flex-start;flex-direction:column;gap:10px}.jp-pref-row select{width:100%}}
+  `;
+  document.head.appendChild(style);
+}
+
 applyTheme(readPreferences().theme);
-window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener?.("change", () => {
-  if (readPreferences().theme === "system") applyTheme("system");
-});
+window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener?.("change", () => { if (readPreferences().theme === "system") applyTheme("system"); });
 
 async function loadInvoiceAndQuoteDefaults() {
   const { data: { user } = {} } = await supabase.auth.getUser();
   if (!user) return {};
-  const { data } = await supabase
-    .from("user_settings")
-    .select("invoice_payment_terms,quote_validity_days")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  return {
-    invoicePaymentTerms: Number(data?.invoice_payment_terms) || undefined,
-    quoteValidityDays: Number(data?.quote_validity_days) || undefined
-  };
+  const { data } = await supabase.from("user_settings").select("invoice_payment_terms,quote_validity_days").eq("user_id", user.id).maybeSingle();
+  return { invoicePaymentTerms: Number(data?.invoice_payment_terms) || undefined, quoteValidityDays: Number(data?.quote_validity_days) || undefined };
 }
 
 async function saveBillingDefaults(user, invoicePaymentTerms, quoteValidityDays) {
-  const { error } = await supabase
-    .from("user_settings")
-    .update({
-      invoice_payment_terms: Number(invoicePaymentTerms),
-      quote_validity_days: Number(quoteValidityDays)
-    })
-    .eq("user_id", user.id);
+  const { error } = await supabase.from("user_settings").update({ invoice_payment_terms: Number(invoicePaymentTerms), quote_validity_days: Number(quoteValidityDays) }).eq("user_id", user.id);
   if (error) throw error;
 }
 
@@ -70,10 +73,10 @@ function preferenceRow(label, control, description = "") {
 }
 
 async function renderAppPreferences(content) {
+  ensurePreferenceStyles();
   const local = readPreferences();
   const billing = await loadInvoiceAndQuoteDefaults();
   const prefs = { ...local, ...Object.fromEntries(Object.entries(billing).filter(([, value]) => value !== undefined)) };
-
   writePreferences(prefs);
   applyTheme(prefs.theme);
 
@@ -81,88 +84,27 @@ async function renderAppPreferences(content) {
     <section class="settings-page jp-settings-page jp-app-preferences">
       <header class="page-header"><h2>App Preferences</h2><p>Control how JobPilot looks and behaves for you.</p></header>
       <button class="jp-settings-back" type="button" data-pref-back>← Settings</button>
-
-      <div class="jp-pref-section">
-        <h3>Appearance</h3>
-        ${preferenceRow("Theme", `<select id="jpPrefTheme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>`, "Choose the appearance used by JobPilot.")}
-      </div>
-
-      <div class="jp-pref-section">
-        <h3>Date &amp; Time</h3>
-        ${preferenceRow("Date format", `<select id="jpPrefDateFormat"><option>DD/MM/YYYY</option><option>MM/DD/YYYY</option></select>`)}
-        ${preferenceRow("Time format", `<select id="jpPrefTimeFormat"><option value="24h">24-hour</option><option value="12h">12-hour</option></select>`)}
-        ${preferenceRow("Week starts", `<select id="jpPrefWeekStarts"><option value="monday">Monday</option><option value="sunday">Sunday</option></select>`)}
-      </div>
-
-      <div class="jp-pref-section">
-        <h3>Jobs</h3>
-        ${preferenceRow("Default job status", `<select id="jpPrefJobStatus"><option value="scheduled">Scheduled</option><option value="pending">Pending</option><option value="in_progress">In Progress</option></select>`, "Status used when creating a new job.")}
-        ${preferenceRow("Automatically complete recurring jobs", `<label class="jp-pref-switch"><input id="jpPrefAutoRecurring" type="checkbox"><span></span></label>`, "Automatically mark recurring jobs complete when their normal completion flow is reached.")}
-        ${preferenceRow("Show completed jobs in job lists", `<label class="jp-pref-switch"><input id="jpPrefShowCompleted" type="checkbox"><span></span></label>`)}
-      </div>
-
-      <div class="jp-pref-section">
-        <h3>Quotes &amp; Invoices</h3>
-        ${preferenceRow("Default invoice payment terms", `<select id="jpPrefInvoiceTerms"><option value="1">1 day</option><option value="3">3 days</option><option value="5">5 days</option><option value="7">7 days</option><option value="14">14 days</option><option value="30">30 days</option></select>`, "Used as the default due date when creating an invoice.")}
-        ${preferenceRow("Default quote validity", `<select id="jpPrefQuoteValidity"><option value="7">7 days</option><option value="14">14 days</option><option value="21">21 days</option><option value="30">30 days</option></select>`, "Used as the default expiry period when creating a quote.")}
-      </div>
-
-      <div class="jp-pref-section">
-        <h3>Navigation</h3>
-        ${preferenceRow("Remember last opened page", `<label class="jp-pref-switch"><input id="jpPrefRememberPage" type="checkbox"><span></span></label>`, "Return to the last page you were using when you reopen JobPilot.")}
-        ${preferenceRow("Default dashboard view", `<select id="jpPrefDashboard"><option value="overview">Overview</option><option value="today">Today's Jobs</option><option value="calendar">Calendar</option></select>`)}
-      </div>
-
+      <div class="jp-pref-section"><h3>Appearance</h3>${preferenceRow("Theme", `<select id="jpPrefTheme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>`, "Choose the appearance used by JobPilot.")}</div>
+      <div class="jp-pref-section"><h3>Date &amp; Time</h3>${preferenceRow("Date format", `<select id="jpPrefDateFormat"><option>DD/MM/YYYY</option><option>MM/DD/YYYY</option></select>`)}${preferenceRow("Time format", `<select id="jpPrefTimeFormat"><option value="24h">24-hour</option><option value="12h">12-hour</option></select>`)}${preferenceRow("Week starts", `<select id="jpPrefWeekStarts"><option value="monday">Monday</option><option value="sunday">Sunday</option></select>`)}</div>
+      <div class="jp-pref-section"><h3>Jobs</h3>${preferenceRow("Default job status", `<select id="jpPrefJobStatus"><option value="scheduled">Scheduled</option><option value="pending">Pending</option><option value="in_progress">In Progress</option></select>`, "Status used when creating a new job.")}${preferenceRow("Automatically complete recurring jobs", `<label class="jp-pref-switch"><input id="jpPrefAutoRecurring" type="checkbox"><span></span></label>`, "Automatically mark recurring jobs complete when their normal completion flow is reached.")}${preferenceRow("Show completed jobs in job lists", `<label class="jp-pref-switch"><input id="jpPrefShowCompleted" type="checkbox"><span></span></label>`)}</div>
+      <div class="jp-pref-section"><h3>Quotes &amp; Invoices</h3>${preferenceRow("Default invoice payment terms", `<select id="jpPrefInvoiceTerms"><option value="1">1 day</option><option value="3">3 days</option><option value="5">5 days</option><option value="7">7 days</option><option value="14">14 days</option><option value="30">30 days</option></select>`, "Used as the default due date when creating an invoice.")}${preferenceRow("Default quote validity", `<select id="jpPrefQuoteValidity"><option value="7">7 days</option><option value="14">14 days</option><option value="21">21 days</option><option value="30">30 days</option></select>`, "Used as the default expiry period when creating a quote.")}</div>
+      <div class="jp-pref-section"><h3>Navigation</h3>${preferenceRow("Remember last opened page", `<label class="jp-pref-switch"><input id="jpPrefRememberPage" type="checkbox"><span></span></label>`, "Return to the last page you were using when you reopen JobPilot.")}${preferenceRow("Default dashboard view", `<select id="jpPrefDashboard"><option value="overview">Overview</option><option value="today">Today's Jobs</option><option value="calendar">Calendar</option></select>`)}</div>
       <div id="jpPrefStatus" class="jp-document-status" role="status" aria-live="polite"></div>
     </section>`;
 
   const set = (id, value) => { const el = content.querySelector(id); if (el) el.value = String(value); };
-  set("#jpPrefTheme", prefs.theme);
-  set("#jpPrefDateFormat", prefs.dateFormat);
-  set("#jpPrefTimeFormat", prefs.timeFormat);
-  set("#jpPrefWeekStarts", prefs.weekStarts);
-  set("#jpPrefJobStatus", prefs.defaultJobStatus);
-  set("#jpPrefInvoiceTerms", prefs.invoicePaymentTerms);
-  set("#jpPrefQuoteValidity", prefs.quoteValidityDays);
-  set("#jpPrefDashboard", prefs.defaultDashboard);
-  [
-    ["#jpPrefAutoRecurring", prefs.autoCompleteRecurring],
-    ["#jpPrefShowCompleted", prefs.showCompletedJobs],
-    ["#jpPrefRememberPage", prefs.rememberLastPage]
-  ].forEach(([selector, checked]) => { const el = content.querySelector(selector); if (el) el.checked = Boolean(checked); });
+  set("#jpPrefTheme", prefs.theme); set("#jpPrefDateFormat", prefs.dateFormat); set("#jpPrefTimeFormat", prefs.timeFormat); set("#jpPrefWeekStarts", prefs.weekStarts); set("#jpPrefJobStatus", prefs.defaultJobStatus); set("#jpPrefInvoiceTerms", prefs.invoicePaymentTerms); set("#jpPrefQuoteValidity", prefs.quoteValidityDays); set("#jpPrefDashboard", prefs.defaultDashboard);
+  [["#jpPrefAutoRecurring", prefs.autoCompleteRecurring],["#jpPrefShowCompleted", prefs.showCompletedJobs],["#jpPrefRememberPage", prefs.rememberLastPage]].forEach(([selector, checked]) => { const el = content.querySelector(selector); if (el) el.checked = Boolean(checked); });
 
-  content.querySelector("[data-pref-back]")?.addEventListener("click", () => window.dispatchEvent(new CustomEvent("jobpilot:settings-home")));
+  content.querySelector("[data-pref-back]")?.addEventListener("click", () => { const settingsButton = document.querySelector('[data-page="settings"], [data-nav="settings"]'); if (settingsButton) settingsButton.click(); });
 
   const save = async () => {
-    const next = {
-      theme: content.querySelector("#jpPrefTheme").value,
-      dateFormat: content.querySelector("#jpPrefDateFormat").value,
-      timeFormat: content.querySelector("#jpPrefTimeFormat").value,
-      weekStarts: content.querySelector("#jpPrefWeekStarts").value,
-      defaultJobStatus: content.querySelector("#jpPrefJobStatus").value,
-      autoCompleteRecurring: content.querySelector("#jpPrefAutoRecurring").checked,
-      showCompletedJobs: content.querySelector("#jpPrefShowCompleted").checked,
-      invoicePaymentTerms: Number(content.querySelector("#jpPrefInvoiceTerms").value),
-      quoteValidityDays: Number(content.querySelector("#jpPrefQuoteValidity").value),
-      rememberLastPage: content.querySelector("#jpPrefRememberPage").checked,
-      defaultDashboard: content.querySelector("#jpPrefDashboard").value
-    };
-    writePreferences(next);
-    applyTheme(next.theme);
-
+    const next = { theme: content.querySelector("#jpPrefTheme").value, dateFormat: content.querySelector("#jpPrefDateFormat").value, timeFormat: content.querySelector("#jpPrefTimeFormat").value, weekStarts: content.querySelector("#jpPrefWeekStarts").value, defaultJobStatus: content.querySelector("#jpPrefJobStatus").value, autoCompleteRecurring: content.querySelector("#jpPrefAutoRecurring").checked, showCompletedJobs: content.querySelector("#jpPrefShowCompleted").checked, invoicePaymentTerms: Number(content.querySelector("#jpPrefInvoiceTerms").value), quoteValidityDays: Number(content.querySelector("#jpPrefQuoteValidity").value), rememberLastPage: content.querySelector("#jpPrefRememberPage").checked, defaultDashboard: content.querySelector("#jpPrefDashboard").value };
+    writePreferences(next); applyTheme(next.theme);
     const status = content.querySelector("#jpPrefStatus");
-    try {
-      const { data: { user } = {} } = await supabase.auth.getUser();
-      if (user) await saveBillingDefaults(user, next.invoicePaymentTerms, next.quoteValidityDays);
-      status.textContent = "Preferences saved.";
-      status.style.color = "#166534";
-    } catch (error) {
-      console.error("JobPilot app preferences:", error);
-      status.textContent = error?.message || "Preferences saved locally, but billing defaults could not be saved.";
-      status.style.color = "#b91c1c";
-    }
+    try { const { data: { user } = {} } = await supabase.auth.getUser(); if (user) await saveBillingDefaults(user, next.invoicePaymentTerms, next.quoteValidityDays); status.textContent = "Preferences saved."; status.style.color = "#166534"; }
+    catch (error) { console.error("JobPilot app preferences:", error); status.textContent = error?.message || "Preferences saved locally, but billing defaults could not be saved."; status.style.color = "#b91c1c"; }
   };
-
   content.querySelectorAll("select,input").forEach(el => el.addEventListener("change", save));
 }
 
@@ -178,15 +120,4 @@ document.addEventListener("click", event => {
   showPreferences();
 });
 
-document.addEventListener("jobpilot:settings-home", () => {
-  const content = document.getElementById("pageContent");
-  if (!content) return;
-  // settings.js owns the settings landing page; reload the settings route so its existing renderer is used.
-  const settingsButton = document.querySelector('[data-page="settings"], [data-nav="settings"]');
-  if (settingsButton) settingsButton.click();
-});
-
-window.addEventListener("jobpilot:preferences-changed", event => {
-  const prefs = event.detail || readPreferences();
-  applyTheme(prefs.theme);
-});
+window.addEventListener("jobpilot:preferences-changed", event => applyTheme((event.detail || readPreferences()).theme));

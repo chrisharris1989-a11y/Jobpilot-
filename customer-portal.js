@@ -68,7 +68,7 @@ function addReschedulePanel() {
   const panel = document.createElement('div');
   panel.id = 'portal-reschedule-panel';
   panel.className = 'jp-portal-muted-box';
-  panel.innerHTML = `<strong>Need to change your appointment?</strong><p class="jp-portal-muted" style="margin:6px 0 12px">Choose a new date and time and we will update your appointment request.</p><form id="portal-reschedule-form"><label style="display:block;margin-bottom:10px">New date<br><input id="portal-reschedule-date" type="date" value="${escPortal(date)}" required style="padding:10px;margin-top:5px;max-width:220px;width:100%;box-sizing:border-box"></label><label style="display:block;margin-bottom:10px">New time<br><input id="portal-reschedule-time" type="time" value="${escPortal(time)}" style="padding:10px;margin-top:5px;max-width:220px;width:100%;box-sizing:border-box"></label><button id="portal-reschedule-submit" class="jp-portal-button" type="submit">Request new appointment time</button><p id="portal-reschedule-message" class="jp-portal-muted" style="margin:10px 0 0"></p></form>`;
+  panel.innerHTML = `<strong>Need to change your appointment?</strong><p class="jp-portal-muted" style="margin:6px 0 12px">Choose a new date and time and we will update your appointment.</p><form id="portal-reschedule-form"><label style="display:block;margin-bottom:10px">New date<br><input id="portal-reschedule-date" type="date" value="${escPortal(date)}" required style="padding:10px;margin-top:5px;max-width:220px;width:100%;box-sizing:border-box"></label><label style="display:block;margin-bottom:10px">New time<br><input id="portal-reschedule-time" type="time" value="${escPortal(time)}" style="padding:10px;margin-top:5px;max-width:220px;width:100%;box-sizing:border-box"></label><button id="portal-reschedule-submit" class="jp-portal-button" type="submit">Change appointment</button><p id="portal-reschedule-message" class="jp-portal-muted" style="margin:10px 0 0"></p></form>`;
   detail.appendChild(panel);
 
   document.getElementById('portal-reschedule-form').onsubmit = async e => {
@@ -83,14 +83,14 @@ function addReschedulePanel() {
     button.textContent = 'Updating appointment...';
     message.textContent = '';
     try {
-      await reschedulePortalJob(activePortalJobId, null, newDate, newTime);
+      await reschedulePortalJob(activePortalJobId, newDate, newTime);
       message.textContent = 'Your appointment has been updated.';
       history.replaceState({}, '', `${location.pathname}?job=${encodeURIComponent(activePortalJobId)}`);
       setTimeout(() => location.reload(), 400);
     } catch (error) {
       message.textContent = error.message || 'Could not update the appointment.';
       button.disabled = false;
-      button.textContent = 'Request new appointment time';
+      button.textContent = 'Change appointment';
     }
   };
 }
@@ -116,16 +116,23 @@ export async function getPortalDashboard(customerId) {
   return { jobs: jobs.data || [], quotes: quotes.data || [], invoices: invoices.data || [] };
 }
 
-export async function reschedulePortalJob(jobId, customerId, scheduledDate, scheduledTime) {
+export async function reschedulePortalJob(jobId, scheduledDate, scheduledTime) {
   const date = String(scheduledDate || '').trim();
   const time = String(scheduledTime || '').trim();
   if (!date) throw new Error('Please choose a new appointment date.');
   if (!jobId) throw new Error('Appointment could not be identified.');
 
-  let query = supabase.from('jobs').update({ scheduled_date: date, scheduled_time: time || null }).eq('id', jobId);
-  if (customerId) query = query.eq('customer_id', customerId);
+  const portalSession = await getCustomerPortalSession();
+  if (!portalSession?.customer_id) throw new Error('Your portal session has expired. Please sign in again.');
 
-  const { data, error } = await query.select('*').single();
+  const { data, error } = await supabase
+    .from('jobs')
+    .update({ scheduled_date: date, scheduled_time: time || null })
+    .eq('id', jobId)
+    .eq('customer_id', portalSession.customer_id)
+    .select('*')
+    .single();
+
   if (error) throw error;
   return data;
 }

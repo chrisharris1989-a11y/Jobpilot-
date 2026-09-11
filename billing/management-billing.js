@@ -40,7 +40,7 @@ import { supabase } from "../supabase.js";
     const { data: { session } = {} } = await supabase.auth.getSession();
     const userId = session?.user?.id;
     if (!userId) return null;
-    const { data, error } = await supabase.from("companies").select("id,name,plan,max_users,owner_id,billing_status,test_mode").eq("owner_id", userId).maybeSingle();
+    const { data, error } = await supabase.from("companies").select("id,name,plan,max_users,owner_id,billing_status,test_mode,sms_automation_enabled").eq("owner_id", userId).maybeSingle();
     if (error) { console.error("JobPilot billing company lookup:", error); return null; }
     return data || null;
   }
@@ -146,13 +146,12 @@ import { supabase } from "../supabase.js";
 
     const company = await resolveCompany();
     const companyId = company?.id || "default";
-    const autoSmsKey = `jobpilot_auto_sms_${companyId}`;
     const autoSmsToggle = document.getElementById("jobpilot-auto-sms-toggle");
     const autoSmsTrack = document.getElementById("jobpilot-auto-sms-track");
     const autoSmsKnob = document.getElementById("jobpilot-auto-sms-knob");
     const autoSmsDescription = document.getElementById("jobpilot-auto-sms-description");
-    const storedAutoSms = localStorage.getItem(autoSmsKey);
-    const autoSmsEnabled = storedAutoSms === "true";
+    const storedAutoSms = company?.sms_automation_enabled;
+    const autoSmsEnabled = storedAutoSms === true;
 
     function paintAutoSms(enabled) {
       if (autoSmsToggle) autoSmsToggle.checked = enabled;
@@ -164,10 +163,28 @@ import { supabase } from "../supabase.js";
     }
 
     paintAutoSms(autoSmsEnabled);
-    autoSmsToggle?.addEventListener("change", () => {
+    autoSmsToggle?.addEventListener("change", async () => {
       const enabled = Boolean(autoSmsToggle.checked);
-      localStorage.setItem(autoSmsKey, String(enabled));
-      paintAutoSms(enabled);
+      autoSmsToggle.disabled = true;
+      try {
+        if (!company?.id) throw new Error("Your company could not be identified.");
+        const { error } = await supabase
+          .from("companies")
+          .update({ sms_automation_enabled: enabled })
+          .eq("id", company.id);
+        if (error) throw error;
+        paintAutoSms(enabled);
+      } catch (error) {
+        console.error("JobPilot SMS automation setting error:", error);
+        paintAutoSms(!enabled);
+        const message = document.getElementById("jobpilot-sms-settings-message");
+        if (message) {
+          message.textContent = error.message || "Could not save the Auto SMS setting.";
+          message.style.color = "#b91c1c";
+        }
+      } finally {
+        autoSmsToggle.disabled = false;
+      }
     });
 
     document.getElementById("jobpilot-sms-settings-button")?.addEventListener("click", () => {

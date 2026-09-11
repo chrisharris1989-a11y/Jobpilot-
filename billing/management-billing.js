@@ -128,10 +128,6 @@ import { supabase } from "../supabase.js";
               </label>
             </div>
           </div>
-          <div style="margin-top:12px;padding:12px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;">
-            <div style="font-weight:600;">Manual SMS</div>
-            <div style="margin-top:4px;font-size:13px;color:#64748b;">Manual SMS remains available whether Auto SMS is switched on or off.</div>
-          </div>
           <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
             <button id="jobpilot-sms-settings-button" class="button secondary" type="button">SMS Settings</button>
           </div>
@@ -145,7 +141,6 @@ import { supabase } from "../supabase.js";
     });
 
     const company = await resolveCompany();
-    const companyId = company?.id || "default";
     const autoSmsToggle = document.getElementById("jobpilot-auto-sms-toggle");
     const autoSmsTrack = document.getElementById("jobpilot-auto-sms-track");
     const autoSmsKnob = document.getElementById("jobpilot-auto-sms-knob");

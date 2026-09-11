@@ -25,7 +25,7 @@ import { supabase } from "../supabase.js";
         </div>
         <div>
           <label for="jobpilot-test-sms-message" style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;">Message</label>
-          <textarea id="jobpilot-test-sms-message" class="input" rows="3" maxlength="918" style="width:100%;resize:vertical;">Test SMS from JobPilot</textarea>
+          <textarea id="jobpilot-test-sms-message" class="input" rows="3" maxlength="160" style="width:100%;resize:vertical;">Test SMS from JobPilot</textarea>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <button id="jobpilot-test-sms-send" class="button" type="button">Send Test SMS</button>
@@ -79,7 +79,7 @@ import { supabase } from "../supabase.js";
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`
           },
-          body: JSON.stringify({ recipient, content, sender })
+          body: JSON.stringify({ recipient, content, sender, message_type: "test", billable: false })
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || result.message || "The SMS could not be sent.");

@@ -23,6 +23,14 @@ import { supabase } from "../supabase.js";
     { key: "invoice_overdue", label: "Invoice overdue", description: "Send an SMS when an invoice becomes overdue." }
   ];
 
+  const SMS_DEFAULT_CONFIG = {
+    quote_follow_up: { value: 3, unit: "days", message: "Hi {customer_name}, just following up on the quote we sent you. Please let us know if you have any questions." },
+    appointment_confirmed: { value: 0, unit: "minutes", message: "Hi {customer_name}, your appointment has been confirmed for {appointment_date} at {appointment_time}." },
+    appointment_reminder: { value: 24, unit: "hours", message: "Hi {customer_name}, this is a reminder that your appointment is on {appointment_date} at {appointment_time}." },
+    appointment_rescheduled: { value: 0, unit: "minutes", message: "Hi {customer_name}, your appointment has been rescheduled to {appointment_date} at {appointment_time}." },
+    invoice_overdue: { value: 7, unit: "days", message: "Hi {customer_name}, invoice {invoice_number} is now overdue. Please let us know if you have any questions." }
+  };
+
   function isBillingPage() {
     return document.getElementById("pageTitle")?.textContent.trim() === "Billing";
   }
@@ -147,12 +155,12 @@ import { supabase } from "../supabase.js";
           </div>
           <div id="jobpilot-sms-settings-message" style="margin-top:10px;font-size:13px;"></div>
           <div id="jobpilot-sms-provider-card" class="panel" style="display:none;margin-top:12px;">
-            <div class="panel-header">
-              <div>
-                <h2>SMS Settings</h2>
-              </div>
+            <div class="panel-header"><div><h2>SMS Settings</h2><p>Configure when automated messages are sent and what they say.</p></div></div>
+            <div id="jobpilot-sms-config-list" style="margin-top:16px;display:grid;gap:16px;"></div>
+            <div style="margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <button id="jobpilot-sms-config-save" class="button" type="button">Save SMS Settings</button>
+              <div id="jobpilot-sms-config-message" style="font-size:13px;color:#64748b;"></div>
             </div>
-            <div style="min-height:120px;"></div>
           </div>
         </div>
       </div>`;
@@ -172,9 +180,11 @@ import { supabase } from "../supabase.js";
     const autoSmsSaveMessage = document.getElementById("jobpilot-auto-sms-save-message");
     const storedAutoSms = company?.sms_automation_enabled;
     const autoSmsEnabled = storedAutoSms === true;
-    let automationSettings = (company?.sms_automation_settings && typeof company.sms_automation_settings === "object")
-      ? { ...company.sms_automation_settings }
-      : {};
+    let automationSettings = (company?.sms_automation_settings && typeof company.sms_automation_settings === "object") ? { ...company.sms_automation_settings } : {};
+    let smsConfig = {};
+    Object.keys(SMS_DEFAULT_CONFIG).forEach(key => {
+      smsConfig[key] = { ...SMS_DEFAULT_CONFIG[key], ...(automationSettings.config?.[key] || {}) };
+    });
 
     function paintAutoSms(enabled) {
       if (autoSmsToggle) autoSmsToggle.checked = enabled;
@@ -184,6 +194,15 @@ import { supabase } from "../supabase.js";
         ? "Auto SMS is ON. Choose which automated messages you want to send. Manual SMS remains available."
         : "Auto SMS is OFF. No automatic SMS will be sent. Manual SMS remains available.";
       if (autoSmsOptions) autoSmsOptions.style.display = enabled ? "block" : "none";
+    }
+
+    async function saveAutomationSettings(messageElement, successText = "Saved.") {
+      if (!company?.id) throw new Error("Your company could not be identified.");
+      const payload = { ...automationSettings, config: smsConfig };
+      const { error } = await supabase.from("companies").update({ sms_automation_settings: payload }).eq("id", company.id);
+      if (error) throw error;
+      automationSettings = payload;
+      if (messageElement) { messageElement.textContent = successText; messageElement.style.color = "#166534"; }
     }
 
     function renderAutomationChecklist() {
@@ -210,31 +229,17 @@ import { supabase } from "../supabase.js";
         text.innerHTML = `<div style="font-weight:600;">${item.label}</div><div style="margin-top:3px;font-size:12px;color:#64748b;">${item.description}</div>`;
 
         checkbox.addEventListener("change", async () => {
+          const previous = !checkbox.checked;
           automationSettings[item.key] = checkbox.checked;
           checkbox.disabled = true;
-          if (autoSmsSaveMessage) {
-            autoSmsSaveMessage.textContent = "Saving...";
-            autoSmsSaveMessage.style.color = "#64748b";
-          }
+          if (autoSmsSaveMessage) { autoSmsSaveMessage.textContent = "Saving..."; autoSmsSaveMessage.style.color = "#64748b"; }
           try {
-            if (!company?.id) throw new Error("Your company could not be identified.");
-            const { error } = await supabase
-              .from("companies")
-              .update({ sms_automation_settings: automationSettings })
-              .eq("id", company.id);
-            if (error) throw error;
-            if (autoSmsSaveMessage) {
-              autoSmsSaveMessage.textContent = "Saved.";
-              autoSmsSaveMessage.style.color = "#166534";
-            }
+            await saveAutomationSettings(autoSmsSaveMessage);
           } catch (error) {
             console.error("JobPilot SMS automation selection error:", error);
-            automationSettings[item.key] = !checkbox.checked;
-            checkbox.checked = automationSettings[item.key] === true;
-            if (autoSmsSaveMessage) {
-              autoSmsSaveMessage.textContent = error.message || "Could not save this setting.";
-              autoSmsSaveMessage.style.color = "#b91c1c";
-            }
+            automationSettings[item.key] = previous;
+            checkbox.checked = previous;
+            if (autoSmsSaveMessage) { autoSmsSaveMessage.textContent = error.message || "Could not save this setting."; autoSmsSaveMessage.style.color = "#b91c1c"; }
           } finally {
             checkbox.disabled = false;
           }
@@ -246,27 +251,97 @@ import { supabase } from "../supabase.js";
       });
     }
 
+    function renderSmsConfig() {
+      const list = document.getElementById("jobpilot-sms-config-list");
+      if (!list) return;
+      list.innerHTML = "";
+      const fields = {
+        quote_follow_up: { label: "Quote follow up", timing: "Send after", unit: "days" },
+        appointment_confirmed: { label: "Appointment confirmed", timing: "Send after", unit: "minutes" },
+        appointment_reminder: { label: "Appointment reminder", timing: "Send before", unit: "hours" },
+        appointment_rescheduled: { label: "Appointment rescheduled", timing: "Send after", unit: "minutes" },
+        invoice_overdue: { label: "Invoice overdue", timing: "Send after", unit: "days overdue" }
+      };
+
+      Object.entries(fields).forEach(([key, field]) => {
+        const config = smsConfig[key];
+        const card = document.createElement("div");
+        card.style.padding = "14px";
+        card.style.border = "1px solid #e2e8f0";
+        card.style.borderRadius = "8px";
+        card.style.background = "#f8fafc";
+
+        const title = document.createElement("div");
+        title.style.fontWeight = "600";
+        title.textContent = field.label;
+        card.appendChild(title);
+
+        const timingRow = document.createElement("div");
+        timingRow.style.display = "flex";
+        timingRow.style.alignItems = "center";
+        timingRow.style.gap = "8px";
+        timingRow.style.flexWrap = "wrap";
+        timingRow.style.marginTop = "10px";
+        const timingLabel = document.createElement("span");
+        timingLabel.textContent = field.timing;
+        const number = document.createElement("input");
+        number.type = "number";
+        number.min = "0";
+        number.step = "1";
+        number.value = Number.isFinite(Number(config.value)) ? Number(config.value) : 0;
+        number.style.width = "90px";
+        number.className = "input";
+        const unit = document.createElement("span");
+        unit.textContent = field.unit;
+        timingRow.append(timingLabel, number, unit);
+        card.appendChild(timingRow);
+
+        const messageLabel = document.createElement("div");
+        messageLabel.style.marginTop = "14px";
+        messageLabel.style.fontWeight = "600";
+        messageLabel.textContent = "Message";
+        card.appendChild(messageLabel);
+
+        const textarea = document.createElement("textarea");
+        textarea.rows = 3;
+        textarea.value = config.message || "";
+        textarea.placeholder = "Type the SMS you want customers to receive...";
+        textarea.style.width = "100%";
+        textarea.style.marginTop = "6px";
+        textarea.style.resize = "vertical";
+        textarea.className = "input";
+        card.appendChild(textarea);
+
+        const help = document.createElement("div");
+        help.style.marginTop = "6px";
+        help.style.fontSize = "12px";
+        help.style.color = "#64748b";
+        help.textContent = "Available placeholders: {customer_name}, {appointment_date}, {appointment_time}, {invoice_number}";
+        card.appendChild(help);
+
+        number.addEventListener("input", () => { smsConfig[key].value = Math.max(0, Number(number.value) || 0); });
+        textarea.addEventListener("input", () => { smsConfig[key].message = textarea.value; });
+        list.appendChild(card);
+      });
+    }
+
     renderAutomationChecklist();
+    renderSmsConfig();
     paintAutoSms(autoSmsEnabled);
+
     autoSmsToggle?.addEventListener("change", async () => {
       const enabled = Boolean(autoSmsToggle.checked);
       autoSmsToggle.disabled = true;
       try {
         if (!company?.id) throw new Error("Your company could not be identified.");
-        const { error } = await supabase
-          .from("companies")
-          .update({ sms_automation_enabled: enabled })
-          .eq("id", company.id);
+        const { error } = await supabase.from("companies").update({ sms_automation_enabled: enabled }).eq("id", company.id);
         if (error) throw error;
         paintAutoSms(enabled);
       } catch (error) {
         console.error("JobPilot SMS automation setting error:", error);
         paintAutoSms(!enabled);
         const message = document.getElementById("jobpilot-sms-settings-message");
-        if (message) {
-          message.textContent = error.message || "Could not save the Auto SMS setting.";
-          message.style.color = "#b91c1c";
-        }
+        if (message) { message.textContent = error.message || "Could not save the Auto SMS setting."; message.style.color = "#b91c1c"; }
       } finally {
         autoSmsToggle.disabled = false;
       }
@@ -279,6 +354,21 @@ import { supabase } from "../supabase.js";
       const isOpen = card.style.display !== "none";
       card.style.display = isOpen ? "none" : "block";
       if (message) message.textContent = "";
+    });
+
+    document.getElementById("jobpilot-sms-config-save")?.addEventListener("click", async () => {
+      const message = document.getElementById("jobpilot-sms-config-message");
+      const saveButton = document.getElementById("jobpilot-sms-config-save");
+      if (saveButton) saveButton.disabled = true;
+      if (message) { message.textContent = "Saving..."; message.style.color = "#64748b"; }
+      try {
+        await saveAutomationSettings(message, "SMS settings saved.");
+      } catch (error) {
+        console.error("JobPilot SMS configuration save error:", error);
+        if (message) { message.textContent = error.message || "Could not save SMS settings."; message.style.color = "#b91c1c"; }
+      } finally {
+        if (saveButton) saveButton.disabled = false;
+      }
     });
 
     const summary = document.getElementById("jobpilot-management-plan-summary");

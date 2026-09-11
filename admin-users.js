@@ -24,7 +24,7 @@ export async function showAdminUsers() {
     if (!filteredUsers.length) { container.innerHTML = `<div class="panel"><h3>No matching users</h3><p>Try a different name, phone number or email address.</p></div>`; return; }
     container.innerHTML = filteredUsers.map(user => `<details class="panel" style="margin-bottom:12px;"><summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:16px;"><div><h3 style="margin:0 0 4px;">${escapeHtml(user.name || "Unnamed user")}</h3><p style="margin:0;">${escapeHtml(user.phone || "No phone number")}</p></div><span class="muted">View details ▾</span></summary><div style="margin-top:16px;"><hr><p><strong>Email:</strong> ${escapeHtml(user.email || "Not available")}</p>${user.business_name ? `<p><strong>Business:</strong> ${escapeHtml(user.business_name)}</p>` : ""}<p><strong>Phone:</strong> ${escapeHtml(user.phone || "Not available")}</p><p><strong>Status:</strong> ${user.email_confirmed ? "Active" : "Email not confirmed"}</p><p><strong>Created:</strong> ${formatDate(user.created_at)}</p><p><strong>Last sign-in:</strong> ${formatDate(user.last_sign_in_at)}</p><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:16px;"><div><strong>${Number(user.customer_count || 0)}</strong><div class="muted">Customers</div></div><div><strong>${Number(user.job_count || 0)}</strong><div class="muted">Jobs</div></div><div><strong>${Number(user.quote_count || 0)}</strong><div class="muted">Quotes</div></div><div><strong>${Number(user.invoice_count || 0)}</strong><div class="muted">Invoices</div></div></div><div style="margin-top:18px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;"><button type="button" class="secondary-btn" data-edit-user="${escapeHtml(user.id)}">Edit user</button>${user.id !== JOBPILOT_ADMIN_ID ? `<button type="button" class="danger-btn" data-delete-user="${escapeHtml(user.id)}" data-delete-user-name="${escapeHtml(user.name || user.email || "this user")}">Delete user</button>` : ""}</div></div></details>`).join("");
     container.querySelectorAll("[data-edit-user]").forEach(button => button.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); const user = users.find(u => u.id === button.getAttribute("data-edit-user")); if (user) showEditForm(user); }));
-    container.querySelectorAll("[data-delete-user]").forEach(button => button.addEventListener("click", async event => { event.preventDefault(); event.stopPropagation(); const userId = button.getAttribute("data-delete-user"); const userName = button.getAttribute("data-delete-user-name") || "this user"; if (!userId || userId === JOBPILOT_ADMIN_ID) return; if (!window.confirm(`Delete ${userName}?\n\nThis permanently removes their JobPilot account. This cannot be undone.`)) return; button.disabled = true; button.textContent = "Deleting..."; const { error } = await supabase.functions.invoke("admin-users", { body: { action: "delete", user_id: userId } }); if (error) { alert(`Could not delete user: ${error.message || "Unknown error"}`); button.disabled = false; button.textContent = "Delete user"; return; } const index = users.findIndex(u => u.id === userId); if (index !== -1) users.splice(index, 1); renderUsers(searchInput?.value || ""); }));
+    container.querySelectorAll("[data-delete-user]").forEach(button => button.addEventListener("click", async event => { event.preventDefault(); event.stopPropagation(); const userId = button.getAttribute("data-delete-user"); const userName = button.getAttribute("data-delete-user-name") || "this user"; if (!userId || userId === JOBPILOT_ADMIN_ID) return; if (!window.confirm(`Delete ${userName}?\n\nThis permanently removes their JobPilot account. This cannot be undone.`)) return; button.disabled = true; button.textContent = "Deleting..."; const { error } = await supabase.functions.invoke("admin-users", { body: { action: "delete", user_id: userId } }); if (error) { alert(`Could not delete user: ${await getFunctionErrorMessage(error)}`); button.disabled = false; button.textContent = "Delete user"; return; } const index = users.findIndex(u => u.id === userId); if (index !== -1) users.splice(index, 1); renderUsers(searchInput?.value || ""); }));
   };
   const showEditForm = (user) => {
     const existing = container.querySelector(`[data-user-form="${CSS.escape(user.id)}"]`); if (existing) return;
@@ -35,6 +35,19 @@ export async function showAdminUsers() {
   };
   if (searchInput) searchInput.addEventListener("input", event => renderUsers(event.target.value));
   renderUsers();
+}
+async function getFunctionErrorMessage(error) {
+  const fallback = error?.message || "Unknown error";
+  try {
+    const response = error?.context;
+    if (response && typeof response.clone === "function") {
+      const cloned = response.clone();
+      const body = await cloned.json();
+      if (body?.error) return String(body.error);
+      if (body?.message) return String(body.message);
+    }
+  } catch {}
+  return fallback;
 }
 function formatDate(value) { if (!value) return "Never"; const date = new Date(value); if (Number.isNaN(date.getTime())) return "Unknown"; return date.toLocaleString(); }
 function escapeHtml(value) { return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#039;"); }

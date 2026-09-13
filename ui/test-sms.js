@@ -97,6 +97,126 @@ import { supabase } from "../supabase.js";
     });
   }
 
+  async function sendInvoiceBySmsOrWhatsApp() {
+    const pageTitle = document.getElementById("pageTitle")?.textContent?.trim() || "";
+    const match = pageTitle.match(/^Invoice\s+#(.+)$/i);
+    const invoiceNumber = match?.[1]?.trim();
+
+    if (!invoiceNumber) {
+      throw new Error("Could not identify the invoice.");
+    }
+
+    const { data: { session } = {}, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    if (!session?.access_token) throw new Error("You are not logged in.");
+
+    const { data: invoice, error: invoiceError } = await supabase
+      .from("invoices")
+      .select("id, invoice_number, total, public_token, customer_id")
+      .eq("invoice_number", invoiceNumber)
+      .maybeSingle();
+
+    if (invoiceError) throw invoiceError;
+    if (!invoice) throw new Error("Invoice could not be found.");
+    if (!invoice.public_token) throw new Error("This invoice does not have a payment link yet.");
+
+    const { data: customer, error: customerError } = await supabase
+      .from("customers")
+      .select("id, name, phone")
+      .eq("id", invoice.customer_id)
+      .maybeSingle();
+
+    if (customerError) throw customerError;
+
+    const phone = String(customer?.phone || "").trim();
+    if (!phone) throw new Error("This customer does not have a phone number saved.");
+
+    const paymentLink = `${window.location.origin}/public-invoice.html?token=${encodeURIComponent(invoice.public_token)}`;
+    const company = window.JobPilotCompany?.company || null;
+    const localSettings = JSON.parse(localStorage.getItem("jobpilot_settings") || "{}");
+    const businessName = String(company?.name || localSettings.businessName || "our business").trim();
+
+    const message =
+      `Hi ${customer?.name || "there"},\n\n` +
+      `Please find your invoice from ${businessName}.\n\n` +
+      `Invoice #${invoice.invoice_number || "—"}\n` +
+      `Amount: £${Number(invoice.total || 0).toFixed(2)}\n\n` +
+      `You can view and pay your invoice securely here:\n` +
+      `${paymentLink}\n\n` +
+      `Thank you.`;
+
+    const recipient = phone.startsWith("+")
+      ? phone
+      : phone.replace(/\D/g, "").replace(/^0/, "44").replace(/^/, "+");
+
+    const sender = businessName
+      .replace(/[^a-zA-Z0-9 ]/g, "")
+      .slice(0, 11)
+      .trim() || "JobPilot";
+
+    try {
+      const response = await fetch(SEND_SMS_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          recipient,
+          content: message,
+          sender,
+          message_type: "invoice",
+          billable: true
+        })
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || result.message || "The invoice SMS could not be sent.");
+      }
+
+      alert("Invoice sent by SMS successfully.");
+      return;
+    } catch (smsError) {
+      console.error("JobPilot invoice SMS failed, using WhatsApp backup:", smsError);
+
+      let whatsappNumber = phone.replace(/\D/g, "");
+      if (whatsappNumber.startsWith("0")) {
+        whatsappNumber = "44" + whatsappNumber.substring(1);
+      }
+
+      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+      window.location.href = whatsappUrl;
+    }
+  }
+
+  // Invoice messaging is intentionally SMS-first. WhatsApp is only the backup
+  // when the SMS provider cannot send the invoice.
+  document.addEventListener("click", event => {
+    const button = event.target?.closest?.("#sendInvoiceButton");
+    if (!button || button.dataset.jobpilotMessagingHandled === "1") return;
+
+    button.dataset.jobpilotMessagingHandled = "1";
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = "Sending by SMS...";
+
+    sendInvoiceBySmsOrWhatsApp()
+      .catch(error => {
+        console.error("JobPilot invoice messaging error:", error);
+        alert(error.message || "The invoice could not be sent.");
+      })
+      .finally(() => {
+        button.disabled = false;
+        button.textContent = originalText;
+        button.dataset.jobpilotMessagingHandled = "0";
+      });
+  }, true);
+
   const observer = new MutationObserver(addTestSmsSection);
   observer.observe(document.body, { childList: true, subtree: true });
   addTestSmsSection();

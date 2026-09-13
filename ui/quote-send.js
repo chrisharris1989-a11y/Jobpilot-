@@ -22,15 +22,11 @@ function shortWhatsAppMessage(quote, customer) {
   return [
     `Hi ${customer.name},`,
     "",
-    `Your quote from ${businessName} is ready.`,
-    `Quote #${quote.quote_number || "—"}`,
-    `Description: ${quote.description || "Requested work"}`,
-    `Total: ${formatJobPilotMoney(quote.total)}`,
-    quote.valid_until ? `Valid until: ${quote.valid_until}` : "",
+    `Please find your quote from ${businessName} below.`,
     "",
-    "Please let us know if you would like to go ahead.",
-    "Thank you."
-  ].filter(Boolean).join("\n");
+    "Thank you,",
+    businessName
+  ].join("\n");
 }
 
 function emailQuoteMessage(quote, customer) {

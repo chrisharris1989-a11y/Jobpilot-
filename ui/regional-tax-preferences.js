@@ -2,6 +2,7 @@ import { supabase } from "../supabase.js";
 import { getJobPilotTaxProfile, getJobPilotTaxContext } from "../regional-tax.js";
 
 const SECTION_ID="jp-regional-tax-section";
+const SETTINGS_KEY="jobpilot_settings";
 
 function addStyles(){
   if(document.getElementById("jp-regional-tax-styles")) return;
@@ -11,10 +12,17 @@ function addStyles(){
   document.head.appendChild(style);
 }
 
+function syncLegacySettings(payload){
+  try{
+    const current=JSON.parse(localStorage.getItem(SETTINGS_KEY)||"{}");
+    localStorage.setItem(SETTINGS_KEY,JSON.stringify({...current,vatRate:payload.tax_rate,taxRate:payload.tax_rate,taxLabel:payload.tax_label,taxSystem:payload.tax_system,taxEnabled:payload.tax_enabled}));
+  }catch{}
+}
+
 async function loadSettings(){
   const {data:{user}={}}=await supabase.auth.getUser();
   if(!user) return {user:null,settings:{}};
-  const {data,error}=await supabase.from("user_settings").select("country_code,tax_system,tax_label,tax_rate,tax_enabled,tax_registration_label,tax_registration_number").eq("user_id",user.id).maybeSingle();
+  const {data,error}=await supabase.from("user_settings").select("country_code,tax_system,tax_label,tax_rate,tax_enabled,tax_registration_label,tax_registration_number,default_vat_rate").eq("user_id",user.id).maybeSingle();
   if(error) throw error;
   return {user,settings:data||{}};
 }
@@ -39,11 +47,12 @@ async function render(){
   host.appendChild(section);
 
   const save=async()=>{
-    const payload={tax_system:document.getElementById("jpTaxSystem").value,tax_label:document.getElementById("jpTaxLabel").value.trim()||profile.taxLabel,tax_rate:Number(document.getElementById("jpTaxRate").value)||0,tax_enabled:document.getElementById("jpTaxEnabled").checked,tax_registration_label:document.getElementById("jpTaxRegistrationLabel").value.trim()||profile.registrationLabel,tax_registration_number:document.getElementById("jpTaxRegistrationNumber").value.trim()||null};
+    const payload={tax_system:document.getElementById("jpTaxSystem").value,tax_label:document.getElementById("jpTaxLabel").value.trim()||profile.taxLabel,tax_rate:Number(document.getElementById("jpTaxRate").value)||0,tax_enabled:document.getElementById("jpTaxEnabled").checked,tax_registration_label:document.getElementById("jpTaxRegistrationLabel").value.trim()||profile.registrationLabel,tax_registration_number:document.getElementById("jpTaxRegistrationNumber").value.trim()||null,default_vat_rate:Number(document.getElementById("jpTaxRate").value)||0};
     const status=document.getElementById("jpTaxStatus");
     if(!user){status.textContent="Tax settings require a signed-in account.";return;}
     const {error}=await supabase.from("user_settings").update(payload).eq("user_id",user.id);
     if(error){console.error("JobPilot tax settings:",error);status.textContent=error.message||"Could not save tax settings.";status.style.color="#b91c1c";return;}
+    syncLegacySettings(payload);
     window.JobPilotRegionalTaxSettings={...payload,country_code:document.getElementById("jpPrefCountry")?.value||country};
     window.dispatchEvent(new CustomEvent("jobpilot:tax-settings-changed",{detail:window.JobPilotRegionalTaxSettings}));
     status.textContent="Tax settings saved.";status.style.color="#166534";

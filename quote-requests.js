@@ -264,13 +264,13 @@ function installQuoteSendButtons() {
 
         const message =
           `Hi ${customer.name},\n\n` +
-          `Please find your quote from ${businessName}.\n\n` +
+          `Your quote from ${businessName} is ready to review.\n\n` +
           `Quote #${quote.quote_number || "—"}\n` +
-          `Description: ${quote.description || "Quote for requested work"}\n` +
-          `Amount: ${formatJobPilotMoney(quote.total)}\n` +
-          (quote.valid_until ? `Valid until: ${quote.valid_until}\n` : "") +
-          `\nPlease let us know if you would like to go ahead.\n\n` +
-          `Thank you.`;
+          `Work: ${quote.description || "Requested work"}\n` +
+          `Total: ${formatJobPilotMoney(quote.total)}\n` +
+          (quote.valid_until ? `Valid until: ${quote.valid_until}\n\n` : "\n") +
+          `Please let us know if you would like to go ahead, or if you have any questions.\n\n` +
+          `Thanks,\n${businessName}`;
 
         const { error: statusError } = await supabase
           .from("quotes")

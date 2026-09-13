@@ -1,5 +1,6 @@
 import { getJobPilotAddressContext, normalizeJobPilotPostalCode } from "../regional-address.js";
 
+const NOMINATIM_ENDPOINT = "https://nominatim.openstreetmap.org/search";
 const ADDRESS_LOOKUP_ENDPOINT = "https://overpass-api.de/api/interpreter";
 const MIN_LOOKUP_INTERVAL_MS = 1100;
 let lastLookupAt = 0;
@@ -83,6 +84,73 @@ async function waitForLookupRateLimit() {
   lastLookupAt = Date.now();
 }
 
+async function getPostcodeBounds(postcode) {
+  const url = new URL(NOMINATIM_ENDPOINT);
+  url.searchParams.set("q", postcode);
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("limit", "1");
+  url.searchParams.set("countrycodes", "gb");
+
+  const response = await fetch(url.toString(), {
+    headers: { Accept: "application/json" }
+  });
+
+  if (!response.ok) throw new Error(`Postcode location lookup failed with HTTP ${response.status}`);
+
+  const results = await response.json();
+  const result = Array.isArray(results) ? results[0] : null;
+  if (!result?.boundingbox || result.boundingbox.length !== 4) return null;
+
+  const [south, north, west, east] = [
+    Number(result.boundingbox[0]),
+    Number(result.boundingbox[1]),
+    Number(result.boundingbox[2]),
+    Number(result.boundingbox[3])
+  ];
+
+  if (![south, north, west, east].every(Number.isFinite)) return null;
+
+  return { south, west, north, east };
+}
+
+async function getPostcodeAddresses(postcode) {
+  const bounds = await getPostcodeBounds(postcode);
+  if (!bounds) return [];
+
+  const normalized = normalizePostcodeForRegex(postcode);
+  const postcodeRegex = `^${normalized.slice(0, -3)} ?${normalized.slice(-3)}$`;
+  const query = `[out:json][timeout:12];(nwr["addr:postcode"~"${postcodeRegex}",i](${bounds.south},${bounds.west},${bounds.north},${bounds.east}););out center tags;`;
+
+  const response = await fetch(ADDRESS_LOOKUP_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+      Accept: "application/json"
+    },
+    body: `data=${encodeURIComponent(query)}`
+  });
+
+  if (!response.ok) throw new Error(`Address lookup failed with HTTP ${response.status}`);
+
+  const data = await response.json();
+  const elements = Array.isArray(data.elements) ? data.elements : [];
+  const seen = new Set();
+
+  return elements
+    .map(element => element.tags || {})
+    .filter(tags => tags["addr:postcode"] && normalizePostcodeForRegex(tags["addr:postcode"]) === normalized)
+    .filter(tags => tags["addr:housenumber"] || tags["addr:housename"] || tags["addr:street"])
+    .filter(tags => {
+      const key = [tags["addr:housenumber"], tags["addr:housename"], tags["addr:street"], tags["addr:unit"], tags["addr:postcode"]]
+        .filter(Boolean).join("|").toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => formatAddress(a, postcode).localeCompare(formatAddress(b, postcode), undefined, { numeric: true }));
+}
+
 function createLookupUi(group, postcodeInput) {
   removeExistingPicker(postcodeInput);
 
@@ -136,37 +204,7 @@ function createLookupUi(group, postcodeInput) {
 
     try {
       await waitForLookupRateLimit();
-
-      const normalized = normalizePostcodeForRegex(postcode);
-      const postcodeRegex = `^${normalized.slice(0, -3)} ?${normalized.slice(-3)}$`;
-      const query = `[out:json][timeout:12];(nwr["addr:postcode"~"${postcodeRegex}",i];);out center tags;`;
-
-      const response = await fetch(ADDRESS_LOOKUP_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-          Accept: "application/json"
-        },
-        body: `data=${encodeURIComponent(query)}`
-      });
-
-      if (!response.ok) throw new Error(`Address lookup failed with HTTP ${response.status}`);
-
-      const data = await response.json();
-      const elements = Array.isArray(data.elements) ? data.elements : [];
-      const seen = new Set();
-      const addresses = elements
-        .map(element => element.tags || {})
-        .filter(tags => tags["addr:postcode"] && normalizePostcodeForRegex(tags["addr:postcode"]) === normalized)
-        .filter(tags => tags["addr:housenumber"] || tags["addr:housename"] || tags["addr:street"])
-        .filter(tags => {
-          const key = [tags["addr:housenumber"], tags["addr:housename"], tags["addr:street"], tags["addr:unit"], tags["addr:postcode"]]
-            .filter(Boolean).join("|").toLowerCase();
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        })
-        .sort((a, b) => formatAddress(a, postcode).localeCompare(formatAddress(b, postcode), undefined, { numeric: true }));
+      const addresses = await getPostcodeAddresses(postcode);
 
       if (addresses.length === 0) {
         status.textContent = "No individual addresses were found for this postcode. You can enter the address manually.";

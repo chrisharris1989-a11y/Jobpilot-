@@ -1,9 +1,11 @@
-// Central JobPilot date formatting utilities.
-// Display dates always follow the locale selected in Settings → App Preferences.
+// Central JobPilot date/time formatting utilities.
+// Display dates and times follow Settings → App Preferences, including the
+// selected regional timezone. Stored timestamps remain unchanged.
 
 const SETTINGS_KEY = "jobpilot_settings";
 const APP_PREFERENCES_KEY = "jobpilot_app_preferences";
 const DEFAULT_LOCALE = "en-GB";
+const DEFAULT_TIMEZONE = "Europe/London";
 
 function readLocalSettings() {
   try {
@@ -25,8 +27,13 @@ function getJobPilotLocale(fallback = DEFAULT_LOCALE) {
 }
 
 function getJobPilotTimezone() {
-  const timezone = String(getSettings().timezone || "").trim();
-  return timezone || undefined;
+  const timezone = String(getSettings().timezone || DEFAULT_TIMEZONE).trim();
+  return timezone || DEFAULT_TIMEZONE;
+}
+
+function getJobPilotTimeFormat() {
+  const format = String(getSettings().timeFormat || "24h").trim().toLowerCase();
+  return format === "12h" ? "12h" : "24h";
 }
 
 function toDate(value) {
@@ -36,10 +43,31 @@ function toDate(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function applyTimezone(options, settings = getSettings()) {
+  if (options.timezone !== false) {
+    options.timeZone = options.timezone || String(settings.timezone || DEFAULT_TIMEZONE).trim() || DEFAULT_TIMEZONE;
+  }
+  return options;
+}
+
+function applyTimeFormat(options, settings = getSettings()) {
+  options.hour12 = String(settings.timeFormat || "24h").trim().toLowerCase() === "12h";
+  return options;
+}
+
+function formatWithFallback(locale, options, date) {
+  try {
+    return new Intl.DateTimeFormat(locale, options).format(date);
+  } catch {
+    return new Intl.DateTimeFormat(DEFAULT_LOCALE, options).format(date);
+  }
+}
+
 function formatJobPilotDate(value, options = {}) {
   const date = toDate(value);
   if (!date) return "";
 
+  const settings = getSettings();
   const locale = options.locale || getJobPilotLocale();
   const style = options.style || "short";
   const intlOptions = style === "long"
@@ -48,36 +76,35 @@ function formatJobPilotDate(value, options = {}) {
       ? { day: "numeric", month: "short", year: "numeric" }
       : { day: "numeric", month: "numeric", year: "numeric" };
 
-  if (options.timezone !== false) {
-    const timezone = options.timezone || getJobPilotTimezone();
-    if (timezone) intlOptions.timeZone = timezone;
-  }
-
-  try {
-    return new Intl.DateTimeFormat(locale, intlOptions).format(date);
-  } catch {
-    return new Intl.DateTimeFormat(DEFAULT_LOCALE, intlOptions).format(date);
-  }
+  applyTimezone(intlOptions, settings);
+  return formatWithFallback(locale, intlOptions, date);
 }
 
 function formatJobPilotMonthYear(value, options = {}) {
   const date = toDate(value);
   if (!date) return "";
+  const settings = getSettings();
   const locale = options.locale || getJobPilotLocale();
   const intlOptions = { month: "long", year: "numeric" };
-  const timezone = options.timezone || getJobPilotTimezone();
-  if (timezone) intlOptions.timeZone = timezone;
+  applyTimezone(intlOptions, settings);
+  return formatWithFallback(locale, intlOptions, date);
+}
 
-  try {
-    return new Intl.DateTimeFormat(locale, intlOptions).format(date);
-  } catch {
-    return new Intl.DateTimeFormat(DEFAULT_LOCALE, intlOptions).format(date);
-  }
+function formatJobPilotTime(value, options = {}) {
+  const date = toDate(value);
+  if (!date) return "";
+  const settings = getSettings();
+  const locale = options.locale || getJobPilotLocale();
+  const intlOptions = { hour: "numeric", minute: "2-digit" };
+  applyTimeFormat(intlOptions, settings);
+  applyTimezone(intlOptions, settings);
+  return formatWithFallback(locale, intlOptions, date);
 }
 
 function formatJobPilotDateTime(value, options = {}) {
   const date = toDate(value);
   if (!date) return "";
+  const settings = getSettings();
   const locale = options.locale || getJobPilotLocale();
   const intlOptions = {
     day: "numeric",
@@ -86,14 +113,9 @@ function formatJobPilotDateTime(value, options = {}) {
     hour: "numeric",
     minute: "2-digit"
   };
-  const timezone = options.timezone || getJobPilotTimezone();
-  if (timezone) intlOptions.timeZone = timezone;
-
-  try {
-    return new Intl.DateTimeFormat(locale, intlOptions).format(date);
-  } catch {
-    return new Intl.DateTimeFormat(DEFAULT_LOCALE, intlOptions).format(date);
-  }
+  applyTimeFormat(intlOptions, settings);
+  applyTimezone(intlOptions, settings);
+  return formatWithFallback(locale, intlOptions, date);
 }
 
 function formatJobPilotDateForInput(value) {
@@ -105,8 +127,10 @@ function formatJobPilotDateForInput(value) {
 window.JobPilotDate = Object.freeze({
   getLocale: getJobPilotLocale,
   getTimezone: getJobPilotTimezone,
+  getTimeFormat: getJobPilotTimeFormat,
   formatDate: formatJobPilotDate,
   formatMonthYear: formatJobPilotMonthYear,
+  formatTime: formatJobPilotTime,
   formatDateTime: formatJobPilotDateTime,
   formatDateForInput: formatJobPilotDateForInput
 });

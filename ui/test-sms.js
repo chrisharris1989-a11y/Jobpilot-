@@ -121,9 +121,7 @@ import { supabase } from "../supabase.js";
     const match = pageTitle.match(/^Invoice\s+#(.+)$/i);
     const invoiceNumber = match?.[1]?.trim();
 
-    if (!invoiceNumber) {
-      throw new Error("Could not identify the invoice.");
-    }
+    if (!invoiceNumber) throw new Error("Could not identify the invoice.");
 
     const { data: { session } = {}, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) throw sessionError;
@@ -155,75 +153,55 @@ import { supabase } from "../supabase.js";
     const localSettings = JSON.parse(localStorage.getItem("jobpilot_settings") || "{}");
     const businessName = String(company?.name || localSettings.businessName || "our business").trim();
 
-    const message = buildInvoiceSms(
-      customer?.name,
-      businessName,
-      invoice.invoice_number,
-      invoice.total,
-      paymentLink
-    );
-
+    const message = buildInvoiceSms(customer?.name, businessName, invoice.invoice_number, invoice.total, paymentLink);
     if (!message) {
-      throw new Error("The invoice payment link is too long to fit in a single SMS. WhatsApp backup is available for this invoice.");
+      throw new Error("The invoice payment link is too long to fit in a single SMS. Please use WhatsApp for this invoice.");
     }
 
     const recipient = phone.startsWith("+")
       ? phone
       : phone.replace(/\D/g, "").replace(/^0/, "44").replace(/^/, "+");
 
-    const sender = businessName
-      .replace(/[^a-zA-Z0-9 ]/g, "")
-      .slice(0, 11)
-      .trim() || "JobPilot";
+    const sender = businessName.replace(/[^a-zA-Z0-9 ]/g, "").slice(0, 11).trim() || "JobPilot";
+
+    let smsResponse;
+    let smsResult = {};
 
     try {
-      const response = await fetch(SEND_SMS_URL, {
+      smsResponse = await fetch(SEND_SMS_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({
-          recipient,
-          content: message,
-          sender,
-          message_type: "invoice",
-          billable: true
-        })
+        body: JSON.stringify({ recipient, content: message, sender, message_type: "invoice", billable: true })
       });
+      smsResult = await smsResponse.json().catch(() => ({}));
+    } catch (networkError) {
+      console.error("JobPilot invoice SMS network failure, using WhatsApp backup:", networkError);
+      return openInvoiceWhatsApp(phone, message);
+    }
 
-      const result = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        // A 4xx response normally means the request/message is invalid and
-        // should not silently trigger WhatsApp. Reserve WhatsApp for genuine
-        // SMS/provider failures.
-        if (response.status >= 400 && response.status < 500) {
-          throw new Error(result.error || result.message || "The invoice SMS could not be sent.");
-        }
-        throw new Error(result.error || result.message || "The invoice SMS could not be sent.");
-      }
-
+    if (smsResponse.ok) {
       alert("Invoice sent by SMS successfully.");
       return;
-    } catch (smsError) {
-      console.error("JobPilot invoice SMS failed, using WhatsApp backup:", smsError);
-
-      // Do not use WhatsApp for a client-side/validation error. This prevents
-      // an over-length SMS or bad request from unexpectedly opening WhatsApp.
-      const errorMessage = String(smsError?.message || "");
-      if (errorMessage.toLowerCase().includes("160") || errorMessage.toLowerCase().includes("too long") || errorMessage.toLowerCase().includes("invalid")) {
-        throw smsError;
-      }
-
-      let whatsappNumber = phone.replace(/\D/g, "");
-      if (whatsappNumber.startsWith("0")) {
-        whatsappNumber = "44" + whatsappNumber.substring(1);
-      }
-
-      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-      window.location.href = whatsappUrl;
     }
+
+    // 4xx responses are validation/auth/request errors and must not open WhatsApp.
+    // Only a server/provider failure (5xx) gets the automatic WhatsApp backup.
+    if (smsResponse.status < 500) {
+      throw new Error(smsResult.error || smsResult.message || "The invoice SMS could not be sent.");
+    }
+
+    console.error("JobPilot invoice SMS provider failure, using WhatsApp backup:", smsResult);
+    return openInvoiceWhatsApp(phone, message);
+  }
+
+  function openInvoiceWhatsApp(phone, message) {
+    let whatsappNumber = phone.replace(/\D/g, "");
+    if (whatsappNumber.startsWith("0")) whatsappNumber = "44" + whatsappNumber.substring(1);
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    window.location.href = whatsappUrl;
   }
 
   // Invoice messaging is intentionally SMS-first. WhatsApp is only the backup

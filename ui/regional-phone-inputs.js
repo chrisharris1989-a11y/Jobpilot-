@@ -1,6 +1,5 @@
 // Apply the selected regional calling code to JobPilot phone inputs.
-// This keeps the existing customer form stable while making the expected
-// international format visible to the user.
+// App Preferences is the source of truth for the selected market.
 
 function applyRegionalPhonePlaceholders(root = document) {
   const phoneApi = window.JobPilotPhone;
@@ -9,9 +8,7 @@ function applyRegionalPhonePlaceholders(root = document) {
   const placeholder = phoneApi.placeholder(phoneApi.getSettings());
 
   root.querySelectorAll('input[id="customerPhone"], input[type="tel"]').forEach(input => {
-    if (!input.dataset.regionalPhonePlaceholder) {
-      input.dataset.regionalPhonePlaceholder = "true";
-    }
+    input.dataset.regionalPhonePlaceholder = "true";
     input.placeholder = placeholder;
   });
 }
@@ -25,7 +22,8 @@ function initRegionalPhoneInputs() {
 
   observer.observe(document.body, { childList: true, subtree: true });
 
-  window.addEventListener("jobpilot:regional-settings-changed", () => {
+  // App Preferences writes this event whenever the regional selection changes.
+  window.addEventListener("jobpilot:preferences-changed", () => {
     applyRegionalPhonePlaceholders();
   });
 }

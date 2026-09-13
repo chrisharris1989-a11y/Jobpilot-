@@ -27,9 +27,9 @@ async function loadSettings(){
   return {user,settings:data||{}};
 }
 
-// Migrate the old hard-coded 20% VAT default into the correct regional
-// tax default. This changes the stored quote/invoice default itself rather
-// than relying on display replacement.
+// Migrate legacy UK tax defaults into the correct regional tax default.
+// This updates the stored quote/invoice default and the legacy browser
+// settings used by existing quote and invoice forms.
 async function syncRegionalTaxDefaults(){
   try{
     const {data:{user}={}}=await supabase.auth.getUser();
@@ -42,9 +42,11 @@ async function syncRegionalTaxDefaults(){
     const taxRate=Number(settings.tax_rate);
     const legacyVatRate=Number(settings.default_vat_rate);
 
-    // 20% in a non-UK market is the old UK default. Only migrate that
-    // unmistakable legacy combination so a user-set custom rate is preserved.
-    if(profile.countryCode !== "GB" && taxRate === 20 && legacyVatRate === 20 && profile.defaultRate !== 20){
+    // Non-UK accounts must use their regional tax profile when the stored
+    // defaults still contain the legacy UK 20% tax value. The previous
+    // migration could leave default_vat_rate at 10 while tax_rate remained 20.
+    const legacyUkDefault = taxRate === 20 || legacyVatRate === 20 || settings.tax_system === "VAT" || settings.tax_label === "VAT";
+    if(profile.countryCode !== "GB" && legacyUkDefault && profile.defaultRate !== 20){
       const payload={
         tax_system:profile.taxSystem,
         tax_label:profile.taxLabel,

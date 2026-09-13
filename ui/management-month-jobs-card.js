@@ -96,13 +96,13 @@ function openManagementMonthCalendar(jobs) {
   overlay.querySelector(".backdrop").addEventListener("click", close);
   const renderDetails = iso => {
     const dayJobs = jobs.filter(job => job.scheduled_date === iso && String(job.status || "").toLowerCase() !== "cancelled");
-    const displayDate = new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+    const displayDate = window.JobPilotDate.formatDate(`${iso}T12:00:00`, { style: "long" });
     details.innerHTML = dayJobs.length
       ? `<h3>${escapeHtml(displayDate)}</h3>${dayJobs.map(job => `<p><strong>${escapeHtml(job.scheduled_time ? `${job.scheduled_time} — ` : "")}${escapeHtml(job.title || "Job")}</strong>${job.notes ? ` — ${escapeHtml(job.notes)}` : ""}</p>`).join("")}`
       : `<p>No planned jobs on ${escapeHtml(displayDate)}.</p>`;
   };
   const render = () => {
-    title.textContent = new Date(year, month, 1).toLocaleDateString("en-GB", { month:"long", year:"numeric" });
+    title.textContent = window.JobPilotDate.formatMonthYear(new Date(year, month, 1));
     grid.innerHTML = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(day => `<div class="weekday">${day}</div>`).join("");
     const first = new Date(year, month, 1);
     const firstDay = (first.getDay() + 6) % 7;

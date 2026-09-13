@@ -346,7 +346,7 @@ import { supabase } from "./supabase.js";
       <label>Completion Notes</label>
       <textarea id="jpCompletionNotes" placeholder="What was completed? Any issues, materials used or follow-up required?">${escapeHtml(initialNotes)}</textarea>
       ${template ? '<p class="muted" style="margin-top:8px">Pre-filled from your Job Completion document template.</p>' : ''}
-      ${job.completed_at ? `<p class="muted" style="margin-top:8px">Completed ${new Date(job.completed_at).toLocaleString("en-GB")}</p>` : ""}
+      ${job.completed_at ? `<p class="muted" style="margin-top:8px">Completed ${window.JobPilotDate.formatDateTime(job.completed_at)}</p>` : ""}
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:15px">
         ${completed ? '<button type="button" id="jpSaveCompletionNotes" class="button secondary">Save Completion Notes</button>' : '<button type="button" id="jpMarkComplete" class="button primary">✓ Mark Job Complete</button>'}
       </div>
@@ -361,7 +361,7 @@ import { supabase } from "./supabase.js";
       ${signed ? `
         <div class="detail-list">
           <div><span>Customer</span><strong>${escapeHtml(job.customer_signoff_name || "—")}</strong></div>
-          <div><span>Signed</span><strong>${job.customer_signed_at ? new Date(job.customer_signed_at).toLocaleString("en-GB") : "—"}</strong></div>
+          <div><span>Signed</span><strong>${job.customer_signed_at ? window.JobPilotDate.formatDateTime(job.customer_signed_at) : "—"}</strong></div>
           <div><span>Comments</span><strong>${escapeHtml(job.customer_signoff_comments || "—")}</strong></div>
         </div>
         ${job.customer_signature ? `<div style="margin-top:15px"><span class="muted">Signature</span><div style="margin-top:6px;border:1px solid var(--border,#e5e7eb);border-radius:8px;background:#fff;padding:8px"><img src="${job.customer_signature}" alt="Customer signature" style="max-width:100%;height:120px;object-fit:contain;display:block"></div></div>` : ""}

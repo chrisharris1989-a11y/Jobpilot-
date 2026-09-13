@@ -293,7 +293,7 @@ import { supabase } from "../supabase.js";
     }
     await paint(contextPlan);
     if (!isTest) {
-      try { const { data, error } = await supabase.rpc("get_my_company_entitlements"); if (!error && data?.length) { const entitlement = data[0]; const actualPlan = String(entitlement.plan || contextPlan).toLowerCase(); await paint(actualPlan, entitlement); if (entitlement.cancel_at_period_end && entitlement.current_period_end) { message.textContent = `Your subscription is scheduled to end on ${new Date(entitlement.current_period_end).toLocaleDateString()}.`; message.style.color = "#92400e"; } } }
+      try { const { data, error } = await supabase.rpc("get_my_company_entitlements"); if (!error && data?.length) { const entitlement = data[0]; const actualPlan = String(entitlement.plan || contextPlan).toLowerCase(); await paint(actualPlan, entitlement); if (entitlement.cancel_at_period_end && entitlement.current_period_end) { message.textContent = `Your subscription is scheduled to end on ${window.JobPilotDate.formatDate(entitlement.current_period_end)}.`; message.style.color = "#92400e"; } } }
       catch (error) { console.error("JobPilot billing entitlement:", error); }
     }
   }

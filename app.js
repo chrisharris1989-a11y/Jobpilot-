@@ -4290,6 +4290,57 @@ function showAddInvoiceForm() {
   const invoiceNumber =
     generateInvoiceNumber();
 
+  // Regional tax defaults for the New Invoice form.
+  // Prefer the user's saved regional tax setting, then
+  // fall back to the selected market profile.
+  let regionalTaxSettings =
+    window.JobPilotRegionalTaxSettings || {};
+
+  try {
+    const preferences = JSON.parse(
+      localStorage.getItem("jobpilot_app_preferences") || "{}"
+    );
+    const settings = JSON.parse(
+      localStorage.getItem("jobpilot_settings") || "{}"
+    );
+    const country = String(
+      preferences.countryCode ||
+      preferences.country_code ||
+      "GB"
+    ).trim().toUpperCase();
+    const regionalRates = {
+      GB: 20,
+      AU: 10,
+      NZ: 15,
+      IE: 23,
+      CA: 0,
+      US: 0
+    };
+    const storedRate = Number(
+      regionalTaxSettings.tax_rate ??
+      settings.vatRate ??
+      regionalRates[country] ??
+      20
+    );
+    regionalTaxSettings = {
+      ...regionalTaxSettings,
+      tax_rate: Number.isFinite(storedRate) ? storedRate : (regionalRates[country] ?? 20),
+      tax_label: regionalTaxSettings.tax_label ||
+        ({ AU: "GST", NZ: "GST", IE: "VAT", CA: "GST/HST", US: "Sales Tax", GB: "VAT" }[country] || "VAT")
+    };
+  } catch {
+    regionalTaxSettings = {
+      ...regionalTaxSettings,
+      tax_rate: Number(regionalTaxSettings.tax_rate) || 20
+    };
+  }
+
+  const defaultTaxRate =
+    Number(regionalTaxSettings.tax_rate) || 0;
+
+  const taxLabel =
+    regionalTaxSettings.tax_label || "VAT";
+
   modal.innerHTML = `
 
     <div class="modal-content">
@@ -4347,16 +4398,16 @@ function showAddInvoiceForm() {
           value="0"
         >
 
-        <label>VAT %</label>
+        <label>${taxLabel} %</label>
 
         <input
           id="invoiceVatPercent"
           type="number"
           step="0.01"
-          value="20"
+          value="${defaultTaxRate}"
         >
 
-        <label>VAT</label>
+        <label>${taxLabel}</label>
 
         <input
           id="invoiceVat"

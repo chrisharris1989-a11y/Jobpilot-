@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { getJobPilotAddressContext, normalizeJobPilotPostalCode } from "./regional-address.js";
 
 const SETTINGS_KEY = "jobpilot_settings";
 
@@ -100,7 +101,7 @@ async function loadCompanySettings() {
   if (!user) throw new Error("You are not logged in.");
 
   const { data, error } = await supabase.from("user_settings").select(`
-    business_name, contact_name, phone, email, website, address_line1, city, postcode,
+    business_name, contact_name, phone, email, website, address_line1, address_line2, address_region, city, postcode,
     invoice_prefix, next_invoice_number, invoice_payment_terms, default_vat_rate, invoice_footer,
     quote_prefix, next_quote_number, quote_validity_days, quote_footer, currency,
     show_contact_name_on_invoice, show_phone_on_invoice, show_email_on_invoice,
@@ -118,6 +119,8 @@ async function loadCompanySettings() {
     phone: row.phone ?? local.phone ?? "",
     businessEmail: row.email ?? local.businessEmail ?? "",
     address: row.address_line1 ?? local.address ?? "",
+    address2: row.address_line2 ?? local.address2 ?? "",
+    addressRegion: row.address_region ?? local.addressRegion ?? "",
     city: row.city ?? local.city ?? "",
     postcode: row.postcode ?? local.postcode ?? "",
     website: row.website ?? local.website ?? "",
@@ -165,9 +168,11 @@ function renderManagementCompanyPage() {
           <label>Contact Name</label><input id="companyContactName" type="text" value="${escapeHtml(settings.contactName)}">
           <label>Phone</label><input id="companyPhone" type="tel" value="${escapeHtml(settings.phone)}">
           <label>Email</label><input id="companyEmail" type="email" value="${escapeHtml(settings.businessEmail)}">
-          <label>Business Address</label><input id="companyAddress" type="text" value="${escapeHtml(settings.address)}">
-          <label>Town / City</label><input id="companyCity" type="text" value="${escapeHtml(settings.city)}">
-          <label>Postcode</label><input id="companyPostcode" type="text" value="${escapeHtml(settings.postcode)}">
+          <label>Business Address</label><input id="companyAddress" autocomplete="address-line1" type="text" value="${escapeHtml(settings.address)}">
+          <label>Address line 2</label><input id="companyAddress2" autocomplete="address-line2" type="text" value="${escapeHtml(settings.address2)}">
+          <label>County</label><input id="companyAddressRegion" autocomplete="address-level1" type="text" value="${escapeHtml(settings.addressRegion)}">
+          <label>Town / City</label><input id="companyCity" autocomplete="address-level2" type="text" value="${escapeHtml(settings.city)}">
+          <label>Postcode</label><input id="companyPostcode" autocomplete="postal-code" type="text" value="${escapeHtml(settings.postcode)}">
           <label>Website</label><input id="companyWebsite" type="url" value="${escapeHtml(settings.website)}" placeholder="https://">
         </section>
 
@@ -245,8 +250,10 @@ async function saveCompanySettings() {
     phone: document.getElementById("companyPhone")?.value.trim() || "",
     businessEmail: document.getElementById("companyEmail")?.value.trim() || "",
     address: document.getElementById("companyAddress")?.value.trim() || "",
+    address2: document.getElementById("companyAddress2")?.value.trim() || "",
+    addressRegion: document.getElementById("companyAddressRegion")?.value.trim() || "",
     city: document.getElementById("companyCity")?.value.trim() || "",
-    postcode: document.getElementById("companyPostcode")?.value.trim() || "",
+    postcode: normalizeJobPilotPostalCode(document.getElementById("companyPostcode")?.value.trim() || "", getJobPilotAddressContext().countryCode),
     website: document.getElementById("companyWebsite")?.value.trim() || "",
     invoicePrefix: document.getElementById("companyInvoicePrefix")?.value.trim() || "INV-",
     nextInvoiceNumber: Number(document.getElementById("companyNextInvoiceNumber")?.value) || 1,
@@ -272,7 +279,7 @@ async function saveCompanySettings() {
     if (!user) throw new Error("You are not logged in.");
     const { error } = await supabase.from("user_settings").update({
       business_name: next.businessName, contact_name: next.contactName, phone: next.phone,
-      email: next.businessEmail, address_line1: next.address, city: next.city, postcode: next.postcode,
+      email: next.businessEmail, address_line1: next.address, address_line2: next.address2, address_region: next.addressRegion, city: next.city, postcode: next.postcode,
       website: next.website, invoice_prefix: next.invoicePrefix, next_invoice_number: next.nextInvoiceNumber,
       invoice_payment_terms: next.paymentTerms, default_vat_rate: next.vatRate, invoice_footer: next.invoiceFooter,
       quote_prefix: next.quotePrefix, next_quote_number: next.nextQuoteNumber,

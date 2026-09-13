@@ -27,6 +27,45 @@ async function loadSettings(){
   return {user,settings:data||{}};
 }
 
+// Migrate the old hard-coded 20% VAT default into the correct regional
+// tax default. This changes the stored quote/invoice default itself rather
+// than relying on display replacement.
+async function syncRegionalTaxDefaults(){
+  try{
+    const {data:{user}={}}=await supabase.auth.getUser();
+    if(!user) return;
+
+    const {data:settings,error}=await supabase.from("user_settings").select("country_code,tax_system,tax_label,tax_rate,tax_enabled,default_vat_rate").eq("user_id",user.id).maybeSingle();
+    if(error || !settings) return;
+
+    const profile=getJobPilotTaxProfile(settings.country_code || "GB");
+    const taxRate=Number(settings.tax_rate);
+    const legacyVatRate=Number(settings.default_vat_rate);
+
+    // 20% in a non-UK market is the old UK default. Only migrate that
+    // unmistakable legacy combination so a user-set custom rate is preserved.
+    if(profile.countryCode !== "GB" && taxRate === 20 && legacyVatRate === 20 && profile.defaultRate !== 20){
+      const payload={
+        tax_system:profile.taxSystem,
+        tax_label:profile.taxLabel,
+        tax_rate:profile.defaultRate,
+        default_vat_rate:profile.defaultRate,
+        tax_enabled:profile.enabledByDefault
+      };
+      const {error:updateError}=await supabase.from("user_settings").update(payload).eq("user_id",user.id);
+      if(updateError){
+        console.error("JobPilot regional tax migration:",updateError);
+        return;
+      }
+      syncLegacySettings(payload);
+      window.JobPilotRegionalTaxSettings={...payload,country_code:profile.countryCode};
+      window.dispatchEvent(new CustomEvent("jobpilot:tax-settings-changed",{detail:window.JobPilotRegionalTaxSettings}));
+    }
+  }catch(error){
+    console.error("JobPilot regional tax defaults:",error);
+  }
+}
+
 function field(label,id,type,value,options=""){
   const control=type==="select" ? `<select id="${id}">${options}</select>` : `<input id="${id}" type="${type}" value="${String(value??"").replace(/"/g,"&quot;")}">`;
   return `<div class="jp-tax-field"><label for="${id}">${label}</label>${control}</div>`;
@@ -68,6 +107,8 @@ async function render(){
     save();
   });
 }
+
+void syncRegionalTaxDefaults();
 
 const observer=new MutationObserver(()=>{ if(document.querySelector(".jp-app-preferences")) void render(); });
 observer.observe(document.body,{childList:true,subtree:true});

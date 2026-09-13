@@ -69,17 +69,13 @@ import { supabase } from "../supabase.js";
         if (sessionError) throw sessionError;
         if (!session?.access_token) throw new Error("You are not logged in.");
 
-        const company = window.JobPilotCompany?.company || null;
-        const companyName = String(company?.name || "JobPilot").trim();
-        const sender = companyName.replace(/[^a-zA-Z0-9 ]/g, "").slice(0, 11).trim() || "JobPilot";
-
         const response = await fetch(SEND_SMS_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`
           },
-          body: JSON.stringify({ recipient, content, sender, message_type: "test", billable: false })
+          body: JSON.stringify({ recipient, content, message_type: "test", billable: false })
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || result.message || "The SMS could not be sent.");
@@ -103,8 +99,6 @@ import { supabase } from "../supabase.js";
     const company = String(businessName || "our business").trim();
     const number = String(invoiceNumber || "").trim();
 
-    // The current send-sms Edge Function enforces a 160-character SMS limit.
-    // Keep the payment URL intact and progressively shorten the surrounding text.
     const messages = [
       `Hi ${name}, invoice #${number} from ${company} is ${amount}. Pay securely: ${paymentLink}`,
       `Invoice #${number} from ${company}: ${amount}. Pay securely: ${paymentLink}`,
@@ -154,15 +148,11 @@ import { supabase } from "../supabase.js";
     const businessName = String(company?.name || localSettings.businessName || "our business").trim();
 
     const message = buildInvoiceSms(customer?.name, businessName, invoice.invoice_number, invoice.total, paymentLink);
-    if (!message) {
-      throw new Error("The invoice payment link is too long to fit in a single SMS. Please use WhatsApp for this invoice.");
-    }
+    if (!message) throw new Error("The invoice payment link is too long to fit in a single SMS. Please use WhatsApp for this invoice.");
 
     const recipient = phone.startsWith("+")
       ? phone
       : phone.replace(/\D/g, "").replace(/^0/, "44").replace(/^/, "+");
-
-    const sender = businessName.replace(/[^a-zA-Z0-9 ]/g, "").slice(0, 11).trim() || "JobPilot";
 
     let smsResponse;
     let smsResult = {};
@@ -174,7 +164,7 @@ import { supabase } from "../supabase.js";
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ recipient, content: message, sender, message_type: "invoice", billable: true })
+        body: JSON.stringify({ recipient, content: message, message_type: "invoice", billable: true })
       });
       smsResult = await smsResponse.json().catch(() => ({}));
     } catch (networkError) {
@@ -187,8 +177,6 @@ import { supabase } from "../supabase.js";
       return;
     }
 
-    // 4xx responses are validation/auth/request errors and must not open WhatsApp.
-    // Only a server/provider failure (5xx) gets the automatic WhatsApp backup.
     if (smsResponse.status < 500) {
       throw new Error(smsResult.error || smsResult.message || "The invoice SMS could not be sent.");
     }
@@ -204,8 +192,6 @@ import { supabase } from "../supabase.js";
     window.location.href = whatsappUrl;
   }
 
-  // Invoice messaging is intentionally SMS-first. WhatsApp is only the backup
-  // when the SMS provider cannot send the invoice.
   document.addEventListener("click", event => {
     const button = event.target?.closest?.("#sendInvoiceButton");
     if (!button || button.dataset.jobpilotMessagingHandled === "1") return;

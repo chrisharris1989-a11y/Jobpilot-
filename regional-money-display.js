@@ -8,7 +8,7 @@ const MONEY_PATTERN = /£\s*(-?\d[\d,]*(?:\.\d{1,2})?)/g;
 let updating = false;
 
 function normalizeText(text) {
-  if (!text || updating) return text;
+  if (!text) return text;
   let result = text;
 
   result = result.replace(MONEY_PATTERN, (_match, value) => {
@@ -23,7 +23,7 @@ function normalizeText(text) {
 }
 
 function normalizeNode(node) {
-  if (updating || !node) return;
+  if (!node) return;
 
   if (node.nodeType === Node.TEXT_NODE) {
     const next = normalizeText(node.nodeValue);
@@ -48,7 +48,7 @@ function refreshMoneyDisplay() {
   if (updating) return;
   updating = true;
   try {
-    document.body?.childNodes.forEach(node => normalizeNode(node));
+    document.body?.childNodes.forEach(normalizeNode);
   } finally {
     updating = false;
   }
@@ -64,7 +64,7 @@ function start() {
     updating = true;
     try {
       mutations.forEach(mutation => {
-        mutation.addedNodes.forEach(node => normalizeNode(node));
+        mutation.addedNodes.forEach(normalizeNode);
         if (mutation.type === "characterData") normalizeNode(mutation.target);
       });
     } finally {

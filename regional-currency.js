@@ -14,6 +14,14 @@ function readLocalSettings() {
   }
 }
 
+function storeCurrency(currency) {
+  const normalized = String(currency || "").trim().toUpperCase();
+  if (!SUPPORTED_CURRENCIES.includes(normalized)) return;
+  const current = readLocalSettings();
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...current, currency: normalized }));
+  window.dispatchEvent(new CustomEvent("jobpilot:currency-changed", { detail: { currency: normalized } }));
+}
+
 export function getJobPilotCurrency(fallback = DEFAULT_CURRENCY) {
   const currency = String(readLocalSettings().currency || "").trim().toUpperCase();
   return SUPPORTED_CURRENCIES.includes(currency) ? currency : fallback;
@@ -51,6 +59,10 @@ export function getJobPilotCurrencySymbol(currency = getJobPilotCurrency()) {
 export function getSupportedJobPilotCurrencies() {
   return [...SUPPORTED_CURRENCIES];
 }
+
+document.addEventListener("change", event => {
+  if (event.target?.id === "jpPrefCurrency") storeCurrency(event.target.value);
+});
 
 window.JobPilotCurrency = Object.freeze({
   getCurrency: getJobPilotCurrency,

@@ -134,13 +134,9 @@ import { supabase } from "../supabase.js";
     const paymentLink = `${window.location.origin}/public-invoice.html?token=${encodeURIComponent(invoice.public_token)}`;
     const message =
       `Hi ${customer.name},\n\n` +
-      `Your invoice from ${businessName} is ready.\n\n` +
-      `Invoice #${invoice.invoice_number || "—"}\n` +
-      `Amount due: £${Number(invoice.total || 0).toFixed(2)}\n` +
-      (invoice.due_date ? `Due date: ${invoice.due_date}\n\n` : "\n") +
-      `You can view and pay securely here:\n${paymentLink}\n\n` +
-      `If you have already paid, please disregard this message.\n\n` +
-      `Thanks,\n${businessName}`;
+      `Please find your invoice from ${businessName} below.\n\n` +
+      `You can view and pay it securely here:\n${paymentLink}\n\n` +
+      `Thank you,\n${businessName}`;
 
     window.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
   }

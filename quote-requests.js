@@ -1,5 +1,6 @@
 import { supabase } from "./supabase.js";
 import { formatJobPilotMoney } from "./regional-currency.js";
+import { getJobPilotPhoneDigits } from "./regional-phone.js";
 
 async function getActiveMembership() {
   const { data: { user } = {} } = await supabase.auth.getUser();
@@ -161,12 +162,20 @@ function showQuoteRequestForm() {
       imagePaths.push(path);
     }
 
+    const settings = (() => {
+      try {
+        return JSON.parse(localStorage.getItem("jobpilot_settings") || "{}");
+      } catch {
+        return {};
+      }
+    })();
+
     const payload = {
       id: requestId,
       company_id: membership.company_id,
       requested_by: user.id,
       customer_name: modal.querySelector("#qrCustomerName").value.trim(),
-      phone: modal.querySelector("#qrPhone").value.trim(),
+      phone: getJobPilotPhoneDigits(modal.querySelector("#qrPhone").value.trim(), settings),
       email: modal.querySelector("#qrEmail").value.trim() || null,
       address: modal.querySelector("#qrAddress").value.trim() || null,
       description: modal.querySelector("#qrDescription").value.trim(),
@@ -241,12 +250,16 @@ function installQuoteSendButtons() {
           throw new Error("This customer does not have a phone number saved.");
         }
 
-        let whatsappNumber = customer.phone.replace(/\D/g, "");
-        if (whatsappNumber.startsWith("0")) {
-          whatsappNumber = "44" + whatsappNumber.substring(1);
-        }
+        const settings = (() => {
+          try {
+            return JSON.parse(localStorage.getItem("jobpilot_settings") || "{}");
+          } catch {
+            return {};
+          }
+        })();
+        const whatsappNumber = getJobPilotPhoneDigits(customer.phone, settings);
+        if (!whatsappNumber) throw new Error("This customer does not have a valid phone number saved.");
 
-        const settings = JSON.parse(localStorage.getItem("jobpilot_settings") || "{}");
         const businessName = settings.businessName || "our business";
 
         const message =

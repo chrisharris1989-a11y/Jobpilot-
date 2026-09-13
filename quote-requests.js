@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { formatJobPilotMoney } from "./regional-currency.js";
 
 async function getActiveMembership() {
   const { data: { user } = {} } = await supabase.auth.getUser();
@@ -103,8 +104,6 @@ function showQuoteRequestForm() {
       pictureStatus.textContent = "Add photos of the job to help management prepare the quote. You can add up to 10 pictures, including taking them one at a time.";
     }
 
-    // A mobile camera/file picker replaces the input's FileList each time it is opened.
-    // Keep our own array so taking a second photo does not replace the first.
     pictureInput.value = "";
   });
 
@@ -255,7 +254,7 @@ function installQuoteSendButtons() {
           `Please find your quote from ${businessName}.\n\n` +
           `Quote #${quote.quote_number || "—"}\n` +
           `Description: ${quote.description || "Quote for requested work"}\n` +
-          `Amount: £${Number(quote.total || 0).toFixed(2)}\n` +
+          `Amount: ${formatJobPilotMoney(quote.total)}\n` +
           (quote.valid_until ? `Valid until: ${quote.valid_until}\n` : "") +
           `\nPlease let us know if you would like to go ahead.\n\n` +
           `Thank you.`;

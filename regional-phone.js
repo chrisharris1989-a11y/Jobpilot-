@@ -99,7 +99,7 @@ export function formatJobPilotPhone(value, settings = {}) {
   let formatted;
   switch (context.countryCode) {
     case "GB":
-      formatted = national.length >= 10 ? groupDigits(national, [4, 3, 4]) : groupDigits(national, [4, 3, 4]);
+      formatted = groupDigits(national, [4, 3, 4]);
       break;
     case "AU":
       formatted = national.length === 9 && national.startsWith("4")
@@ -140,10 +140,15 @@ export function getJobPilotPhonePlaceholder(settings = {}) {
   return examples[context.countryCode] || examples.GB;
 }
 
+// App Preferences is the source of truth for the selected regional market.
+// Keep a small fallback for older/local sessions that may not have the new key yet.
 export function getJobPilotCurrentPhoneSettings() {
   try {
-    const stored = JSON.parse(localStorage.getItem("jobpilot_settings") || "{}");
-    return stored && typeof stored === "object" ? stored : {};
+    const preferred = JSON.parse(localStorage.getItem("jobpilot_app_preferences") || "{}");
+    if (preferred && typeof preferred === "object" && preferred.countryCode) return preferred;
+
+    const legacy = JSON.parse(localStorage.getItem("jobpilot_settings") || "{}");
+    return legacy && typeof legacy === "object" ? legacy : {};
   } catch {
     return {};
   }

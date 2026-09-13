@@ -68,8 +68,8 @@ function showSendChoiceModal(quote, customer, triggerButton) {
         <button class="close" type="button">×</button>
       </div>
       <div style="display:grid;gap:12px;margin-top:8px">
-        <button id="jpSendQuoteWhatsApp" type="button" class="button primary" style="width:100%">Send short quote via WhatsApp</button>
-        <button id="jpSendQuoteEmail" type="button" class="button secondary" style="width:100%">Email Word document</button>
+        <button id="jpSendQuoteWhatsApp" type="button" class="button primary" style="width:100%">📱 Send short quote via WhatsApp</button>
+        <button id="jpSendQuoteEmail" type="button" class="button secondary" style="width:100%">📧 Email Word document</button>
       </div>
       <div id="jpSendQuoteMessage" class="muted" style="margin-top:14px"></div>
       <div class="modal-actions" style="margin-top:14px">
@@ -100,7 +100,7 @@ function showSendChoiceModal(quote, customer, triggerButton) {
     } catch (error) {
       message.textContent = error.message || "The quote could not be sent via WhatsApp.";
       whatsappButton.disabled = false;
-      whatsappButton.textContent = "Send short quote via WhatsApp";
+      whatsappButton.textContent = "📱 Send short quote via WhatsApp";
     }
   });
 
@@ -135,7 +135,7 @@ function showSendChoiceModal(quote, customer, triggerButton) {
             message.textContent = "Email cancelled.";
             emailButton.disabled = false;
             whatsappButton.disabled = false;
-            emailButton.textContent = "Email Word document";
+            emailButton.textContent = "📧 Email Word document";
             return;
           }
           console.warn("JobPilot native file share unavailable:", shareError);
@@ -147,8 +147,8 @@ function showSendChoiceModal(quote, customer, triggerButton) {
         <div style="display:grid;gap:10px">
           <div><strong>The Word quote is ready.</strong></div>
           <div>Download the Word document first, then open your email and attach it.</div>
-          <a id="jpDownloadQuoteDocx" class="button primary" href="${blobUrl}" download="${escapeHtml(filename)}" style="text-align:center;text-decoration:none">Download Word document</a>
-          <button id="jpOpenQuoteEmail" type="button" class="button secondary">Open email</button>
+          <a id="jpDownloadQuoteDocx" class="button primary" href="${blobUrl}" download="${escapeHtml(filename)}" style="text-align:center;text-decoration:none">⬇️ Download Word document</a>
+          <button id="jpOpenQuoteEmail" type="button" class="button secondary">📧 Open email</button>
         </div>
       `;
       emailButton.style.display = "none";
@@ -183,7 +183,7 @@ function showSendChoiceModal(quote, customer, triggerButton) {
       message.textContent = error.message || "The quote could not be prepared for email.";
       emailButton.disabled = false;
       whatsappButton.disabled = false;
-      emailButton.textContent = "Email Word document";
+      emailButton.textContent = "📧 Email Word document";
     }
   });
 
@@ -234,7 +234,7 @@ function installImprovedQuoteSendButtons() {
 
     const replacement = oldButton.cloneNode(true);
     replacement.dataset.jobpilotImproved = "true";
-    replacement.textContent = "Send Quote";
+    replacement.textContent = "📤 Send Quote";
     oldButton.replaceWith(replacement);
 
     replacement.addEventListener("click", async event => {
@@ -252,7 +252,7 @@ function installImprovedQuoteSendButtons() {
         console.error("JobPilot send quote:", error);
         alert(error.message || "The quote could not be sent.");
         replacement.disabled = false;
-        replacement.textContent = "Send Quote";
+        replacement.textContent = "📤 Send Quote";
       }
     });
   });

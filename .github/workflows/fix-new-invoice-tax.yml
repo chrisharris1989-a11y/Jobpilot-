@@ -24,15 +24,26 @@ jobs:
           s = p.read_text()
           old = '''  const invoiceNumber =\n    generateInvoiceNumber();\n\n  modal.innerHTML = `'''
           new = '''  const invoiceNumber =\n    generateInvoiceNumber();\n\n  // Regional tax defaults for the New Invoice form.\n  // Prefer the user's saved regional tax setting, then\n  // fall back to the selected market profile.\n  let regionalTaxSettings =\n    window.JobPilotRegionalTaxSettings || {};\n\n  try {\n    const preferences = JSON.parse(\n      localStorage.getItem("jobpilot_app_preferences") || "{}"\n    );\n    const settings = JSON.parse(\n      localStorage.getItem("jobpilot_settings") || "{}"\n    );\n    const country = String(\n      preferences.countryCode ||\n      preferences.country_code ||\n      "GB"\n    ).trim().toUpperCase();\n    const regionalRates = {\n      GB: 20,\n      AU: 10,\n      NZ: 15,\n      IE: 23,\n      CA: 0,\n      US: 0\n    };\n    const storedRate = Number(\n      regionalTaxSettings.tax_rate ??\n      settings.vatRate ??\n      regionalRates[country] ??\n      20\n    );\n    regionalTaxSettings = {\n      ...regionalTaxSettings,\n      tax_rate: Number.isFinite(storedRate) ? storedRate : (regionalRates[country] ?? 20),\n      tax_label: regionalTaxSettings.tax_label ||\n        ({ AU: "GST", NZ: "GST", IE: "VAT", CA: "GST/HST", US: "Sales Tax", GB: "VAT" }[country] || "VAT")\n    };\n  } catch {\n    regionalTaxSettings = {\n      ...regionalTaxSettings,\n      tax_rate: Number(regionalTaxSettings.tax_rate) || 20\n    };\n  }\n\n  const defaultTaxRate =\n    Number(regionalTaxSettings.tax_rate) || 0;\n\n  const taxLabel =\n    regionalTaxSettings.tax_label || "VAT";\n\n  modal.innerHTML = `'''
-          if old not in s:
-              raise SystemExit('Target block not found')
-          s = s.replace(old, new, 1)
+          if old in s:
+              s = s.replace(old, new, 1)
           old2 = '''        <label>VAT %</label>\n\n        <input\n          id="invoiceVatPercent"\n          type="number"\n          step="0.01"\n          value="20"\n        >\n\n        <label>VAT</label>'''
           new2 = '''        <label>${taxLabel} %</label>\n\n        <input\n          id="invoiceVatPercent"\n          type="number"\n          step="0.01"\n          value="${defaultTaxRate}"\n        >\n\n        <label>${taxLabel}</label>'''
-          if old2 not in s:
-              raise SystemExit('Invoice tax fields not found')
-          s = s.replace(old2, new2, 1)
+          if old2 in s:
+              s = s.replace(old2, new2, 1)
           p.write_text(s)
+          PY
+
+      - name: Patch Add Customer button handler
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app.js')
+          s = p.read_text()
+          old = '''  document\n    .getElementById("addCustomerButton")\n    .addEventListener(\n      "click",\n      showAddCustomerForm\n    );'''
+          new = '''  const addCustomerButton =\n    document.getElementById("addCustomerButton");\n\n  if (addCustomerButton) {\n    addCustomerButton.onclick = event => {\n      event.preventDefault();\n      showAddCustomerForm();\n    };\n  }'''
+          if old not in s:
+              raise SystemExit('Add Customer handler not found')
+          p.write_text(s.replace(old, new, 1))
           PY
 
       - name: Commit patched app.js
@@ -40,5 +51,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app.js
-          git diff --cached --quiet || git commit -m "Apply regional tax default to new invoices"
+          git diff --cached --quiet || git commit -m "Fix Add Customer button handler"
           git push

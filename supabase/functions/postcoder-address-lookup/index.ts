@@ -21,6 +21,39 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: corsHeaders });
 }
 
+async function getCompanyIdentifier(userClient: ReturnType<typeof createClient>, userId: string) {
+  const { data: membership, error: membershipError } = await userClient
+    .from("company_members")
+    .select("company_id")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+
+  if (!membershipError && membership?.company_id) {
+    return `jobpilot_${membership.company_id}`;
+  }
+
+  const { data: ownedCompany, error: ownerError } = await userClient
+    .from("companies")
+    .select("id")
+    .eq("owner_id", userId)
+    .limit(1)
+    .maybeSingle();
+
+  if (!ownerError && ownedCompany?.id) {
+    return `jobpilot_${ownedCompany.id}`;
+  }
+
+  console.warn("No JobPilot company found for Postcoder identifier", {
+    userId,
+    membershipError: membershipError?.message,
+    ownerError: ownerError?.message
+  });
+
+  return `jobpilot_user_${userId}`;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -56,7 +89,7 @@ Deno.serve(async (req: Request) => {
   if (!postcode) return json({ error: "A postcode is required." }, 400);
   if (!postcoderCountry) return json({ error: "This country is not supported by the JobPilot address lookup." }, 400);
 
-  const identifier = `jobpilot_${user.id}`;
+  const identifier = await getCompanyIdentifier(userClient, user.id);
   const params = new URLSearchParams({
     format: "json",
     identifier,

@@ -25,10 +25,6 @@ function renderSafeManagementLanding() {
         <div class="panel-header"><div><h2>👥 Users &amp; Team</h2><p>Manage company users, roles and access.</p></div><span aria-hidden="true">→</span></div>
         <p class="muted" style="margin:16px 0 0">Add users, change roles, suspend or remove access.</p>
       </button>
-      <button class="panel jobpilot-management-card" type="button" data-management-section="company" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)">
-        <div class="panel-header"><div><h2>🏢 Company</h2><p>Manage your company details.</p></div><span aria-hidden="true">→</span></div>
-        <p class="muted" style="margin:16px 0 0">Edit the information used across JobPilot.</p>
-      </button>
       <button class="panel jobpilot-management-card" type="button" data-management-section="accounting" style="text-align:left;cursor:pointer;border:1px solid var(--border,#e5e7eb)">
         <div class="panel-header"><div><h2>📊 Accounting</h2><p>Manage accounting and payment connections.</p></div><span aria-hidden="true">→</span></div>
         <p class="muted" style="margin:16px 0 0">Stripe and FreeAgent connections.</p>

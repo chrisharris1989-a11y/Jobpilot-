@@ -1,0 +1,88 @@
+name: Refactor regional date displays
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace hard-coded date display formatting
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              "dashboard-ui.js": [
+                  (
+                      'new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long", year:"numeric" })',
+                      'window.JobPilotDate.formatDate(`${iso}T12:00:00`, { style: "long" })'
+                  ),
+                  (
+                      'new Date(year, month, 1).toLocaleDateString("en-GB", { month:"long", year:"numeric" })',
+                      'window.JobPilotDate.formatMonthYear(new Date(year, month, 1))'
+                  )
+              ],
+              "ui/management-month-jobs-card.js": [
+                  (
+                      'new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long", year:"numeric" })',
+                      'window.JobPilotDate.formatDate(`${iso}T12:00:00`, { style: "long" })'
+                  ),
+                  (
+                      'new Date(year, month, 1).toLocaleDateString("en-GB", { month:"long", year:"numeric" })',
+                      'window.JobPilotDate.formatMonthYear(new Date(year, month, 1))'
+                  )
+              ],
+              "billing/management-billing.js": [
+                  (
+                      'new Date(entitlement.current_period_end).toLocaleDateString()',
+                      'window.JobPilotDate.formatDate(entitlement.current_period_end)'
+                  )
+              ],
+              "job-plan-job-card.js": [
+                  (
+                      'new Date(job.completed_at).toLocaleString("en-GB")',
+                      'window.JobPilotDate.formatDateTime(job.completed_at)'
+                  ),
+                  (
+                      'new Date(job.customer_signed_at).toLocaleString("en-GB")',
+                      'window.JobPilotDate.formatDateTime(job.customer_signed_at)'
+                  )
+              ]
+          }
+
+          changed = []
+          for filename, pairs in replacements.items():
+              path = Path(filename)
+              text = path.read_text()
+              original = text
+              for old, new in pairs:
+                  text = text.replace(old, new)
+              if text != original:
+                  path.write_text(text)
+                  changed.append(filename)
+
+          missing = []
+          for filename, pairs in replacements.items():
+              text = Path(filename).read_text()
+              for old, _ in pairs:
+                  if old in text:
+                      missing.append(f"{filename}: {old}")
+
+          if missing:
+              raise SystemExit("Some hard-coded date expressions remain:\n" + "\n".join(missing))
+          if not changed:
+              raise SystemExit("No date display changes were made")
+          print("Updated:", ", ".join(changed))
+          PY
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dashboard-ui.js ui/management-month-jobs-card.js billing/management-billing.js job-plan-job-card.js
+          git commit -m "Use central regional date formatter"
+          git push

@@ -1,0 +1,71 @@
+name: Refactor regional address fields
+
+on:
+  push:
+    paths:
+      - '.github/workflows/refactor-regional-addresses.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update app address fields
+        shell: python
+        run: |
+          from pathlib import Path
+
+          app = Path('app.js')
+          text = app.read_text()
+
+          if 'from "./regional-address.js"' not in text:
+              text = text.replace(
+                  'import { showFeedbackAdmin } from "./feedback-admin.js";\n',
+                  'import { showFeedbackAdmin } from "./feedback-admin.js";\nimport { getJobPilotAddressContext, normalizeJobPilotPostalCode } from "./regional-address.js";\n'
+              )
+
+          old_fields = '''        <label>Address</label>\n        <input id="customerAddress">\n\n        <label>Town / City</label>\n        <input id="customerCity">\n\n        <label>Postcode</label>\n        <input id="customerPostcode">'''
+          new_fields = '''        <label>Address</label>\n        <input id="customerAddress" autocomplete="address-line1">\n\n        <label>Address line 2</label>\n        <input id="customerAddress2" autocomplete="address-line2">\n\n        <label>Town / City</label>\n        <input id="customerCity" autocomplete="address-level2">\n\n        <label>County</label>\n        <input id="customerRegion" autocomplete="address-level1">\n\n        <label>Postcode</label>\n        <input id="customerPostcode" autocomplete="postal-code">\n\n        <label>Country</label>\n        <input id="customerCountryCode" type="text" readonly>'''
+          if old_fields in text:
+              text = text.replace(old_fields, new_fields, 1)
+
+          old_save = '''          postcode:\n            document.getElementById("customerPostcode").value.trim(),\n\n          notes:'''
+          new_save = '''          postcode:\n            normalizeJobPilotPostalCode(document.getElementById("customerPostcode").value.trim(), document.getElementById("customerCountryCode")?.value || "GB"),\n\n          address_line2:\n            document.getElementById("customerAddress2")?.value.trim() || null,\n\n          address_region:\n            document.getElementById("customerRegion")?.value.trim() || null,\n\n          address_country_code:\n            document.getElementById("customerCountryCode")?.value.trim().toUpperCase() || "GB",\n\n          notes:'''
+          if old_save in text:
+              text = text.replace(old_save, new_save, 1)
+
+          marker = '  document.getElementById("addCustomerButton")'
+          if marker in text and 'getJobPilotAddressContext()' not in text:
+              text = text.replace(marker, '''  const regionalAddressContext = getJobPilotAddressContext();\n  const regionalCountryField = document.getElementById("customerCountryCode");\n  if (regionalCountryField) regionalCountryField.value = regionalAddressContext.countryCode;\n\n''' + marker, 1)
+
+          app.write_text(text)
+
+          index = Path('index.html')
+          itext = index.read_text()
+          marker = '  <script type="module" src="/ui/regional-phone-inputs.js"></script>'
+          addition = marker + '\n  <script type="module" src="/regional-address.js"></script>\n  <script type="module" src="/ui/regional-address-inputs.js"></script>'
+          if '/ui/regional-address-inputs.js' not in itext and marker in itext:
+              itext = itext.replace(marker, addition, 1)
+          index.write_text(itext)
+      - name: Commit address refactor
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.js index.html
+          if git diff --cached --quiet; then
+            echo "No changes required"
+          else
+            git commit -m "Enable regional customer address fields"
+            git push
+          fi
+      - name: Remove one-time workflow
+        if: success()
+        run: |
+          git rm .github/workflows/refactor-regional-addresses.yml || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Remove one-time regional address workflow" || true
+          git push || true

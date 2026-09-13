@@ -62,20 +62,19 @@ function buildAddressParams(countryCode: string, identifier: string) {
   });
 
   if (countryCode === "GB") {
+    // UK postcode lookup should be an exact postcode search and include
+    // postcode/town/county as separate address-line content where supported.
     params.set("postcodeonly", "true");
     params.set("include", "county,posttown,postcode");
-  } else if (countryCode === "IE") {
-    // Ireland uses Eircode searches and returns posttown/county/postcode
-    // separately from the generic address lines.
   } else if (countryCode === "US") {
-    // US address lines already contain the locality/state/postcode structure.
-    params.set("exclude", "posttown,state,stateabbreviation,postcode,country");
-  } else {
-    // Australia, New Zealand and Canada use the international address-line
-    // format while still returning city/region/postcode as separate fields.
-    params.set("exclude", "posttown,county,postcode,country");
+    // Postcoder's documented US format keeps city/state/postcode in the
+    // response fields while the generic address lines contain the street.
+    params.set("exclude", "organisation,country");
   }
 
+  // Ireland, Australia, New Zealand and Canada use Postcoder's standard
+  // international address-line formatting. Their city/region/postcode are
+  // still returned as separate response fields.
   return params;
 }
 

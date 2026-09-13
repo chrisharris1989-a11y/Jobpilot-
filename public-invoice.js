@@ -1,3 +1,5 @@
+import { formatJobPilotMoney } from "./regional-currency.js";
+
 const FUNCTION_URL = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/public-invoice-v1";
 
 const params = new URLSearchParams(window.location.search);
@@ -14,8 +16,11 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-function money(value) {
-  return `£${Number(value || 0).toFixed(2)}`;
+function money(value, business = {}) {
+  return formatJobPilotMoney(value, {
+    currency: business?.currency || "GBP",
+    locale: business?.locale || undefined
+  });
 }
 
 async function loadInvoice() {
@@ -84,21 +89,21 @@ function renderInvoice(invoice, customer, business) {
         ${invoice.invoice_items.map(item => `
           <div class="invoice-row">
             <span>${escapeHtml(item.description || "")}</span>
-            <strong>${money(item.total)}</strong>
+            <strong>${money(item.total, business)}</strong>
           </div>
         `).join("")}
       ` : ""}
 
-      <div class="invoice-row"><span>Subtotal</span><strong>${money(invoice.subtotal)}</strong></div>
-      ${Number(invoice.vat || 0) > 0 ? `<div class="invoice-row"><span>VAT</span><strong>${money(invoice.vat)}</strong></div>` : ""}
+      <div class="invoice-row"><span>Subtotal</span><strong>${money(invoice.subtotal, business)}</strong></div>
+      ${Number(invoice.vat || 0) > 0 ? `<div class="invoice-row"><span>VAT</span><strong>${money(invoice.vat, business)}</strong></div>` : ""}
       <div class="invoice-row" style="border-bottom:0;padding-top:20px">
         <strong class="invoice-total">Total</strong>
-        <strong class="invoice-total">${money(invoice.total)}</strong>
+        <strong class="invoice-total">${money(invoice.total, business)}</strong>
       </div>
 
       ${paid
-        ? `<div class="invoice-message">✅ This invoice has been paid.</div>`
-        : `<button id="payButton" class="pay-button">💳 Pay Online</button>`}
+        ? `<div class="invoice-message">This invoice has been paid.</div>`
+        : `<button id="payButton" class="pay-button">Pay Online</button>`}
 
       ${business?.invoice_footer ? `<div class="invoice-message" style="border-top:1px solid #eee;padding-top:20px;white-space:pre-line">${escapeHtml(business.invoice_footer)}</div>` : ""}
       ${paymentMessage}
@@ -129,7 +134,7 @@ async function createPayment() {
   } catch (error) {
     alert(`Could not create payment:\n\n${error.message}`);
     button.disabled = false;
-    button.textContent = "💳 Pay Online";
+    button.textContent = "Pay Online";
   }
 }
 

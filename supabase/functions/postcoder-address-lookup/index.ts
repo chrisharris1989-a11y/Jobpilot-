@@ -54,6 +54,31 @@ async function getCompanyIdentifier(userClient: ReturnType<typeof createClient>,
   return `jobpilot_user_${userId}`;
 }
 
+function buildAddressParams(countryCode: string, identifier: string) {
+  const params = new URLSearchParams({
+    format: "json",
+    identifier,
+    lines: "3"
+  });
+
+  if (countryCode === "GB") {
+    params.set("postcodeonly", "true");
+    params.set("include", "county,posttown,postcode");
+  } else if (countryCode === "IE") {
+    // Ireland uses Eircode searches and returns posttown/county/postcode
+    // separately from the generic address lines.
+  } else if (countryCode === "US") {
+    // US address lines already contain the locality/state/postcode structure.
+    params.set("exclude", "posttown,state,stateabbreviation,postcode,country");
+  } else {
+    // Australia, New Zealand and Canada use the international address-line
+    // format while still returning city/region/postcode as separate fields.
+    params.set("exclude", "posttown,county,postcode,country");
+  }
+
+  return params;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -90,15 +115,7 @@ Deno.serve(async (req: Request) => {
   if (!postcoderCountry) return json({ error: "This country is not supported by the JobPilot address lookup." }, 400);
 
   const identifier = await getCompanyIdentifier(userClient, user.id);
-  const params = new URLSearchParams({
-    format: "json",
-    identifier,
-    lines: "3",
-    include: "county,posttown,postcode"
-  });
-
-  if (countryCode === "GB") params.set("postcodeonly", "true");
-
+  const params = buildAddressParams(countryCode, identifier);
   const endpoint = `https://ws.postcoder.com/pcw/${encodeURIComponent(postcoderApiKey)}/address/${postcoderCountry}/${encodeURIComponent(postcode)}?${params.toString()}`;
 
   try {

@@ -1,5 +1,9 @@
-function buildAddCustomerLayout(form) {
-  if (!form || form.dataset.jobpilotLayoutReady === "true") return;
+function buildCustomerFormLayout(form) {
+  if (!form) return;
+
+  // The same customer form is used for both Add Customer and Edit Customer.
+  // If the form is rebuilt for editing, allow the layout to be applied again.
+  if (form.querySelector(".jobpilot-customer-section")) return;
 
   const actions = form.querySelector(".modal-actions");
   if (!actions) return;
@@ -94,7 +98,7 @@ function apply() {
   const form = document.getElementById("customerForm");
   if (!form) return;
 
-  buildAddCustomerLayout(form);
+  buildCustomerFormLayout(form);
   moveAddressLookup(form);
 }
 

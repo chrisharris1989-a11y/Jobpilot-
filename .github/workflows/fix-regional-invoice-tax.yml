@@ -20,28 +20,27 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
+          import re
+
           p = Path('app.js')
           s = p.read_text(encoding='utf-8')
-
           marker = 'function showAddInvoiceForm()'
           start = s.find(marker)
           if start < 0:
               raise SystemExit('showAddInvoiceForm not found')
 
-          settings_marker = '  const settings = JSON.parse(\n    localStorage.getItem("jobpilot_settings") || "{}"\n  );'
-          settings_pos = s.find(settings_marker, start)
-          if settings_pos < 0:
-              raise SystemExit('invoice settings block not found')
+          end = s.find('\nfunction ', start + len(marker))
+          if end < 0:
+              end = len(s)
+          block = s[start:end]
 
-          insert = settings_marker + '''\n  const defaultVatRate = Number.isFinite(Number(settings.taxRate))\n    ? Number(settings.taxRate)\n    : Number.isFinite(Number(settings.vatRate))\n      ? Number(settings.vatRate)\n      : 20;'''
-          if 'const defaultVatRate =' not in s[settings_pos:settings_pos + 500]:
-              s = s[:settings_pos] + s[settings_pos:].replace(settings_marker, insert, 1)
+          pattern = r'(id="invoiceVatPercent"[\s\S]{0,180}?step="0\.01"\s*\n\s*)value="20"'
+          replacement = r'''\1value="${Number.isFinite(Number(settings.taxRate)) ? Number(settings.taxRate) : Number.isFinite(Number(settings.vatRate)) ? Number(settings.vatRate) : 20}"'''
+          updated, count = re.subn(pattern, replacement, block, count=1)
+          if count != 1:
+              raise SystemExit('invoiceVatPercent hard-coded 20% input not found')
 
-          invoice_input = '''        <input\n          id="invoiceVatPercent"\n          type="number"\n          step="0.01"\n          value="20"\n        >'''
-          if invoice_input not in s[start:]:
-              raise SystemExit('hard-coded invoice tax input not found')
-          s = s[:start] + s[start:].replace(invoice_input, '''        <input\n          id="invoiceVatPercent"\n          type="number"\n          step="0.01"\n          value="${defaultVatRate}"\n        >''', 1)
-
+          s = s[:start] + updated + s[end:]
           p.write_text(s, encoding='utf-8')
 
       - name: Commit application change

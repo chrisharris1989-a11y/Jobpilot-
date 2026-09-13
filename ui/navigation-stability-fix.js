@@ -3,6 +3,7 @@
 // Do not expose a separate top-level Connections navigation item.
 
 const LAST_PAGE_KEY = "jobpilot.lastPage";
+const PREFERENCES_KEY = "jobpilot_app_preferences";
 const VALID_PAGES = new Set([
   "dashboard",
   "customers",
@@ -21,15 +22,32 @@ const MANAGEMENT_SECTIONS = new Set([
   "Import & Export"
 ]);
 
+function shouldRememberLastPage() {
+  try {
+    const preferences = JSON.parse(localStorage.getItem(PREFERENCES_KEY) || "null");
+    return preferences?.rememberLastPage !== false;
+  } catch {
+    return true;
+  }
+}
+
+function clearLastPage() {
+  localStorage.removeItem(LAST_PAGE_KEY);
+}
+
 function removeTopLevelConnections() {
   document.querySelectorAll('.sidebar nav .nav-item[data-page="connections"]').forEach(button => button.remove());
 }
 
 function saveCurrentScreen() {
+  if (!shouldRememberLastPage()) {
+    clearLastPage();
+    return;
+  }
+
   const title = document.getElementById("pageTitle")?.textContent?.trim();
   if (!title) return;
 
-  const navButton = document.querySelector(`.nav-item[data-page]`);
   const pageButton = [...document.querySelectorAll(".nav-item[data-page]")]
     .find(button => button.classList.contains("active"));
 
@@ -52,6 +70,11 @@ function rememberNavigationClick(event) {
   const target = event.target.closest?.("button, [role='button'], .nav-item");
   if (!target) return;
 
+  if (!shouldRememberLastPage()) {
+    clearLastPage();
+    return;
+  }
+
   // Top-level pages are known immediately. For dynamically rendered screens,
   // wait until their click handler has rendered the destination before saving it.
   const page = target.dataset?.page;
@@ -65,6 +88,13 @@ function rememberNavigationClick(event) {
 function restoreLastPage() {
   const nav = document.querySelector('.sidebar nav');
   if (!nav || nav.dataset.lastPageRestored === "true") return;
+
+  // The preference is authoritative. If disabled, remove any stale saved page
+  // and allow the app's normal startup/default dashboard behaviour to continue.
+  if (!shouldRememberLastPage()) {
+    clearLastPage();
+    return;
+  }
 
   let saved;
   try {
@@ -93,7 +123,6 @@ function restoreLastPage() {
 
     if (saved.value === "Management") return;
 
-    // Management renders its section cards asynchronously after navigation.
     const wanted = saved.value;
     const findSection = () => {
       const card = document.querySelector(`[data-management-section]`);
@@ -129,6 +158,14 @@ function restoreLastPage() {
 }
 
 document.addEventListener("click", rememberNavigationClick, true);
+
+// React immediately when App Preferences changes. This makes turning the
+// setting off effective without requiring a full reload.
+window.addEventListener("jobpilot:preferences-changed", event => {
+  if (event.detail?.rememberLastPage === false || !shouldRememberLastPage()) {
+    clearLastPage();
+  }
+});
 
 const observer = new MutationObserver(() => {
   removeTopLevelConnections();

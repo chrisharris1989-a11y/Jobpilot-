@@ -1,4 +1,5 @@
 import { supabase } from "../supabase.js";
+import { formatJobPilotMoney } from "../regional-currency.js";
 
 const BUTTON_SELECTOR = ".quote-send[data-quote-id]";
 
@@ -25,7 +26,7 @@ function shortWhatsAppMessage(quote, customer) {
     `Your quote from ${businessName} is ready.`,
     `Quote #${quote.quote_number || "—"}`,
     `Description: ${quote.description || "Requested work"}`,
-    `Total: £${Number(quote.total || 0).toFixed(2)}`,
+    `Total: ${formatJobPilotMoney(quote.total)}`,
     quote.valid_until ? `Valid until: ${quote.valid_until}` : "",
     "",
     "Please let us know if you would like to go ahead.",
@@ -67,8 +68,8 @@ function showSendChoiceModal(quote, customer, triggerButton) {
         <button class="close" type="button">×</button>
       </div>
       <div style="display:grid;gap:12px;margin-top:8px">
-        <button id="jpSendQuoteWhatsApp" type="button" class="button primary" style="width:100%">📱 Send short quote via WhatsApp</button>
-        <button id="jpSendQuoteEmail" type="button" class="button secondary" style="width:100%">📧 Email Word document</button>
+        <button id="jpSendQuoteWhatsApp" type="button" class="button primary" style="width:100%">Send short quote via WhatsApp</button>
+        <button id="jpSendQuoteEmail" type="button" class="button secondary" style="width:100%">Email Word document</button>
       </div>
       <div id="jpSendQuoteMessage" class="muted" style="margin-top:14px"></div>
       <div class="modal-actions" style="margin-top:14px">
@@ -99,7 +100,7 @@ function showSendChoiceModal(quote, customer, triggerButton) {
     } catch (error) {
       message.textContent = error.message || "The quote could not be sent via WhatsApp.";
       whatsappButton.disabled = false;
-      whatsappButton.textContent = "📱 Send short quote via WhatsApp";
+      whatsappButton.textContent = "Send short quote via WhatsApp";
     }
   });
 
@@ -123,9 +124,6 @@ function showSendChoiceModal(quote, customer, triggerButton) {
       const subject = `Quotation ${quote.quote_number || ""} from ${businessName}`.trim();
       const body = emailQuoteMessage(quote, customer);
 
-      // Native file sharing is intended for phones/tablets. Some desktop browsers expose
-      // navigator.share but reject file sharing with a "Permission denied" error.
-      // Never let that desktop browser behaviour break the email workflow.
       if (isMobileShareDevice() && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({ title: subject, text: body, files: [file] });
@@ -137,23 +135,20 @@ function showSendChoiceModal(quote, customer, triggerButton) {
             message.textContent = "Email cancelled.";
             emailButton.disabled = false;
             whatsappButton.disabled = false;
-            emailButton.textContent = "📧 Email Word document";
+            emailButton.textContent = "Email Word document";
             return;
           }
-          // Fall through to the desktop-style download/email flow.
           console.warn("JobPilot native file share unavailable:", shareError);
         }
       }
 
-      // Desktop browsers cannot reliably attach a generated Blob to a mailto link.
-      // Provide an explicit download link, then let the user open their email client.
       blobUrl = URL.createObjectURL(blob);
       message.innerHTML = `
         <div style="display:grid;gap:10px">
           <div><strong>The Word quote is ready.</strong></div>
           <div>Download the Word document first, then open your email and attach it.</div>
-          <a id="jpDownloadQuoteDocx" class="button primary" href="${blobUrl}" download="${escapeHtml(filename)}" style="text-align:center;text-decoration:none">⬇️ Download Word document</a>
-          <button id="jpOpenQuoteEmail" type="button" class="button secondary">📧 Open email</button>
+          <a id="jpDownloadQuoteDocx" class="button primary" href="${blobUrl}" download="${escapeHtml(filename)}" style="text-align:center;text-decoration:none">Download Word document</a>
+          <button id="jpOpenQuoteEmail" type="button" class="button secondary">Open email</button>
         </div>
       `;
       emailButton.style.display = "none";
@@ -188,7 +183,7 @@ function showSendChoiceModal(quote, customer, triggerButton) {
       message.textContent = error.message || "The quote could not be prepared for email.";
       emailButton.disabled = false;
       whatsappButton.disabled = false;
-      emailButton.textContent = "📧 Email Word document";
+      emailButton.textContent = "Email Word document";
     }
   });
 
@@ -239,7 +234,7 @@ function installImprovedQuoteSendButtons() {
 
     const replacement = oldButton.cloneNode(true);
     replacement.dataset.jobpilotImproved = "true";
-    replacement.textContent = "📤 Send Quote";
+    replacement.textContent = "Send Quote";
     oldButton.replaceWith(replacement);
 
     replacement.addEventListener("click", async event => {
@@ -257,7 +252,7 @@ function installImprovedQuoteSendButtons() {
         console.error("JobPilot send quote:", error);
         alert(error.message || "The quote could not be sent.");
         replacement.disabled = false;
-        replacement.textContent = "📤 Send Quote";
+        replacement.textContent = "Send Quote";
       }
     });
   });

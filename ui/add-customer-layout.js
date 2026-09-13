@@ -1,33 +1,40 @@
 function buildAddCustomerLayout(form) {
   if (!form || form.dataset.jobpilotLayoutReady === "true") return;
 
-  const directChildren = Array.from(form.children);
-  const actions = directChildren.find(node => node.classList.contains("modal-actions"));
+  const actions = form.querySelector(".modal-actions");
   if (!actions) return;
 
+  const fieldIds = [
+    "customerName",
+    "customerPhone",
+    "customerEmail",
+    "customerPostcode",
+    "customerAddress",
+    "customerAddress2",
+    "customerCity",
+    "customerRegion",
+    "customerCountryCode",
+    "customerNotes"
+  ];
+
   const fields = new Map();
-  let currentField = null;
 
-  for (const node of directChildren) {
-    if (node === actions) continue;
+  fieldIds.forEach(id => {
+    const control = form.querySelector(`#${id}`);
+    if (!control) return;
 
-    if (node.tagName === "LABEL") {
-      currentField = document.createElement("div");
-      currentField.className = "jobpilot-customer-field";
-      const label = node;
-      currentField.appendChild(label);
-      form.removeChild(node);
-      fields.set(label.textContent.trim(), currentField);
-      continue;
+    const wrapper = document.createElement("div");
+    wrapper.className = "jobpilot-customer-field";
+
+    const label = control.previousElementSibling;
+    if (label?.tagName === "LABEL") {
+      wrapper.appendChild(label);
     }
 
-    if (currentField) {
-      currentField.appendChild(node);
-      if (node.id) fields.set(node.id, currentField);
-    }
-  }
+    wrapper.appendChild(control);
+    fields.set(id, wrapper);
+  });
 
-  const getField = id => fields.get(id);
   const makeSection = (title, ids, wideIds = []) => {
     const section = document.createElement("section");
     section.className = "jobpilot-customer-section";
@@ -40,8 +47,8 @@ function buildAddCustomerLayout(form) {
     grid.className = "jobpilot-customer-grid";
 
     ids.forEach(id => {
-      const field = getField(id);
-      if (!field || field.parentElement === grid) return;
+      const field = fields.get(id);
+      if (!field) return;
       if (wideIds.includes(id)) field.classList.add("jobpilot-customer-field-wide");
       grid.appendChild(field);
     });
@@ -50,41 +57,56 @@ function buildAddCustomerLayout(form) {
     return section;
   };
 
-  form.innerHTML = "";
+  form.replaceChildren(
+    makeSection("Customer details", [
+      "customerName",
+      "customerPhone",
+      "customerEmail"
+    ], ["customerEmail"]),
+    makeSection("Address", [
+      "customerPostcode",
+      "customerAddress",
+      "customerAddress2",
+      "customerCity",
+      "customerRegion",
+      "customerCountryCode"
+    ], ["customerPostcode", "customerAddress", "customerAddress2"]),
+    makeSection("Additional information", [
+      "customerNotes"
+    ], ["customerNotes"]),
+    actions
+  );
 
-  form.appendChild(makeSection("Customer details", [
-    "customerName",
-    "customerPhone",
-    "customerEmail"
-  ], ["customerEmail"]));
-
-  form.appendChild(makeSection("Address", [
-    "customerPostcode",
-    "customerAddress",
-    "customerAddress2",
-    "customerCity",
-    "customerRegion",
-    "customerCountryCode"
-  ], ["customerPostcode", "customerAddress", "customerAddress2"]));
-
-  form.appendChild(makeSection("Additional information", [
-    "customerNotes"
-  ], ["customerNotes"]));
-
-  form.appendChild(actions);
   form.dataset.jobpilotLayoutReady = "true";
+  moveAddressLookup(form);
+}
+
+function moveAddressLookup(form) {
+  const postcodeField = form.querySelector("#customerPostcode")?.closest(".jobpilot-customer-field");
+  const lookup = form.querySelector(".jobpilot-address-lookup");
+
+  if (postcodeField && lookup && lookup.parentElement !== postcodeField) {
+    postcodeField.appendChild(lookup);
+  }
 }
 
 function apply() {
   const form = document.getElementById("customerForm");
-  if (form) buildAddCustomerLayout(form);
+  if (!form) return;
+
+  buildAddCustomerLayout(form);
+  moveAddressLookup(form);
 }
 
 function init() {
   apply();
+
   const observer = new MutationObserver(() => apply());
   observer.observe(document.body, { childList: true, subtree: true });
 }
 
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
-else init();
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}

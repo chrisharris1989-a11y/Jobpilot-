@@ -1,6 +1,7 @@
 import { supabase } from "./supabase.js";
 import { showFeedbackForm } from "./feedback.js";
 import { showFeedbackAdmin } from "./feedback-admin.js";
+import { getJobPilotAddressContext, normalizeJobPilotPostalCode } from "./regional-address.js";
 
 let currentUser = null;
 let customers = [];
@@ -887,13 +888,22 @@ function showAddCustomerForm() {
         <input id="customerEmail" type="email">
 
         <label>Address</label>
-        <input id="customerAddress">
+        <input id="customerAddress" autocomplete="address-line1">
+
+        <label>Address line 2</label>
+        <input id="customerAddress2" autocomplete="address-line2">
 
         <label>Town / City</label>
-        <input id="customerCity">
+        <input id="customerCity" autocomplete="address-level2">
+
+        <label>County</label>
+        <input id="customerRegion" autocomplete="address-level1">
 
         <label>Postcode</label>
-        <input id="customerPostcode">
+        <input id="customerPostcode" autocomplete="postal-code">
+
+        <label>Country</label>
+        <input id="customerCountryCode" type="text" readonly>
 
         <label>Notes</label>
         <textarea id="customerNotes"></textarea>
@@ -952,7 +962,16 @@ function showAddCustomerForm() {
             document.getElementById("customerCity").value.trim(),
 
           postcode:
-            document.getElementById("customerPostcode").value.trim(),
+            normalizeJobPilotPostalCode(document.getElementById("customerPostcode").value.trim(), document.getElementById("customerCountryCode")?.value || "GB"),
+
+          address_line2:
+            document.getElementById("customerAddress2")?.value.trim() || null,
+
+          address_region:
+            document.getElementById("customerRegion")?.value.trim() || null,
+
+          address_country_code:
+            document.getElementById("customerCountryCode")?.value.trim().toUpperCase() || "GB",
 
           notes:
             document.getElementById("customerNotes").value.trim()

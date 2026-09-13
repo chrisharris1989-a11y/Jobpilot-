@@ -104,3 +104,15 @@
     grid-column: auto;
   }
 }
+
+/* =====================================================
+   REGIONAL SETTINGS
+   Country is the only user-facing setting here. Currency,
+   timezone and phone country are automatically derived from it.
+===================================================== */
+
+.jp-app-preferences .jp-pref-row:has(#jpPrefCurrency),
+.jp-app-preferences .jp-pref-row:has(#jpPrefTimezone),
+.jp-app-preferences .jp-pref-row:has(#jpPrefPhoneCountry) {
+  display: none;
+}

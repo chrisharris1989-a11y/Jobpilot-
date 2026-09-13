@@ -22,7 +22,7 @@ function shortWhatsAppMessage(quote, customer) {
   return [
     `Hi ${customer.name},`,
     "",
-    `Please find your quote from ${businessName} below.`,
+    "Please find your quote below.",
     "",
     "Thank you,",
     businessName

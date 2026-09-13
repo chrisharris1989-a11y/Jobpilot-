@@ -3,12 +3,15 @@
 // to follow the currency selected in Settings → App Preferences.
 
 const SETTINGS_KEY = "jobpilot_settings";
+const APP_PREFERENCES_KEY = "jobpilot_app_preferences";
 const DEFAULT_CURRENCY = "GBP";
 const SUPPORTED_CURRENCIES = Object.freeze(["GBP", "AUD", "NZD", "EUR", "CAD", "USD"]);
 
 function readLocalSettings() {
   try {
-    return JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+    const legacy = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+    const preferences = JSON.parse(localStorage.getItem(APP_PREFERENCES_KEY) || "{}");
+    return { ...legacy, ...preferences };
   } catch {
     return {};
   }
@@ -17,8 +20,14 @@ function readLocalSettings() {
 function storeCurrency(currency) {
   const normalized = String(currency || "").trim().toUpperCase();
   if (!SUPPORTED_CURRENCIES.includes(normalized)) return;
-  const current = readLocalSettings();
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...current, currency: normalized }));
+
+  try {
+    const preferences = JSON.parse(localStorage.getItem(APP_PREFERENCES_KEY) || "{}");
+    localStorage.setItem(APP_PREFERENCES_KEY, JSON.stringify({ ...preferences, currency: normalized }));
+  } catch {
+    localStorage.setItem(APP_PREFERENCES_KEY, JSON.stringify({ currency: normalized }));
+  }
+
   window.dispatchEvent(new CustomEvent("jobpilot:currency-changed", { detail: { currency: normalized } }));
 }
 
@@ -62,6 +71,11 @@ export function getSupportedJobPilotCurrencies() {
 
 document.addEventListener("change", event => {
   if (event.target?.id === "jpPrefCurrency") storeCurrency(event.target.value);
+});
+
+window.addEventListener("jobpilot:preferences-changed", event => {
+  const currency = event.detail?.currency;
+  if (currency) storeCurrency(currency);
 });
 
 window.JobPilotCurrency = Object.freeze({

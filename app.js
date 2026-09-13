@@ -736,12 +736,15 @@ function renderCustomersPage(content) {
     </div>
   `;
 
-  document
-    .getElementById("addCustomerButton")
-    .addEventListener(
-      "click",
-      showAddCustomerForm
-    );
+  const addCustomerButton =
+    document.getElementById("addCustomerButton");
+
+  if (addCustomerButton) {
+    addCustomerButton.onclick = event => {
+      event.preventDefault();
+      showAddCustomerForm();
+    };
+  }
 
   document
     .getElementById("customerSearch")

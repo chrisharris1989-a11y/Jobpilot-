@@ -2,31 +2,12 @@ import { supabase } from "../supabase.js";
 import { getJobPilotAddressContext, normalizeJobPilotPostalCode } from "../regional-address.js";
 
 const FIELD_GROUPS = [
-  {
-    postcode: "#customerPostcode",
-    address: "#customerAddress",
-    address2: "#customerAddress2",
-    city: "#customerCity",
-    region: "#customerRegion",
-    country: "#customerCountryCode"
-  },
-  {
-    postcode: "#companyPostcode",
-    address: "#companyAddress",
-    address2: "#companyAddress2",
-    city: "#companyCity",
-    region: "#companyAddressRegion",
-    country: null
-  }
+  { postcode: "#customerPostcode", address: "#customerAddress", address2: "#customerAddress2", city: "#customerCity", region: "#customerRegion", country: "#customerCountryCode" },
+  { postcode: "#companyPostcode", address: "#companyAddress", address2: "#companyAddress2", city: "#companyCity", region: "#companyAddressRegion", country: null }
 ];
 
-const MAX_RESULTS = 100;
-const TABLE_NAME = "uk_address_lookup";
-
 function getCountryCode(group) {
-  if (group.country) {
-    return document.querySelector(group.country)?.value || getJobPilotAddressContext().countryCode;
-  }
+  if (group.country) return document.querySelector(group.country)?.value || getJobPilotAddressContext().countryCode;
   return getJobPilotAddressContext().countryCode;
 }
 
@@ -44,7 +25,7 @@ function setField(selector, value) {
 
 function populateAddress(group, address) {
   setField(group.address, address.address_line1);
-  setField(group.address2, address.address_line2);
+  setField(group.address2, [address.address_line2, address.address_line3].filter(Boolean).join(", "));
   setField(group.city, address.city);
   setField(group.region, address.region);
   if (group.country) setField(group.country, address.country_code || "GB");
@@ -52,33 +33,24 @@ function populateAddress(group, address) {
 }
 
 function formatResult(address) {
-  const parts = [address.address_line1, address.address_line2, address.city, address.region]
-    .filter(Boolean);
-  return parts.join(", ");
+  return address.display_address || [address.address_line1, address.address_line2, address.address_line3, address.city, address.region, address.postcode].filter(Boolean).join(", ");
 }
 
-async function lookupAddresses(postcode) {
-  const { data, error } = await supabase
-    .from(TABLE_NAME)
-    .select("id,uprn,postcode,address_line1,address_line2,city,region,country_code")
-    .eq("postcode", postcode)
-    .order("address_line1", { ascending: true })
-    .limit(MAX_RESULTS);
-
+async function lookupAddresses(postcode, countryCode) {
+  const { data, error } = await supabase.functions.invoke("postcoder-address-lookup", { body: { postcode, countryCode } });
   if (error) throw error;
-  return data || [];
+  if (!data || !Array.isArray(data.results)) throw new Error(data?.error || "Address lookup returned an invalid response.");
+  return data.results;
 }
 
-function renderResults(wrapper, group, postcodeInput, results, status) {
+function renderResults(wrapper, group, results, status) {
   wrapper.querySelector(".jobpilot-address-results")?.remove();
-
   if (!results.length) {
     status.textContent = "No addresses were found for this postcode. You can enter the address manually.";
     return;
   }
 
   status.textContent = `${results.length} address${results.length === 1 ? "" : "es"} found.`;
-
   const select = document.createElement("select");
   select.className = "jobpilot-address-results";
   select.style.width = "100%";
@@ -90,15 +62,16 @@ function renderResults(wrapper, group, postcodeInput, results, status) {
   placeholder.textContent = "Select an address...";
   select.appendChild(placeholder);
 
-  results.forEach(address => {
+  results.forEach((address, index) => {
     const option = document.createElement("option");
-    option.value = String(address.id);
+    option.value = String(address.id || index);
     option.textContent = formatResult(address);
     select.appendChild(option);
   });
 
   select.addEventListener("change", () => {
-    const selected = results.find(address => String(address.id) === select.value);
+    const selectedIndex = Number(select.selectedIndex) - 1;
+    const selected = results[selectedIndex];
     if (!selected) return;
     populateAddress(group, selected);
     status.textContent = "Address selected. You can edit any field if needed.";
@@ -109,7 +82,6 @@ function renderResults(wrapper, group, postcodeInput, results, status) {
 
 function createLookupUi(group, postcodeInput) {
   removeExistingPicker(postcodeInput);
-
   const wrapper = document.createElement("div");
   wrapper.className = "jobpilot-address-lookup";
   wrapper.style.marginTop = "6px";
@@ -133,26 +105,24 @@ function createLookupUi(group, postcodeInput) {
   button.addEventListener("click", async () => {
     const countryCode = getCountryCode(group);
     const postcode = normalizeJobPilotPostalCode(postcodeInput.value.trim());
-
     if (!postcode) {
       status.textContent = "Enter a postcode first.";
       return;
     }
 
-    if (countryCode !== "GB") {
-      status.textContent = "Local UK address lookup is currently available for UK postcodes. You can enter the address manually for this region.";
-      return;
-    }
-
     button.disabled = true;
     status.textContent = "Finding addresses...";
+    wrapper.querySelector(".jobpilot-address-results")?.remove();
 
     try {
-      const results = await lookupAddresses(postcode);
-      renderResults(wrapper, group, postcodeInput, results, status);
+      const results = await lookupAddresses(postcode, countryCode);
+      renderResults(wrapper, group, results, status);
     } catch (error) {
-      console.error("JobPilot address lookup failed", error);
-      status.textContent = "Address lookup is temporarily unavailable. You can enter the address manually.";
+      console.error("JobPilot Postcoder address lookup failed", error);
+      const message = error?.message || "Address lookup is temporarily unavailable.";
+      status.textContent = message.includes("Postcoder is not configured")
+        ? "Address lookup is not configured yet. You can enter the address manually."
+        : "Address lookup is temporarily unavailable. You can enter the address manually.";
     } finally {
       button.disabled = false;
     }
@@ -171,26 +141,17 @@ function apply() {
   FIELD_GROUPS.forEach(group => {
     const postcodeInput = document.querySelector(group.postcode);
     if (!postcodeInput) return;
-    if (!postcodeInput.parentElement?.querySelector(".jobpilot-address-lookup")) {
-      createLookupUi(group, postcodeInput);
-    }
+    if (!postcodeInput.parentElement?.querySelector(".jobpilot-address-lookup")) createLookupUi(group, postcodeInput);
   });
 }
 
 function init() {
   apply();
-
   const observer = new MutationObserver(mutations => {
-    if (mutations.some(mutation => Array.from(mutation.addedNodes).some(hasRelevantField))) {
-      apply();
-    }
+    if (mutations.some(mutation => Array.from(mutation.addedNodes).some(hasRelevantField))) apply();
   });
-
   observer.observe(document.body, { childList: true, subtree: true });
 }
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", init);
-} else {
-  init();
-}
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+else init();

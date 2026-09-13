@@ -93,6 +93,85 @@ import { supabase } from "../supabase.js";
     });
   }
 
+  async function sendInvoiceByWhatsApp() {
+    const pageTitle = document.getElementById("pageTitle")?.textContent?.trim() || "";
+    const match = pageTitle.match(/^Invoice\s+#(.+)$/i);
+    const invoiceNumber = match?.[1]?.trim();
+    if (!invoiceNumber) throw new Error("Could not identify the invoice.");
+
+    const { data: invoice, error: invoiceError } = await supabase
+      .from("invoices")
+      .select("id, invoice_number, total, due_date, public_token, customer_id")
+      .eq("invoice_number", invoiceNumber)
+      .maybeSingle();
+
+    if (invoiceError) throw invoiceError;
+    if (!invoice) throw new Error("Invoice could not be found.");
+    if (!invoice.public_token) throw new Error("This invoice does not have a payment link yet.");
+
+    const { data: customer, error: customerError } = await supabase
+      .from("customers")
+      .select("id, name, phone")
+      .eq("id", invoice.customer_id)
+      .maybeSingle();
+
+    if (customerError) throw customerError;
+    if (!customer?.phone) throw new Error("This customer does not have a phone number saved.");
+
+    const settings = (() => {
+      try {
+        return JSON.parse(localStorage.getItem("jobpilot_settings") || "{}");
+      } catch {
+        return {};
+      }
+    })();
+
+    const businessName = String(settings.businessName || "our business").trim();
+    let whatsappNumber = String(customer.phone).replace(/\D/g, "");
+    if (whatsappNumber.startsWith("0")) whatsappNumber = `44${whatsappNumber.substring(1)}`;
+    if (!whatsappNumber) throw new Error("This customer does not have a valid phone number saved.");
+
+    const paymentLink = `${window.location.origin}/public-invoice.html?token=${encodeURIComponent(invoice.public_token)}`;
+    const message =
+      `Hi ${customer.name},\n\n` +
+      `Your invoice from ${businessName} is ready.\n\n` +
+      `Invoice #${invoice.invoice_number || "—"}\n` +
+      `Amount due: £${Number(invoice.total || 0).toFixed(2)}\n` +
+      (invoice.due_date ? `Due date: ${invoice.due_date}\n\n` : "\n") +
+      `You can view and pay securely here:\n${paymentLink}\n\n` +
+      `If you have already paid, please disregard this message.\n\n` +
+      `Thanks,\n${businessName}`;
+
+    window.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+  }
+
+  // Invoices are deliberately kept out of SMS. They are sent through the
+  // existing WhatsApp flow so the full payment message can be retained.
+  document.addEventListener("click", event => {
+    const button = event.target?.closest?.("#sendInvoiceButton");
+    if (!button || button.dataset.jobpilotInvoiceHandled === "1") return;
+
+    button.dataset.jobpilotInvoiceHandled = "1";
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = "Opening WhatsApp...";
+
+    sendInvoiceByWhatsApp()
+      .catch(error => {
+        console.error("JobPilot invoice WhatsApp error:", error);
+        alert(error.message || "The invoice could not be sent.");
+      })
+      .finally(() => {
+        button.disabled = false;
+        button.textContent = originalText;
+        button.dataset.jobpilotInvoiceHandled = "0";
+      });
+  }, true);
+
   const observer = new MutationObserver(addTestSmsSection);
   observer.observe(document.body, { childList: true, subtree: true });
   addTestSmsSection();

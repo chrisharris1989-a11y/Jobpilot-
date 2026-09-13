@@ -6,6 +6,14 @@ const SETTINGS_KEY = "jobpilot_settings";
 const APP_PREFERENCES_KEY = "jobpilot_app_preferences";
 const DEFAULT_CURRENCY = "GBP";
 const SUPPORTED_CURRENCIES = Object.freeze(["GBP", "AUD", "NZD", "EUR", "CAD", "USD"]);
+const CURRENCY_LOCALES = Object.freeze({
+  GBP: "en-GB",
+  AUD: "en-AU",
+  NZD: "en-NZ",
+  EUR: "en-IE",
+  CAD: "en-CA",
+  USD: "en-US"
+});
 
 function readLocalSettings() {
   try {
@@ -23,9 +31,9 @@ function storeCurrency(currency) {
 
   try {
     const preferences = JSON.parse(localStorage.getItem(APP_PREFERENCES_KEY) || "{}");
-    localStorage.setItem(APP_PREFERENCES_KEY, JSON.stringify({ ...preferences, currency: normalized }));
+    localStorage.setItem(APP_PREFERENCES_KEY, JSON.stringify({ ...preferences, currency: normalized, locale: CURRENCY_LOCALES[normalized] }));
   } catch {
-    localStorage.setItem(APP_PREFERENCES_KEY, JSON.stringify({ currency: normalized }));
+    localStorage.setItem(APP_PREFERENCES_KEY, JSON.stringify({ currency: normalized, locale: CURRENCY_LOCALES[normalized] }));
   }
 
   window.dispatchEvent(new CustomEvent("jobpilot:currency-changed", { detail: { currency: normalized } }));
@@ -37,8 +45,9 @@ export function getJobPilotCurrency(fallback = DEFAULT_CURRENCY) {
 }
 
 export function formatJobPilotMoney(value, options = {}) {
-  const currency = options.currency || getJobPilotCurrency();
-  const locale = options.locale || readLocalSettings().locale || "en-GB";
+  const currency = String(options.currency || getJobPilotCurrency()).trim().toUpperCase();
+  const settings = readLocalSettings();
+  const locale = options.locale || settings.locale || CURRENCY_LOCALES[currency] || "en-GB";
   const amount = Number(value || 0);
 
   try {
@@ -55,7 +64,7 @@ export function formatJobPilotMoney(value, options = {}) {
 
 export function getJobPilotCurrencySymbol(currency = getJobPilotCurrency()) {
   try {
-    return new Intl.NumberFormat("en", {
+    return new Intl.NumberFormat(CURRENCY_LOCALES[currency] || "en", {
       style: "currency",
       currency,
       currencyDisplay: "narrowSymbol"

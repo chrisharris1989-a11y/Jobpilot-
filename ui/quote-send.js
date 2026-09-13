@@ -1,5 +1,6 @@
 import { supabase } from "../supabase.js";
 import { formatJobPilotMoney } from "../regional-currency.js";
+import { getJobPilotPhoneDigits } from "../regional-phone.js";
 
 const BUTTON_SELECTOR = ".quote-send[data-quote-id]";
 
@@ -13,9 +14,7 @@ function getBusinessName() {
 }
 
 function normaliseWhatsAppNumber(phone) {
-  let number = String(phone || "").replace(/\D/g, "");
-  if (number.startsWith("0")) number = `44${number.substring(1)}`;
-  return number;
+  return getJobPilotPhoneDigits(phone);
 }
 
 function shortWhatsAppMessage(quote, customer) {

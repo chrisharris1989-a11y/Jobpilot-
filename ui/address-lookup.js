@@ -1,6 +1,6 @@
 import { getJobPilotAddressContext, normalizeJobPilotPostalCode } from "../regional-address.js";
 
-const NOMINATIM_ENDPOINT = "https://nominatim.openstreetmap.org/search";
+const POSTCODE_LOOKUP_ENDPOINT = "https://api.postcodes.io/postcodes";
 const ADDRESS_LOOKUP_ENDPOINT = "https://overpass-api.de/api/interpreter";
 const MIN_LOOKUP_INTERVAL_MS = 1100;
 let lastLookupAt = 0;
@@ -42,7 +42,7 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-function normalizePostcodeForRegex(postcode) {
+function normalizePostcode(postcode) {
   return postcode.replace(/\s+/g, "").toUpperCase();
 }
 
@@ -84,43 +84,42 @@ async function waitForLookupRateLimit() {
   lastLookupAt = Date.now();
 }
 
-async function getPostcodeBounds(postcode) {
-  const url = new URL(NOMINATIM_ENDPOINT);
-  url.searchParams.set("q", postcode);
-  url.searchParams.set("format", "jsonv2");
-  url.searchParams.set("addressdetails", "1");
-  url.searchParams.set("limit", "1");
-  url.searchParams.set("countrycodes", "gb");
-
-  const response = await fetch(url.toString(), {
+async function getPostcodeLocation(postcode) {
+  const normalized = normalizePostcode(postcode);
+  const response = await fetch(`${POSTCODE_LOOKUP_ENDPOINT}/${encodeURIComponent(normalized)}`, {
     headers: { Accept: "application/json" }
   });
 
-  if (!response.ok) throw new Error(`Postcode location lookup failed with HTTP ${response.status}`);
+  if (!response.ok) {
+    if (response.status === 404) return null;
+    throw new Error(`Postcode lookup failed with HTTP ${response.status}`);
+  }
 
-  const results = await response.json();
-  const result = Array.isArray(results) ? results[0] : null;
-  if (!result?.boundingbox || result.boundingbox.length !== 4) return null;
+  const data = await response.json();
+  const result = data?.result;
+  if (!result || !Number.isFinite(Number(result.latitude)) || !Number.isFinite(Number(result.longitude))) {
+    return null;
+  }
 
-  const [south, north, west, east] = [
-    Number(result.boundingbox[0]),
-    Number(result.boundingbox[1]),
-    Number(result.boundingbox[2]),
-    Number(result.boundingbox[3])
-  ];
-
-  if (![south, north, west, east].every(Number.isFinite)) return null;
-
-  return { south, west, north, east };
+  return {
+    latitude: Number(result.latitude),
+    longitude: Number(result.longitude)
+  };
 }
 
 async function getPostcodeAddresses(postcode) {
-  const bounds = await getPostcodeBounds(postcode);
-  if (!bounds) return [];
+  const location = await getPostcodeLocation(postcode);
+  if (!location) return [];
 
-  const normalized = normalizePostcodeForRegex(postcode);
+  const normalized = normalizePostcode(postcode);
+  // A small radius around the postcode centroid keeps the Overpass query focused.
+  const radius = 0.004;
+  const south = location.latitude - radius;
+  const north = location.latitude + radius;
+  const west = location.longitude - radius;
+  const east = location.longitude + radius;
   const postcodeRegex = `^${normalized.slice(0, -3)} ?${normalized.slice(-3)}$`;
-  const query = `[out:json][timeout:12];(nwr["addr:postcode"~"${postcodeRegex}",i](${bounds.south},${bounds.west},${bounds.north},${bounds.east}););out center tags;`;
+  const query = `[out:json][timeout:12];(nwr["addr:postcode"~"${postcodeRegex}",i](${south},${west},${north},${east}););out center tags;`;
 
   const response = await fetch(ADDRESS_LOOKUP_ENDPOINT, {
     method: "POST",
@@ -139,7 +138,7 @@ async function getPostcodeAddresses(postcode) {
 
   return elements
     .map(element => element.tags || {})
-    .filter(tags => tags["addr:postcode"] && normalizePostcodeForRegex(tags["addr:postcode"]) === normalized)
+    .filter(tags => tags["addr:postcode"] && normalizePostcode(tags["addr:postcode"]) === normalized)
     .filter(tags => tags["addr:housenumber"] || tags["addr:housename"] || tags["addr:street"])
     .filter(tags => {
       const key = [tags["addr:housenumber"], tags["addr:housename"], tags["addr:street"], tags["addr:unit"], tags["addr:postcode"]]

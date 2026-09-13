@@ -118,31 +118,33 @@ import { supabase } from "../supabase.js";
     if (customerError) throw customerError;
     if (!customer?.phone) throw new Error("This customer does not have a phone number saved.");
 
-    const settings = (() => {
-      try {
-        return JSON.parse(localStorage.getItem("jobpilot_settings") || "{}");
-      } catch {
-        return {};
-      }
-    })();
-
-    const businessName = String(settings.businessName || "our business").trim();
     let whatsappNumber = String(customer.phone).replace(/\D/g, "");
     if (whatsappNumber.startsWith("0")) whatsappNumber = `44${whatsappNumber.substring(1)}`;
     if (!whatsappNumber) throw new Error("This customer does not have a valid phone number saved.");
 
-    const paymentLink = `${window.location.origin}/public-invoice.html?token=${encodeURIComponent(invoice.public_token)}`;
-    const message =
-      `Hi ${customer.name},\n\n` +
-      `Please find your invoice from ${businessName} below.\n\n` +
-      `You can view and pay it securely here:\n${paymentLink}\n\n` +
-      `Thank you,\n${businessName}`;
+    const message = [
+      `Hi ${customer.name},`,
+      "",
+      "Please find your invoice below.",
+      "",
+      "Thank you,",
+      getBusinessName()
+    ].join("\n");
 
     window.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
   }
 
+  function getBusinessName() {
+    try {
+      const settings = JSON.parse(localStorage.getItem("jobpilot_settings") || "{}");
+      return String(settings.businessName || "our business").trim();
+    } catch {
+      return "our business";
+    }
+  }
+
   // Invoices are deliberately kept out of SMS. They are sent through the
-  // existing WhatsApp flow so the full payment message can be retained.
+  // existing WhatsApp flow.
   document.addEventListener("click", event => {
     const button = event.target?.closest?.("#sendInvoiceButton");
     if (!button || button.dataset.jobpilotInvoiceHandled === "1") return;

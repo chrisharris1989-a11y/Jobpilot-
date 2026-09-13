@@ -1,0 +1,55 @@
+name: Fix regional invoice tax default
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-regional-invoice-tax.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update new invoice tax default
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('app.js')
+          s = p.read_text(encoding='utf-8')
+
+          marker = 'function showAddInvoiceForm()'
+          start = s.find(marker)
+          if start < 0:
+              raise SystemExit('showAddInvoiceForm not found')
+
+          settings_marker = '  const settings = JSON.parse(\n    localStorage.getItem("jobpilot_settings") || "{}"\n  );'
+          settings_pos = s.find(settings_marker, start)
+          if settings_pos < 0:
+              raise SystemExit('invoice settings block not found')
+
+          insert = settings_marker + '''\n  const defaultVatRate = Number.isFinite(Number(settings.taxRate))\n    ? Number(settings.taxRate)\n    : Number.isFinite(Number(settings.vatRate))\n      ? Number(settings.vatRate)\n      : 20;'''
+          if 'const defaultVatRate =' not in s[settings_pos:settings_pos + 500]:
+              s = s[:settings_pos] + s[settings_pos:].replace(settings_marker, insert, 1)
+
+          invoice_input = '''        <input\n          id="invoiceVatPercent"\n          type="number"\n          step="0.01"\n          value="20"\n        >'''
+          if invoice_input not in s[start:]:
+              raise SystemExit('hard-coded invoice tax input not found')
+          s = s[:start] + s[start:].replace(invoice_input, '''        <input\n          id="invoiceVatPercent"\n          type="number"\n          step="0.01"\n          value="${defaultVatRate}"\n        >''', 1)
+
+          p.write_text(s, encoding='utf-8')
+
+      - name: Commit application change
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Use regional tax rate for new invoices"
+          git push

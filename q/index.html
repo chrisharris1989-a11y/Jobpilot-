@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JobPilot</title>
+  <meta name="robots" content="noindex,nofollow">
+</head>
+<body>
+  <p id="message">Opening your JobPilot customer portal…</p>
+  <script>
+    (async () => {
+      const token = new URLSearchParams(window.location.search).get('t');
+      const message = document.getElementById('message');
+      if (!token) {
+        message.textContent = 'This JobPilot link is invalid.';
+        return;
+      }
+
+      const endpoint = 'https://qxoynttvipducubmczwl.supabase.co/functions/v1/quote-short-link?t=' + encodeURIComponent(token);
+      try {
+        const response = await fetch(endpoint, { redirect: 'manual' });
+        if (response.type === 'opaqueredirect' || response.status === 0 || response.status === 302) {
+          window.location.replace(endpoint);
+          return;
+        }
+        if (!response.ok) {
+          message.textContent = response.status === 410 ? 'This JobPilot link has expired.' : 'This JobPilot link is no longer available.';
+          return;
+        }
+        window.location.replace(endpoint);
+      } catch (error) {
+        window.location.replace(endpoint);
+      }
+    })();
+  </script>
+</body>
+</html>

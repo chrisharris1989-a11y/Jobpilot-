@@ -1,8 +1,8 @@
 import { supabase } from "./supabase.js";
 
 /* JobPilot signup flow
-   Single flow: credentials -> country -> plan -> Stripe.
-   This file owns signup. No second credentials screen. */
+   Single source of truth: credentials -> country -> plan -> Stripe.
+   Country must be explicitly selected before plans are shown. */
 
 const COUNTRIES = [
   ["GB", "United Kingdom", "£", "GBP"],
@@ -31,7 +31,7 @@ const PLANS = [
 ];
 
 let credentials = { email: "", password: "" };
-let selectedCountry = "GB";
+let selectedCountry = null;
 let selectedPlan = "core";
 let running = false;
 
@@ -62,40 +62,77 @@ function shell(step,title,subtitle,body) {
 function startSignup() {
   if (running) return;
   css();
+
   const email = document.getElementById("email")?.value.trim() || "";
   const password = document.getElementById("password")?.value || "";
+
   if (!email || password.length < 6) {
     const m = document.getElementById("authMessage");
-    if (m) { m.textContent = "Enter an email and a password of at least 6 characters."; m.style.color = "#b42318"; }
+    if (m) {
+      m.textContent = "Enter an email and a password of at least 6 characters.";
+      m.style.color = "#b42318";
+    }
     return;
   }
+
   credentials = { email, password };
-  selectedCountry = localStorage.getItem("jobpilot_signup_country") || "GB";
+  selectedCountry = null;
   selectedPlan = "core";
   showCountry();
 }
 
 function showCountry() {
-  shell(1, "Choose your country", "Your country determines the currency and plans you will see.", `
-    <div class="jp-grid">${COUNTRIES.map(c => `<button type="button" class="jp-choice ${c[0]===selectedCountry?"sel":""}" data-country="${c[0]}"><b>${c[1]}</b><small>${c[3]}</small></button>`).join("")}</div>
-    <div class="jp-actions"><button type="button" class="jp-btn jp-main" id="jp-country-next">Continue</button><button type="button" class="jp-btn jp-back" id="jp-signup-cancel">Back</button></div>`);
-  document.querySelectorAll("[data-country]").forEach(b => b.onclick = () => { selectedCountry=b.dataset.country; localStorage.setItem("jobpilot_signup_country",selectedCountry); showCountry(); });
-  document.getElementById("jp-country-next").onclick = showPlans;
+  shell(1, "Choose your country", "Select your country before choosing a plan. This determines the currency and pricing you will see.", `
+    <div class="jp-grid">
+      ${COUNTRIES.map(c => `<button type="button" class="jp-choice" data-country="${c[0]}"><b>${c[1]}</b><small>${c[3]}</small></button>`).join("")}
+    </div>
+    <div class="jp-actions">
+      <button type="button" class="jp-btn jp-back" id="jp-signup-cancel">Back</button>
+    </div>`);
+
+  document.querySelectorAll("[data-country]").forEach(button => {
+    button.onclick = () => {
+      selectedCountry = button.dataset.country;
+      selectedPlan = "core";
+      showPlans();
+    };
+  });
+
   document.getElementById("jp-signup-cancel").onclick = () => location.reload();
 }
 
 function showPlans() {
-  const c = COUNTRIES.find(x => x[0] === selectedCountry) || COUNTRIES[0];
-  shell(2, "Choose your plan", `Plans and pricing for ${c[1]}.`, `
-    <div class="jp-grid">${PLANS.map(p => `<button type="button" class="jp-choice ${p[0]===selectedPlan?"sel":""}" data-plan="${p[0]}"><b>${p[1]}</b><small>${p[2]} user${p[2]===1?"":"s"}</small><div class="jp-price">${PRICES[selectedCountry][p[0]]} <small>/ month</small></div></button>`).join("")}</div>
-    <div class="jp-actions"><button type="button" class="jp-btn jp-main" id="jp-create">Create account</button><button type="button" class="jp-btn jp-back" id="jp-plan-back">Back</button></div><div id="jp-msg" class="jp-msg"></div>`);
-  document.querySelectorAll("[data-plan]").forEach(b => b.onclick = () => { selectedPlan=b.dataset.plan; showPlans(); });
+  if (!selectedCountry || !PRICES[selectedCountry]) {
+    showCountry();
+    return;
+  }
+
+  const country = COUNTRIES.find(c => c[0] === selectedCountry);
+
+  shell(2, "Choose your plan", `Plans and pricing for ${country[1]}.`, `
+    <div class="jp-grid">
+      ${PLANS.map(plan => `<button type="button" class="jp-choice ${plan[0]===selectedPlan?"sel":""}" data-plan="${plan[0]}"><b>${plan[1]}</b><small>${plan[2]} user${plan[2]===1?"":"s"}</small><div class="jp-price">${PRICES[selectedCountry][plan[0]]} <small>/ month</small></div></button>`).join("")}
+    </div>
+    <div class="jp-actions">
+      <button type="button" class="jp-btn jp-main" id="jp-create">Create account</button>
+      <button type="button" class="jp-btn jp-back" id="jp-plan-back">Back</button>
+    </div>
+    <div id="jp-msg" class="jp-msg"></div>`);
+
+  document.querySelectorAll("[data-plan]").forEach(button => {
+    button.onclick = () => {
+      selectedPlan = button.dataset.plan;
+      showPlans();
+    };
+  });
+
   document.getElementById("jp-plan-back").onclick = showCountry;
   document.getElementById("jp-create").onclick = createAccount;
 }
 
 async function createAccount() {
-  if (running) return;
+  if (running || !selectedCountry || !PRICES[selectedCountry]) return;
+
   running = true;
   const msg = document.getElementById("jp-msg");
   const btn = document.getElementById("jp-create");
@@ -108,11 +145,31 @@ async function createAccount() {
     password: credentials.password,
     options: { data: { country_code: selectedCountry, selected_country: selectedCountry, selected_plan: selectedPlan } }
   });
-  if (error) { running=false; btn.disabled=false; msg.className="jp-msg jp-err"; msg.textContent=error.message; return; }
-  if (!data.session) { running=false; btn.disabled=false; msg.className="jp-msg jp-err"; msg.textContent="Please confirm your email before continuing."; return; }
 
-  const company = await supabase.rpc("create_my_company", { requested_name:"My Business", requested_plan:selectedPlan });
-  if (company.error) { running=false; btn.disabled=false; msg.className="jp-msg jp-err"; msg.textContent=company.error.message; return; }
+  if (error) {
+    running = false;
+    btn.disabled = false;
+    msg.className = "jp-msg jp-err";
+    msg.textContent = error.message;
+    return;
+  }
+
+  if (!data.session) {
+    running = false;
+    btn.disabled = false;
+    msg.className = "jp-msg jp-err";
+    msg.textContent = "Please confirm your email before continuing.";
+    return;
+  }
+
+  const company = await supabase.rpc("create_my_company", { requested_name: "My Business", requested_plan: selectedPlan });
+  if (company.error) {
+    running = false;
+    btn.disabled = false;
+    msg.className = "jp-msg jp-err";
+    msg.textContent = company.error.message;
+    return;
+  }
 
   const maxUsers = { core:1, solo:1, team:5, business:10, pro:15 }[selectedPlan];
   await supabase.from("companies").update({ country_code:selectedCountry, max_users:maxUsers }).eq("id",company.data);
@@ -124,17 +181,22 @@ async function createAccount() {
   }
 
   msg.textContent = "Opening secure Stripe checkout...";
+
   try {
     const response = await fetch("https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-billing-v2", {
-      method:"POST",
-      headers:{ Authorization:`Bearer ${data.session.access_token}`, "Content-Type":"application/json" },
-      body:JSON.stringify({ action:"checkout", plan:selectedPlan, country:selectedCountry, origin:location.origin })
+      method: "POST",
+      headers: { Authorization:`Bearer ${data.session.access_token}`, "Content-Type":"application/json" },
+      body: JSON.stringify({ action:"checkout", plan:selectedPlan, country:selectedCountry, origin:location.origin })
     });
+
     const out = await response.json();
     if (!response.ok || !out.url) throw new Error(out.error || "Could not open Stripe checkout.");
     location.assign(out.url);
   } catch (e) {
-    running=false; btn.disabled=false; msg.className="jp-msg jp-err"; msg.textContent=e.message || "Could not open Stripe checkout.";
+    running = false;
+    btn.disabled = false;
+    msg.className = "jp-msg jp-err";
+    msg.textContent = e.message || "Could not open Stripe checkout.";
   }
 }
 

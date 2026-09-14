@@ -18,7 +18,9 @@
     if (url.includes("/functions/v1/stripe-billing-v2") && init?.body) {
       try {
         const body = JSON.parse(init.body);
-        body.country = country();
+        // Do not overwrite an explicit country supplied by the signup flow.
+        // Fall back to the stored market only for older billing requests.
+        if (!body.country) body.country = country();
         init = { ...init, body: JSON.stringify(body) };
       } catch (_) {}
     }

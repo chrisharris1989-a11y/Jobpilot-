@@ -1,9 +1,8 @@
 import { supabase } from "../supabase.js";
-import { formatJobPilotMoney } from "../regional-currency.js";
 import { getJobPilotPhoneDigits } from "../regional-phone.js";
 
-const BUTTON_SELECTOR = ".quote-send[data-quote-id]";
 const CUSTOMER_PORTAL_URL = "https://portal.jobpilotcrm.co.uk/portal/";
+const SEND_SMS_URL = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/send-sms";
 
 function getBusinessName() {
   try {
@@ -18,6 +17,27 @@ function normaliseWhatsAppNumber(phone) {
   return getJobPilotPhoneDigits(phone);
 }
 
+async function getDefaultMessagingService() {
+  const context = window.JobPilotCompany || null;
+  if (context?.company?.sms_automation_settings) {
+    return context.company.sms_automation_settings.default_messaging_service === "whatsapp" ? "whatsapp" : "sms";
+  }
+
+  const { data: { session } = {}, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("You are not logged in.");
+
+  const { data: company, error } = await supabase
+    .from("companies")
+    .select("sms_automation_settings")
+    .eq("owner_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+
+  return company?.sms_automation_settings?.default_messaging_service === "whatsapp" ? "whatsapp" : "sms";
+}
+
 async function inviteCustomerToPortal(customerId) {
   const { data, error } = await supabase.functions.invoke("invite-customer-portal", {
     body: { customer_id: customerId }
@@ -27,7 +47,7 @@ async function inviteCustomerToPortal(customerId) {
   return data;
 }
 
-function shortWhatsAppMessage(quote, customer) {
+function shortQuoteMessage(customer) {
   const businessName = getBusinessName();
   return `Hi ${customer.name}, please find your quote below. View it in your customer portal: ${CUSTOMER_PORTAL_URL} Thanks, ${businessName}`;
 }
@@ -38,13 +58,49 @@ function emailQuoteMessage(quote, customer) {
     "",
     "Here is the quote you requested.",
     "",
-    `Your customer portal invitation has also been sent to your email.`,
+    "Your customer portal invitation has also been sent to your email.",
     CUSTOMER_PORTAL_URL,
     "",
     "Feel free to get in touch if you have any questions.",
     "",
     "Thanks."
   ].join("\n");
+}
+
+async function sendQuoteBySms(quote, customer) {
+  const content = shortQuoteMessage(customer);
+  if (content.length > 160) {
+    throw new Error(`The quote SMS is ${content.length} characters and exceeds the 160-character SMS limit. Please shorten the customer or company name, or use WhatsApp/email.`);
+  }
+
+  const { data: { session } = {}, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  if (!session?.access_token) throw new Error("You are not logged in.");
+
+  const response = await fetch(SEND_SMS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`
+    },
+    body: JSON.stringify({
+      customer_id: customer.id,
+      content,
+      message_type: "quote",
+      billable: true
+    })
+  });
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || result.message || "The quote SMS could not be sent.");
+}
+
+async function sendQuoteByWhatsApp(customer) {
+  const number = normaliseWhatsAppNumber(customer.phone);
+  if (!number) throw new Error("This customer does not have a valid phone number saved.");
+
+  const url = `https://wa.me/${number}?text=${encodeURIComponent(shortQuoteMessage(customer))}`;
+  window.location.href = url;
 }
 
 function isMobileShareDevice() {
@@ -69,7 +125,7 @@ function showSendChoiceModal(quote, customer, triggerButton) {
         <button class="close" type="button">×</button>
       </div>
       <div style="display:grid;gap:12px;margin-top:8px">
-        <button id="jpSendQuoteWhatsApp" type="button" class="button primary" style="width:100%">📱 Send short quote via WhatsApp</button>
+        <button id="jpSendQuoteDefault" type="button" class="button primary" style="width:100%">Send quote</button>
         <button id="jpSendQuoteEmail" type="button" class="button secondary" style="width:100%">📧 Email Word document</button>
       </div>
       <div id="jpSendQuoteMessage" class="muted" style="margin-top:14px"></div>
@@ -83,17 +139,24 @@ function showSendChoiceModal(quote, customer, triggerButton) {
   modal.querySelectorAll(".close").forEach(button => button.addEventListener("click", () => modal.remove()));
 
   const message = modal.querySelector("#jpSendQuoteMessage");
-  const whatsappButton = modal.querySelector("#jpSendQuoteWhatsApp");
+  const defaultButton = modal.querySelector("#jpSendQuoteDefault");
   const emailButton = modal.querySelector("#jpSendQuoteEmail");
 
-  whatsappButton.addEventListener("click", async () => {
+  (async () => {
     try {
-      const number = normaliseWhatsAppNumber(customer.phone);
-      if (!number) throw new Error("This customer does not have a valid phone number saved.");
+      const service = await getDefaultMessagingService();
+      defaultButton.textContent = service === "sms" ? "📱 Send quote via SMS" : "📱 Send quote via WhatsApp";
+    } catch (error) {
+      console.warn("JobPilot default messaging service:", error);
+      defaultButton.textContent = "📱 Send quote";
+    }
+  })();
 
-      whatsappButton.disabled = true;
+  defaultButton.addEventListener("click", async () => {
+    try {
+      defaultButton.disabled = true;
       emailButton.disabled = true;
-      whatsappButton.textContent = "Preparing quote…";
+      defaultButton.textContent = "Preparing quote…";
 
       if (customer.email) {
         try {
@@ -104,16 +167,25 @@ function showSendChoiceModal(quote, customer, triggerButton) {
         }
       }
 
-      await markQuoteSent(quote.id);
+      const service = await getDefaultMessagingService();
 
-      const url = `https://wa.me/${number}?text=${encodeURIComponent(shortWhatsAppMessage(quote, customer))}`;
-      window.location.href = url;
-      modal.remove();
+      if (service === "sms") {
+        if (!customer.phone) throw new Error("This customer does not have a phone number saved.");
+        await sendQuoteBySms(quote, customer);
+        message.textContent = "Quote SMS sent successfully.";
+        message.style.color = "#166534";
+      } else {
+        await sendQuoteByWhatsApp(customer);
+      }
+
+      await markQuoteSent(quote.id);
+      if (service === "whatsapp") modal.remove();
     } catch (error) {
-      message.textContent = error.message || "The quote could not be sent via WhatsApp.";
-      whatsappButton.disabled = false;
+      message.textContent = error.message || "The quote could not be sent.";
+      message.style.color = "#b91c1c";
+      defaultButton.disabled = false;
       emailButton.disabled = false;
-      whatsappButton.textContent = "📱 Send short quote via WhatsApp";
+      defaultButton.textContent = "📱 Send quote";
     }
   });
 
@@ -126,7 +198,7 @@ function showSendChoiceModal(quote, customer, triggerButton) {
       }
 
       emailButton.disabled = true;
-      whatsappButton.disabled = true;
+      defaultButton.disabled = true;
       emailButton.textContent = "Preparing Word document…";
       message.textContent = "Generating the full quote document…";
 
@@ -154,7 +226,7 @@ function showSendChoiceModal(quote, customer, triggerButton) {
           if (shareError?.name === "AbortError") {
             message.textContent = "Email cancelled.";
             emailButton.disabled = false;
-            whatsappButton.disabled = false;
+            defaultButton.disabled = false;
             emailButton.textContent = "📧 Email Word document";
             return;
           }
@@ -202,7 +274,7 @@ function showSendChoiceModal(quote, customer, triggerButton) {
       console.error("JobPilot email quote:", error);
       message.textContent = error.message || "The quote could not be prepared for email.";
       emailButton.disabled = false;
-      whatsappButton.disabled = false;
+      defaultButton.disabled = false;
       emailButton.textContent = "📧 Email Word document";
     }
   });

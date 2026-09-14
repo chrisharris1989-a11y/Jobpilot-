@@ -70,7 +70,7 @@ async function createQuoteShortLink(quoteId, portalLink) {
 }
 
 function shortQuoteMessage(customer, portalLink) {
-  return `Hi ${customer.name}, your quote is ready: ${portalLink}`;
+  return `Hi ${customer.name}, your quote from ${getBusinessName()} is ready to view: ${portalLink}`;
 }
 
 function emailQuoteMessage(customer, portalLink) {

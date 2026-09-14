@@ -76,7 +76,6 @@ function startSignup() {
 }
 
 function showCountry() {
-  const current = COUNTRIES.find(c => c[0] === selectedCountry) || COUNTRIES[0];
   shell(1, "Choose your country", "Your country determines the currency and plans you will see.", `
     <div class="jp-grid">${COUNTRIES.map(c => `<button type="button" class="jp-choice ${c[0]===selectedCountry?"sel":""}" data-country="${c[0]}"><b>${c[1]}</b><small>${c[3]}</small></button>`).join("")}</div>
     <div class="jp-actions"><button type="button" class="jp-btn jp-main" id="jp-country-next">Continue</button><button type="button" class="jp-btn jp-back" id="jp-signup-cancel">Back</button></div>`);
@@ -138,6 +137,9 @@ async function createAccount() {
     running=false; btn.disabled=false; msg.className="jp-msg jp-err"; msg.textContent=e.message || "Could not open Stripe checkout.";
   }
 }
+
+/* Export the rebuilt entry point so app.js cannot fall back to its legacy signup flow. */
+window.JobPilotStartSignup = startSignup;
 
 /* Capture the button before app.js can run its old signup handler. */
 document.addEventListener("click", e => {

@@ -1,7 +1,6 @@
 import { supabase } from "../supabase.js";
 import { getJobPilotPhoneDigits } from "../regional-phone.js";
 
-const CUSTOMER_PORTAL_URL = "https://portal.jobpilotcrm.co.uk/portal/";
 const SEND_SMS_URL = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/send-sms";
 
 function getBusinessName() {
@@ -43,34 +42,34 @@ async function inviteCustomerToPortal(customerId) {
     body: { customer_id: customerId }
   });
   if (error) throw error;
-  if (!data?.ok) throw new Error(data?.error || "The customer portal invitation could not be sent.");
-  return data;
+  if (!data?.ok) throw new Error(data?.error || "The customer portal invitation could not be created.");
+  if (!data.portal_link) throw new Error("The customer portal invitation link could not be created.");
+  return data.portal_link;
 }
 
-function shortQuoteMessage(customer) {
+function shortQuoteMessage(customer, portalLink) {
   const businessName = getBusinessName();
-  return `Hi ${customer.name}, please find your quote below. View it in your customer portal: ${CUSTOMER_PORTAL_URL} Thanks, ${businessName}`;
+  return `Hi ${customer.name}, please find your quote below. Set up or access your customer portal here: ${portalLink} Thanks, ${businessName}`;
 }
 
-function emailQuoteMessage(quote, customer) {
+function emailQuoteMessage(customer, portalLink) {
   return [
     `Hi ${customer.name},`,
     "",
     "Here is the quote you requested.",
     "",
-    "Your customer portal invitation has also been sent to your email.",
-    CUSTOMER_PORTAL_URL,
+    "Set up or access your customer portal here:",
+    portalLink,
     "",
-    "Feel free to get in touch if you have any questions.",
-    "",
-    "Thanks."
+    "Thanks,",
+    getBusinessName()
   ].join("\n");
 }
 
-async function sendQuoteBySms(quote, customer) {
-  const content = shortQuoteMessage(customer);
+async function sendQuoteBySms(customer, portalLink) {
+  const content = shortQuoteMessage(customer, portalLink);
   if (content.length > 160) {
-    throw new Error(`The quote SMS is ${content.length} characters and exceeds the 160-character SMS limit. Please shorten the customer or company name, or use WhatsApp/email.`);
+    throw new Error(`The quote SMS is ${content.length} characters and exceeds the 160-character SMS limit. Please use WhatsApp or email for this quote.`);
   }
 
   const { data: { session } = {}, error: sessionError } = await supabase.auth.getSession();
@@ -95,11 +94,11 @@ async function sendQuoteBySms(quote, customer) {
   if (!response.ok) throw new Error(result.error || result.message || "The quote SMS could not be sent.");
 }
 
-async function sendQuoteByWhatsApp(customer) {
+async function sendQuoteByWhatsApp(customer, portalLink) {
   const number = normaliseWhatsAppNumber(customer.phone);
   if (!number) throw new Error("This customer does not have a valid phone number saved.");
 
-  const url = `https://wa.me/${number}?text=${encodeURIComponent(shortQuoteMessage(customer))}`;
+  const url = `https://wa.me/${number}?text=${encodeURIComponent(shortQuoteMessage(customer, portalLink))}`;
   window.location.href = url;
 }
 
@@ -156,26 +155,24 @@ function showSendChoiceModal(quote, customer, triggerButton) {
     try {
       defaultButton.disabled = true;
       emailButton.disabled = true;
-      defaultButton.textContent = "Preparing quote…";
+      defaultButton.textContent = "Creating portal access…";
 
-      if (customer.email) {
-        try {
-          await inviteCustomerToPortal(customer.id);
-        } catch (portalError) {
-          console.warn("JobPilot customer portal invitation:", portalError);
-          message.textContent = "The quote will still be sent, but the customer portal invitation could not be sent.";
-        }
+      if (!customer.email) {
+        throw new Error("This customer needs an email address before a customer portal account can be created or invited.");
       }
 
+      // Always create/activate the portal account first and return the actual
+      // one-time access/invitation link so it can travel with the quote.
+      const portalLink = await inviteCustomerToPortal(customer.id);
       const service = await getDefaultMessagingService();
 
       if (service === "sms") {
         if (!customer.phone) throw new Error("This customer does not have a phone number saved.");
-        await sendQuoteBySms(quote, customer);
-        message.textContent = "Quote SMS sent successfully.";
+        await sendQuoteBySms(customer, portalLink);
+        message.textContent = "Quote SMS sent successfully with the customer portal link.";
         message.style.color = "#166534";
       } else {
-        await sendQuoteByWhatsApp(customer);
+        await sendQuoteByWhatsApp(customer, portalLink);
       }
 
       await markQuoteSent(quote.id);
@@ -192,29 +189,23 @@ function showSendChoiceModal(quote, customer, triggerButton) {
   emailButton.addEventListener("click", async () => {
     let blobUrl = null;
     try {
-      if (!customer.email) throw new Error("This customer does not have an email address saved.");
+      if (!customer.email) throw new Error("This customer needs an email address before a customer portal account can be created or invited.");
       if (typeof window.__jobpilotGenerateQuoteDocx !== "function") {
         throw new Error("The Word quote generator is not available. Please refresh JobPilot and try again.");
       }
 
       emailButton.disabled = true;
       defaultButton.disabled = true;
-      emailButton.textContent = "Preparing Word document…";
-      message.textContent = "Generating the full quote document…";
+      emailButton.textContent = "Creating portal access…";
+      message.textContent = "Creating the customer portal access link…";
 
-      try {
-        await inviteCustomerToPortal(customer.id);
-      } catch (portalError) {
-        console.warn("JobPilot customer portal invitation:", portalError);
-        message.textContent = "The quote will still be prepared, but the customer portal invitation could not be sent.";
-      }
-
+      const portalLink = await inviteCustomerToPortal(customer.id);
       const blob = await window.__jobpilotGenerateQuoteDocx(quote.id);
       const filename = `${quote.quote_number || "quote"}.docx`;
       const file = new File([blob], filename, { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
       const businessName = getBusinessName();
       const subject = `Quotation ${quote.quote_number || ""} from ${businessName}`.trim();
-      const body = emailQuoteMessage(quote, customer);
+      const body = emailQuoteMessage(customer, portalLink);
 
       if (isMobileShareDevice() && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
@@ -238,7 +229,7 @@ function showSendChoiceModal(quote, customer, triggerButton) {
       message.innerHTML = `
         <div style="display:grid;gap:10px">
           <div><strong>The Word quote is ready.</strong></div>
-          <div>Download the Word document first, then open your email and attach it.</div>
+          <div>The customer portal access link is included in the email message.</div>
           <a id="jpDownloadQuoteDocx" class="button primary" href="${blobUrl}" download="${escapeHtml(filename)}" style="text-align:center;text-decoration:none">⬇️ Download Word document</a>
           <button id="jpOpenQuoteEmail" type="button" class="button secondary">📧 Open email</button>
         </div>
@@ -359,6 +350,6 @@ function escapeHtml(value) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
+    .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }

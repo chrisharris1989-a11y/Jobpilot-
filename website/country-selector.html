@@ -26,11 +26,11 @@
 <script>
 const key='jobpilot_country';
 const saved=localStorage.getItem(key);
-if(saved) window.location.replace('index.html');
+if(saved) window.location.replace('home.html');
 document.querySelectorAll('.country').forEach(button=>{
   button.addEventListener('click',()=>{
     localStorage.setItem(key,button.dataset.country);
-    window.location.replace('index.html');
+    window.location.replace('home.html');
   });
 });
 </script>

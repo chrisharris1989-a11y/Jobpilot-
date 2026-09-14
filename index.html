@@ -84,5 +84,26 @@
   <script type="module" src="/jobpilot-photos.js"></script>
   <script type="module" src="/ui/invoice-terms-autofill.js"></script>
   <script type="module" src="/ui/quote-terms-autofill.js"></script>
+
+  <script>
+    document.addEventListener("click", function (event) {
+      const button = event.target.closest("#signupButton");
+      if (!button) return;
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      if (typeof window.JobPilotStartSignup === "function") {
+        window.JobPilotStartSignup();
+        return;
+      }
+
+      import("/signup-flow.js").then(() => {
+        if (typeof window.JobPilotStartSignup === "function") {
+          window.JobPilotStartSignup();
+        }
+      });
+    }, true);
+  </script>
 </body>
 </html>

@@ -19,41 +19,40 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
 
           app = Path('app.js')
           text = app.read_text()
 
           if 'import { startSignup } from "./signup-flow.js";' not in text:
-              text = text.replace(
-                  'import { supabase } from "./supabase.js";\n',
-                  'import { supabase } from "./supabase.js";\nimport { startSignup } from "./signup-flow.js";\n',
-                  1,
-              )
+              marker = 'import { supabase } from "./supabase.js";'
+              if marker not in text:
+                  raise SystemExit('Could not find supabase import in app.js')
+              text = text.replace(marker, marker + '\nimport { startSignup } from "./signup-flow.js";', 1)
 
-          text = text.replace(
-              '.getElementById("signupButton")\n    .addEventListener("click", signup);',
-              '.getElementById("signupButton")\n    .addEventListener("click", startSignup);',
-              1,
-          )
+          old_handler = '.getElementById("signupButton")\n    .addEventListener("click", signup);'
+          new_handler = '.getElementById("signupButton")\n    .addEventListener("click", startSignup);'
+          if old_handler in text:
+              text = text.replace(old_handler, new_handler, 1)
+          elif new_handler not in text:
+              raise SystemExit('Could not find signup button handler in app.js')
 
-          pattern = r'\nasync function signup\(\) \{.*?\n\}\n\n\nfunction showAuthMessage'
-          replacement = '\nfunction showAuthMessage'
-          text, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
-          if count != 1:
-              raise SystemExit('Could not remove legacy signup() from app.js')
+          start = text.find('async function signup()')
+          if start != -1:
+              end = text.find('function showAuthMessage', start)
+              if end == -1:
+                  raise SystemExit('Could not find showAuthMessage after legacy signup()')
+              text = text[:start] + text[end:]
 
           app.write_text(text)
 
           signup = Path('signup-flow.js')
           text = signup.read_text()
-          text = re.sub(
-              r'\n/\* Export the rebuilt entry point.*?css\(\);\n?$',
-              '\nexport { startSignup };\n\ncss();\n',
-              text,
-              count=1,
-              flags=re.S,
-          )
+          capture_start = text.find('/* Export the rebuilt entry point')
+          if capture_start != -1:
+              css_pos = text.rfind('css();')
+              if css_pos == -1:
+                  raise SystemExit('Could not find signup CSS initialisation')
+              text = text[:capture_start] + 'export { startSignup };\n\ncss();\n'
           signup.write_text(text)
 
           index = Path('index.html')

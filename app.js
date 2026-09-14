@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { startSignup } from "./signup-flow.js";
 import { showFeedbackForm } from "./feedback.js";
 import { showFeedbackAdmin } from "./feedback-admin.js";
 import { getJobPilotAddressContext, normalizeJobPilotPostalCode } from "./regional-address.js";
@@ -105,7 +106,7 @@ function showLogin() {
 
   document
     .getElementById("signupButton")
-    .addEventListener("click", signup);
+    .addEventListener("click", startSignup);
 }
 
 
@@ -129,40 +130,6 @@ async function login(event) {
   if (error) {
     showAuthMessage(error.message, true);
   }
-}
-
-
-async function signup() {
-  const email =
-    document.getElementById("email").value.trim();
-
-  const password =
-    document.getElementById("password").value;
-
-  if (!email || password.length < 6) {
-    showAuthMessage(
-      "Enter an email and a password of at least 6 characters.",
-      true
-    );
-    return;
-  }
-
-  showAuthMessage("Creating account...");
-
-  const { error } =
-    await supabase.auth.signUp({
-      email,
-      password
-    });
-
-  if (error) {
-    showAuthMessage(error.message, true);
-    return;
-  }
-
-  showAuthMessage(
-    "Account created. Check your email if confirmation is required."
-  );
 }
 
 

@@ -138,16 +138,6 @@ async function createAccount() {
   }
 }
 
-/* Export the rebuilt entry point so app.js cannot fall back to its legacy signup flow. */
-window.JobPilotStartSignup = startSignup;
-
-/* Capture the button before app.js can run its old signup handler. */
-document.addEventListener("click", e => {
-  const button = e.target?.closest?.("#signupButton");
-  if (!button) return;
-  e.preventDefault();
-  e.stopImmediatePropagation();
-  startSignup();
-}, true);
+export { startSignup };
 
 css();

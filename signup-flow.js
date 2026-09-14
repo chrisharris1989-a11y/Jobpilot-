@@ -2,7 +2,7 @@ import { supabase } from "./supabase.js";
 
 /* JobPilot signup flow
    Single source of truth: credentials -> country -> plan -> company -> Stripe.
-   Country must be explicitly selected before plans are shown. */
+   Paid plans are Stripe-first: no Supabase account or company is created until Stripe confirms payment. */
 
 const COUNTRIES = [
   ["GB", "United Kingdom", "£", "GBP"],
@@ -133,12 +133,11 @@ function showCompany() {
     showCountry();
     return;
   }
-  const country = COUNTRIES.find(c => c[0] === selectedCountry);
-  shell(3, "Enter your company name", `This is the business name that will be used to identify your JobPilot account in Stripe.`, `
+  shell(3, "Enter your company name", "This is the business name that will be used to identify your JobPilot account in Stripe.", `
     <label class="jp-label" for="jp-company-name">Company name</label>
     <input id="jp-company-name" class="jp-input" type="text" maxlength="120" autocomplete="organization" placeholder="Your company name" value="${companyName.replace(/"/g, "&quot;")}">
     <div class="jp-actions">
-      <button type="button" class="jp-btn jp-main" id="jp-company-continue">Continue to Stripe</button>
+      <button type="button" class="jp-btn jp-main" id="jp-company-continue">${selectedPlan === "core" ? "Create account" : "Continue to Stripe"}</button>
       <button type="button" class="jp-btn jp-back" id="jp-company-back">Back</button>
     </div>
     <div id="jp-msg" class="jp-msg"></div>`);
@@ -153,75 +152,154 @@ function showCompany() {
       return;
     }
     companyName = value;
-    createAccount();
+    if (selectedPlan === "core") createCoreAccount();
+    else openPaidCheckout();
   };
 }
 
-async function createAccount() {
-  if (running || !selectedCountry || !PRICES[selectedCountry] || !companyName) return;
+async function createCoreAccount() {
+  if (running || !companyName) return;
   running = true;
   const msg = document.getElementById("jp-msg");
   const btn = document.getElementById("jp-company-continue");
   if (btn) btn.disabled = true;
-  if (msg) {
-    msg.className = "jp-msg jp-ok";
-    msg.textContent = "Creating your account...";
-  }
+  if (msg) { msg.className = "jp-msg jp-ok"; msg.textContent = "Creating your account..."; }
 
   const { data, error } = await supabase.auth.signUp({
     email: credentials.email,
     password: credentials.password,
-    options: { data: { country_code: selectedCountry, selected_country: selectedCountry, selected_plan: selectedPlan, company_name: companyName } }
+    options: { data: { country_code: selectedCountry, selected_country: selectedCountry, selected_plan: "core", company_name: companyName } }
   });
-
   if (error) {
-    running = false;
-    if (btn) btn.disabled = false;
+    running = false; if (btn) btn.disabled = false;
     if (msg) { msg.className = "jp-msg jp-err"; msg.textContent = error.message; }
     return;
   }
-
   if (!data.session) {
-    running = false;
-    if (btn) btn.disabled = false;
+    running = false; if (btn) btn.disabled = false;
     if (msg) { msg.className = "jp-msg jp-err"; msg.textContent = "Please confirm your email before continuing."; }
     return;
   }
-
-  // Paid plans are not granted until Stripe confirms payment via the webhook.
-  // The account starts on Core so closing/cancelling Stripe cannot grant unpaid paid-plan access.
   const company = await supabase.rpc("create_my_company", { requested_name: companyName, requested_plan: "core" });
   if (company.error) {
-    running = false;
-    if (btn) btn.disabled = false;
+    running = false; if (btn) btn.disabled = false;
     if (msg) { msg.className = "jp-msg jp-err"; msg.textContent = company.error.message; }
     return;
   }
+  await supabase.from("companies").update({ country_code: selectedCountry, max_users: 1 }).eq("id", company.data);
+  if (msg) msg.textContent = "Account created. Loading JobPilot...";
+  setTimeout(() => location.reload(), 500);
+}
 
-  await supabase.from("companies").update({ country_code:selectedCountry, max_users:1 }).eq("id",company.data);
+async function openPaidCheckout() {
+  if (running || !selectedCountry || !companyName) return;
+  running = true;
+  const msg = document.getElementById("jp-msg");
+  const btn = document.getElementById("jp-company-continue");
+  if (btn) btn.disabled = true;
+  if (msg) { msg.className = "jp-msg jp-ok"; msg.textContent = "Opening secure Stripe checkout..."; }
 
-  if (selectedPlan === "core") {
-    if (msg) msg.textContent = "Account created. Loading JobPilot...";
-    setTimeout(() => location.reload(), 500);
-    return;
-  }
-
-  if (msg) msg.textContent = "Opening secure Stripe checkout...";
   try {
-    const response = await fetch("https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-billing-v2", {
+    sessionStorage.setItem("jobpilot_signup_email", credentials.email);
+    const response = await fetch("https://qxoynttvipducubmczwl.supabase.co/functions/v1/signup-checkout", {
       method: "POST",
-      headers: { Authorization:`Bearer ${data.session.access_token}`, "Content-Type":"application/json" },
-      body: JSON.stringify({ action:"checkout", plan:selectedPlan, country:selectedCountry, company_name:companyName, origin:location.origin })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: credentials.email, plan: selectedPlan, country: selectedCountry, company_name: companyName, origin: location.origin })
     });
     const out = await response.json();
     if (!response.ok || !out.url) throw new Error(out.error || "Could not open Stripe checkout.");
     location.assign(out.url);
   } catch (e) {
-    running = false;
-    if (btn) btn.disabled = false;
+    running = false; if (btn) btn.disabled = false;
     if (msg) { msg.className = "jp-msg jp-err"; msg.textContent = e.message || "Could not open Stripe checkout."; }
   }
 }
 
-export { startSignup };
+async function handleSignupReturn() {
+  css();
+  const params = new URLSearchParams(location.search);
+  const state = params.get("signup");
+  if (state === "cancelled") {
+    sessionStorage.removeItem("jobpilot_signup_email");
+    return false;
+  }
+  if (state !== "success" || !params.get("session_id")) return false;
+
+  const sessionId = params.get("session_id");
+  const savedEmail = sessionStorage.getItem("jobpilot_signup_email") || "";
+  showPaidCompletion(sessionId, savedEmail);
+  return true;
+}
+
+function showPaidCompletion(sessionId, savedEmail) {
+  shell(4, "Payment confirmed — finish creating your account", "Stripe has confirmed your payment. Set your password below and your JobPilot account will then be created.", `
+    <label class="jp-label" for="jp-paid-email">Email address</label>
+    <input id="jp-paid-email" class="jp-input" type="email" autocomplete="email" value="${savedEmail.replace(/"/g, "&quot;")}" placeholder="you@example.com">
+    <label class="jp-label" for="jp-paid-password" style="margin-top:16px">Password</label>
+    <input id="jp-paid-password" class="jp-input" type="password" minlength="6" autocomplete="new-password" placeholder="At least 6 characters">
+    <div class="jp-actions">
+      <button type="button" class="jp-btn jp-main" id="jp-paid-complete">Create my account</button>
+    </div>
+    <div id="jp-paid-msg" class="jp-msg"></div>`);
+
+  document.getElementById("jp-paid-complete").onclick = () => completePaidSignup(sessionId);
+}
+
+async function completePaidSignup(sessionId) {
+  const btn = document.getElementById("jp-paid-complete");
+  const msg = document.getElementById("jp-paid-msg");
+  const email = document.getElementById("jp-paid-email")?.value.trim().toLowerCase() || "";
+  const password = document.getElementById("jp-paid-password")?.value || "";
+  if (!email || !email.includes("@")) { msg.className = "jp-msg jp-err"; msg.textContent = "Enter your email address."; return; }
+  if (password.length < 6) { msg.className = "jp-msg jp-err"; msg.textContent = "Password must be at least 6 characters."; return; }
+  if (btn) btn.disabled = true;
+  if (msg) { msg.className = "jp-msg jp-ok"; msg.textContent = "Verifying your payment..."; }
+
+  try {
+    const verifyResponse = await fetch("https://qxoynttvipducubmczwl.supabase.co/functions/v1/signup-complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId, email })
+    });
+    const verified = await verifyResponse.json();
+    if (!verifyResponse.ok || !verified.paid) throw new Error(verified.error || "Payment could not be confirmed.");
+
+    if (msg) msg.textContent = "Payment confirmed. Creating your account...";
+    const { data, error } = await supabase.auth.signUp({
+      email: verified.email,
+      password,
+      options: { data: { country_code: verified.country, selected_country: verified.country, selected_plan: verified.plan, company_name: verified.company_name } }
+    });
+    if (error) throw error;
+
+    let session = data.session;
+    if (!session) {
+      const signIn = await supabase.auth.signInWithPassword({ email: verified.email, password });
+      if (signIn.error) throw new Error("Your payment is confirmed, but JobPilot could not finish signing you in. Please try signing in with the password you just created.");
+      session = signIn.data.session;
+    }
+
+    const company = await supabase.rpc("create_my_company", { requested_name: verified.company_name, requested_plan: verified.plan });
+    if (company.error) throw company.error;
+
+    const { error: updateError } = await supabase.from("companies").update({
+      country_code: verified.country,
+      stripe_customer_id: verified.customer_id,
+      plan: verified.plan,
+      billing_status: verified.subscription_status,
+      max_users: verified.plan === "solo" ? 1 : verified.plan === "team" ? 5 : verified.plan === "business" ? 10 : 15
+    }).eq("id", company.data);
+    if (updateError) throw updateError;
+
+    sessionStorage.removeItem("jobpilot_signup_email");
+    history.replaceState({}, document.title, location.pathname);
+    if (msg) msg.textContent = "Account created. Loading JobPilot...";
+    setTimeout(() => location.reload(), 500);
+  } catch (error) {
+    if (btn) btn.disabled = false;
+    if (msg) { msg.className = "jp-msg jp-err"; msg.textContent = error.message || "Could not complete signup."; }
+  }
+}
+
+export { startSignup, handleSignupReturn };
 css();

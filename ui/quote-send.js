@@ -3,6 +3,7 @@ import { formatJobPilotMoney } from "../regional-currency.js";
 import { getJobPilotPhoneDigits } from "../regional-phone.js";
 
 const BUTTON_SELECTOR = ".quote-send[data-quote-id]";
+const CUSTOMER_PORTAL_URL = "https://portal.jobpilotcrm.co.uk/portal/";
 
 function getBusinessName() {
   try {
@@ -17,12 +18,24 @@ function normaliseWhatsAppNumber(phone) {
   return getJobPilotPhoneDigits(phone);
 }
 
+async function inviteCustomerToPortal(customerId) {
+  const { data, error } = await supabase.functions.invoke("invite-customer-portal", {
+    body: { customer_id: customerId }
+  });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error || "The customer portal invitation could not be sent.");
+  return data;
+}
+
 function shortWhatsAppMessage(quote, customer) {
   const businessName = getBusinessName();
   return [
     `Hi ${customer.name},`,
     "",
     "Please find your quote below.",
+    "",
+    "Your customer portal invitation has also been sent to your email.",
+    CUSTOMER_PORTAL_URL,
     "",
     "Thank you,",
     businessName
@@ -34,6 +47,9 @@ function emailQuoteMessage(quote, customer) {
     `Hi ${customer.name},`,
     "",
     "Here is the quote you requested.",
+    "",
+    `Your customer portal invitation has also been sent to your email.`,
+    CUSTOMER_PORTAL_URL,
     "",
     "Feel free to get in touch if you have any questions.",
     "",
@@ -86,7 +102,18 @@ function showSendChoiceModal(quote, customer, triggerButton) {
       if (!number) throw new Error("This customer does not have a valid phone number saved.");
 
       whatsappButton.disabled = true;
-      whatsappButton.textContent = "Opening WhatsApp…";
+      emailButton.disabled = true;
+      whatsappButton.textContent = "Preparing quote…";
+
+      if (customer.email) {
+        try {
+          await inviteCustomerToPortal(customer.id);
+        } catch (portalError) {
+          console.warn("JobPilot customer portal invitation:", portalError);
+          message.textContent = "The quote will still be sent, but the customer portal invitation could not be sent.";
+        }
+      }
+
       await markQuoteSent(quote.id);
 
       const url = `https://wa.me/${number}?text=${encodeURIComponent(shortWhatsAppMessage(quote, customer))}`;
@@ -95,6 +122,7 @@ function showSendChoiceModal(quote, customer, triggerButton) {
     } catch (error) {
       message.textContent = error.message || "The quote could not be sent via WhatsApp.";
       whatsappButton.disabled = false;
+      emailButton.disabled = false;
       whatsappButton.textContent = "📱 Send short quote via WhatsApp";
     }
   });
@@ -111,6 +139,13 @@ function showSendChoiceModal(quote, customer, triggerButton) {
       whatsappButton.disabled = true;
       emailButton.textContent = "Preparing Word document…";
       message.textContent = "Generating the full quote document…";
+
+      try {
+        await inviteCustomerToPortal(customer.id);
+      } catch (portalError) {
+        console.warn("JobPilot customer portal invitation:", portalError);
+        message.textContent = "The quote will still be prepared, but the customer portal invitation could not be sent.";
+      }
 
       const blob = await window.__jobpilotGenerateQuoteDocx(quote.id);
       const filename = `${quote.quote_number || "quote"}.docx`;

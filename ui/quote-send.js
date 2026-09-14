@@ -2,6 +2,7 @@ import { supabase } from "../supabase.js";
 import { getJobPilotPhoneDigits } from "../regional-phone.js";
 
 const SEND_SMS_URL = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/send-sms";
+const CREATE_SHORT_LINK_URL = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/create-quote-short-link";
 
 function getBusinessName() {
   try {
@@ -45,6 +46,27 @@ async function inviteCustomerToPortal(customerId) {
   if (!data?.ok) throw new Error(data?.error || "The customer portal invitation could not be created.");
   if (!data.portal_link) throw new Error("The customer portal invitation link could not be created.");
   return data.portal_link;
+}
+
+async function createQuoteShortLink(quoteId, portalLink) {
+  const { data: { session } = {}, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  if (!session?.access_token) throw new Error("You are not logged in.");
+
+  const response = await fetch(CREATE_SHORT_LINK_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`
+    },
+    body: JSON.stringify({ quote_id: quoteId, target_url: portalLink })
+  });
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result?.short_link) {
+    throw new Error(result?.error || "The customer portal short link could not be created.");
+  }
+  return result.short_link;
 }
 
 function shortQuoteMessage(customer, portalLink) {
@@ -161,18 +183,17 @@ function showSendChoiceModal(quote, customer, triggerButton) {
         throw new Error("This customer needs an email address before a customer portal account can be created or invited.");
       }
 
-      // Always create/activate the portal account first and return the actual
-      // one-time access/invitation link so it can travel with the quote.
       const portalLink = await inviteCustomerToPortal(customer.id);
+      const shortLink = await createQuoteShortLink(quote.id, portalLink);
       const service = await getDefaultMessagingService();
 
       if (service === "sms") {
         if (!customer.phone) throw new Error("This customer does not have a phone number saved.");
-        await sendQuoteBySms(customer, portalLink);
+        await sendQuoteBySms(customer, shortLink);
         message.textContent = "Quote SMS sent successfully with the customer portal link.";
         message.style.color = "#166534";
       } else {
-        await sendQuoteByWhatsApp(customer, portalLink);
+        await sendQuoteByWhatsApp(customer, shortLink);
       }
 
       await markQuoteSent(quote.id);
@@ -200,12 +221,13 @@ function showSendChoiceModal(quote, customer, triggerButton) {
       message.textContent = "Creating the customer portal access link…";
 
       const portalLink = await inviteCustomerToPortal(customer.id);
+      const shortLink = await createQuoteShortLink(quote.id, portalLink);
       const blob = await window.__jobpilotGenerateQuoteDocx(quote.id);
       const filename = `${quote.quote_number || "quote"}.docx`;
       const file = new File([blob], filename, { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
       const businessName = getBusinessName();
       const subject = `Quotation ${quote.quote_number || ""} from ${businessName}`.trim();
-      const body = emailQuoteMessage(customer, portalLink);
+      const body = emailQuoteMessage(customer, shortLink);
 
       if (isMobileShareDevice() && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {

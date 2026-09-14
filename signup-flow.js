@@ -12,18 +12,18 @@ document.addEventListener("click", event => {
 const COUNTRIES = [
   { code: "GB", name: "United Kingdom", flag: "🇬🇧", currency: "GBP", available: true },
   { code: "US", name: "United States", flag: "🇺🇸", currency: "USD", available: true },
-  { code: "AU", name: "Australia", flag: "🇦🇺", currency: "AUD", available: false },
-  { code: "NZ", name: "New Zealand", flag: "🇳🇿", currency: "NZD", available: false },
-  { code: "IE", name: "Ireland", flag: "🇮🇪", currency: "EUR", available: false },
-  { code: "CA", name: "Canada", flag: "🇨🇦", currency: "CAD", available: false }
+  { code: "AU", name: "Australia", flag: "🇦🇺", currency: "AUD", available: true },
+  { code: "NZ", name: "New Zealand", flag: "🇳🇿", currency: "NZD", available: true },
+  { code: "IE", name: "Ireland", flag: "🇮🇪", currency: "EUR", available: true },
+  { code: "CA", name: "Canada", flag: "🇨🇦", currency: "CAD", available: true }
 ];
 
 const PLANS = {
-  core: { label: "Core", users: 1, prices: { GB: "£0", US: "$0" }, free: true },
-  solo: { label: "Solo", users: 1, prices: { GB: "£7.49", US: "$29.99" } },
-  team: { label: "Team", users: 5, prices: { GB: "£24.99", US: "$139.99" } },
-  business: { label: "Business", users: 10, prices: { GB: "£59.99", US: "$209.99" } },
-  pro: { label: "Pro", users: 15, prices: { GB: "£99.99", US: "$279.99" } }
+  core: { label: "Core", users: 1, prices: { GB: "£0", US: "$0", AU: "A$0", NZ: "NZ$0", IE: "€0", CA: "C$0" }, free: true },
+  solo: { label: "Solo", users: 1, prices: { GB: "£7.49", US: "$29.99", AU: "A$39.99", NZ: "NZ$44.99", IE: "€14.99", CA: "C$39.99" } },
+  team: { label: "Team", users: 5, prices: { GB: "£24.99", US: "$139.99", AU: "A$79.99", NZ: "NZ$89.99", IE: "€34.99", CA: "C$79.99" } },
+  business: { label: "Business", users: 10, prices: { GB: "£59.99", US: "$209.99", AU: "A$149.99", NZ: "NZ$169.99", IE: "€74.99", CA: "C$149.99" } },
+  pro: { label: "Pro", users: 15, prices: { GB: "£99.99", US: "$279.99", AU: "A$249.99", NZ: "NZ$279.99", IE: "€119.99", CA: "C$249.99" } }
 };
 
 const STORAGE_COUNTRY = "jobpilot_selected_country";

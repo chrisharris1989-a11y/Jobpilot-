@@ -194,7 +194,7 @@ async function createAccount(event) {
 
 async function openCheckout(session, country, plan, message) {
   try {
-    const response = await fetch("https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-billing-v1", {
+    const response = await fetch("https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-billing-v2", {
       method: "POST",
       headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ action: "checkout", plan, country, origin: window.location.origin })

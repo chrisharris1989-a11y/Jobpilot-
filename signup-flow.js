@@ -1,5 +1,14 @@
 import { supabase } from "./supabase.js";
 
+document.addEventListener("click", event => {
+  const button = event.target?.closest?.("#signupButton");
+  if (!button) return;
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+  showCountryStep();
+}, true);
+
 const COUNTRIES = [
   { code: "GB", name: "United Kingdom", flag: "🇬🇧", currency: "GBP", available: true },
   { code: "US", name: "United States", flag: "🇺🇸", currency: "USD", available: true },

@@ -29,17 +29,7 @@ async function inviteCustomerToPortal(customerId) {
 
 function shortWhatsAppMessage(quote, customer) {
   const businessName = getBusinessName();
-  return [
-    `Hi ${customer.name},`,
-    "",
-    "Please find your quote below.",
-    "",
-    "Your customer portal invitation has also been sent to your email.",
-    CUSTOMER_PORTAL_URL,
-    "",
-    "Thank you,",
-    businessName
-  ].join("\n");
+  return `Hi ${customer.name}, please find your quote below. View it in your customer portal: ${CUSTOMER_PORTAL_URL} Thanks, ${businessName}`;
 }
 
 function emailQuoteMessage(quote, customer) {

@@ -70,8 +70,7 @@ async function createQuoteShortLink(quoteId, portalLink) {
 }
 
 function shortQuoteMessage(customer, portalLink) {
-  const businessName = getBusinessName();
-  return `Hi ${customer.name}, please find your quote below. Set up or access your customer portal here: ${portalLink} Thanks, ${businessName}`;
+  return `Hi ${customer.name}, your quote is ready: ${portalLink}`;
 }
 
 function emailQuoteMessage(customer, portalLink) {

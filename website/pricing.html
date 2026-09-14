@@ -22,5 +22,15 @@
 </div><p class="note">Core is free forever with no payment details required. When you need more than 25 customers, upgrade to Solo for £7.49/month.</p></div></section>
 <section class="cta"><div class="wrap"><div class="cta-box"><h2>Ready to get started?</h2><p>Start with Core for free and move to a paid plan when your business needs more.</p><a class="btn" href="index.html">Start with Core</a></div></div></section>
 <footer><div class="wrap footer-inner"><span>© 2026 JobPilot. All rights reserved.</span><span>Simple business management for service businesses.</span></div></footer>
+<script>
+(function(){
+const prices={GB:{'£0':'£0','£7.49':'£7.49','£24.99':'£24.99','£59.99':'£59.99','£99.99':'£99.99'},US:{'£0':'$0','£7.49':'$29.99','£24.99':'$139.99','£59.99':'$209.99','£99.99':'$279.99'},AU:{'£0':'A$0','£7.49':'A$39.99','£24.99':'A$79.99','£59.99':'A$149.99','£99.99':'A$249.99'},NZ:{'£0':'NZ$0','£7.49':'NZ$44.99','£24.99':'NZ$89.99','£59.99':'NZ$169.99','£99.99':'NZ$279.99'},IE:{'£0':'€0','£7.49':'€14.99','£24.99':'€34.99','£59.99':'€74.99','£99.99':'€119.99'},CA:{'£0':'C$0','£7.49':'C$39.99','£24.99':'C$79.99','£59.99':'C$149.99','£99.99':'C$249.99'}};
+const c=(localStorage.getItem('jobpilot_country')||'GB').toUpperCase();
+if(!prices[c]||c==='GB')return;
+const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT),n=[];
+while(w.nextNode())n.push(w.currentNode);
+n.forEach(x=>{let t=x.nodeValue;Object.entries(prices[c]).forEach(([a,b])=>t=t.replaceAll(a,b));x.nodeValue=t;});
+})();
+</script>
 </body>
 </html>

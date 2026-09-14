@@ -194,8 +194,10 @@ async function openCheckout(session, country, plan, message) {
     if (!response.ok || !result.url) throw new Error(result.error || "Could not open Stripe checkout.");
     window.location.assign(result.url);
   } catch (error) {
-    message.className = "jp-error";
-    message.textContent = error.message || "Could not open Stripe checkout. Your account has been created. You can sign in and manage billing later.";
+    if (message) {
+      message.className = "jp-error";
+      message.textContent = error.message || "Could not open Stripe checkout. Your account has been created. You can sign in and manage billing later.";
+    }
   }
 }
 
@@ -209,18 +211,9 @@ async function resumePendingCheckout(session) {
   await openCheckout(session, pending.country || selectedCountry().code, pending.plan, null);
 }
 
-function interceptSignupButton() {
-  const capture = event => {
-    if (event.target?.id !== "signupButton") return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    showCountryStep();
-  };
-  document.addEventListener("click", capture, true);
-}
+window.JobPilotStartSignup = showCountryStep;
 
 injectStyles();
-interceptSignupButton();
 supabase.auth.onAuthStateChange((_event, session) => {
   if (session) resumePendingCheckout(session);
 });

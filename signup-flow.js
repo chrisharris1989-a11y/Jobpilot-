@@ -188,7 +188,9 @@ async function createAccount() {
     return;
   }
 
-  const company = await supabase.rpc("create_my_company", { requested_name: companyName, requested_plan: selectedPlan });
+  // Paid plans are not granted until Stripe confirms payment via the webhook.
+  // The account starts on Core so closing/cancelling Stripe cannot grant unpaid paid-plan access.
+  const company = await supabase.rpc("create_my_company", { requested_name: companyName, requested_plan: "core" });
   if (company.error) {
     running = false;
     if (btn) btn.disabled = false;
@@ -196,8 +198,7 @@ async function createAccount() {
     return;
   }
 
-  const maxUsers = { core:1, solo:1, team:5, business:10, pro:15 }[selectedPlan];
-  await supabase.from("companies").update({ country_code:selectedCountry, max_users:maxUsers }).eq("id",company.data);
+  await supabase.from("companies").update({ country_code:selectedCountry, max_users:1 }).eq("id",company.data);
 
   if (selectedPlan === "core") {
     if (msg) msg.textContent = "Account created. Loading JobPilot...";

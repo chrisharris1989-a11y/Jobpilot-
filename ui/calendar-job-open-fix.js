@@ -35,12 +35,15 @@ function openJobFromCalendar(jobElement) {
     const row = findJobRow(label);
     if (row) {
       row.scrollIntoView({ block: "center", behavior: "instant" });
-      row.click();
+      setTimeout(() => row.click(), 100);
       return;
     }
     if (Date.now() - started < 5000) requestAnimationFrame(findAndOpen);
   };
-  requestAnimationFrame(findAndOpen);
+
+  // Let the Jobs page finish its render and attach its normal job-row handlers
+  // before triggering the existing Job Details behaviour.
+  setTimeout(findAndOpen, 300);
 }
 
 function handleCalendarJobClick(event) {

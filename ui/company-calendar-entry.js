@@ -38,20 +38,49 @@ function renderDashboardCalendar() {
   void renderCompanyCalendar(calendarPanel).then(() => addCalendarCloseButton(calendarPanel));
 }
 
+function openCalendarJob(jobId) {
+  if (!jobId) return;
+
+  const overlay = document.getElementById("jp-management-month-calendar");
+  overlay?.remove();
+
+  const jobsButton = document.querySelector('[data-page="jobs"]');
+  if (!jobsButton) return;
+
+  const pageContent = document.getElementById("pageContent");
+  if (pageContent) pageContent.dataset.calendarOpeningJob = String(jobId);
+
+  jobsButton.click();
+
+  const started = Date.now();
+  const tryOpen = () => {
+    const targetId = String(jobId);
+    const row = [...document.querySelectorAll(".job-row[data-job-id]")]
+      .find(item => String(item.dataset.jobId) === targetId);
+
+    if (row) {
+      row.scrollIntoView({ block: "center", behavior: "instant" });
+      row.click();
+      if (pageContent) delete pageContent.dataset.calendarOpeningJob;
+      return;
+    }
+
+    if (Date.now() - started < 5000) {
+      requestAnimationFrame(tryOpen);
+    } else if (pageContent) {
+      delete pageContent.dataset.calendarOpeningJob;
+    }
+  };
+
+  requestAnimationFrame(tryOpen);
+}
+
 function bindCalendarEvents() {
   if (listenersBound) return;
   listenersBound = true;
 
   document.addEventListener("jobpilot:open-job", event => {
-    const jobId = event.detail?.jobId;
-    if (!jobId) return;
-
-    const jobsButton = document.querySelector('[data-page="jobs"]');
-    if (jobsButton) jobsButton.click();
-
-    setTimeout(() => {
-      document.dispatchEvent(new CustomEvent("jobpilot:calendar-open-job", { detail: { jobId } }));
-    }, 0);
+    openCalendarJob(event.detail?.jobId);
   });
 
   document.addEventListener("jobpilot:new-job", event => {

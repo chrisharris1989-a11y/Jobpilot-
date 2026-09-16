@@ -197,37 +197,29 @@ async function applyDashboardCalendarCard() {
   card.setAttribute("aria-label", "Open calendar");
   card.title = "Open calendar";
 
-  // Fetch the current month before the user clicks so opening is immediate.
+  // Bind directly to the current card. This avoids relying on a document-level
+  // listener that can lose the first interaction while dashboard scripts rerender.
+  const open = event => {
+    event?.preventDefault();
+    event?.stopPropagation();
+    openDashboardCalendar(prefetchedJobs || []);
+  };
+  card.onclick = open;
+  card.onkeydown = event => {
+    if (event.key === "Enter" || event.key === " ") open(event);
+  };
+  card.onpointerup = event => {
+    if (event.button === 0) open(event);
+  };
+
   void prefetchCurrentMonth();
   loading = false;
-}
-
-// Use event delegation because the dashboard replaces the stats card during navigation.
-// The previous direct listener could be attached to an old card while the current card
-// was rendered afterwards, making the first click appear to do nothing.
-function handleDashboardCalendarClick(event) {
-  const card = event.target?.closest?.('.stats > .stat-card[data-dashboard-calendar="true"]');
-  if (!card) return;
-  event.preventDefault();
-  event.stopPropagation();
-  openDashboardCalendar(prefetchedJobs || []);
-}
-
-function handleDashboardCalendarKeydown(event) {
-  if (event.key !== "Enter" && event.key !== " ") return;
-  const card = event.target?.closest?.('.stats > .stat-card[data-dashboard-calendar="true"]');
-  if (!card) return;
-  event.preventDefault();
-  event.stopPropagation();
-  openDashboardCalendar(prefetchedJobs || []);
 }
 
 const observer = new MutationObserver(() => { void applyDashboardCalendarCard(); });
 
 function start() {
   observer.observe(document.body, { childList: true, subtree: true });
-  document.addEventListener("click", handleDashboardCalendarClick);
-  document.addEventListener("keydown", handleDashboardCalendarKeydown);
   void applyDashboardCalendarCard();
 }
 

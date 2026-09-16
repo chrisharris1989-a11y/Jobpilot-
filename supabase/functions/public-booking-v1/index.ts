@@ -22,9 +22,46 @@ Deno.serve(async(req:Request)=>{
     ]);
     if(!c)return json({error:"Business not found."},404);
     if(action==="config"&&req.method==="GET")return json({company:{id:c.id,name:c.name},settings:{slot_interval_minutes:s.slot_interval_minutes,min_notice_hours:s.min_notice_hours,max_days_ahead:s.max_days_ahead,require_address:s.require_address},services:services||[],hours:hours||[]});
+    const service=(services||[]).find((x:any)=>x.id===body.service_id);if(!service)return json({error:"Please choose a valid service."},400);
+
+    if(action==="quote_request"&&req.method==="POST"){
+      const name=cleanText(body.name,120),phone=cleanText(body.phone,40),email=cleanText(body.email,160).toLowerCase(),address=cleanText(body.address,300),notes=cleanText(body.notes,1000),preferredDate=cleanText(body.preferred_date,10);
+      if(!name||!phone)return json({error:"Name and phone number are required for a quote request."},400);
+      if(email&&!/^\S+@\S+\.\S+$/.test(email))return json({error:"Please enter a valid email address."},400);
+      if(preferredDate&&!/^\d{4}-\d{2}-\d{2}$/.test(preferredDate))return json({error:"Invalid preferred date."},400);
+      if(s.require_address&&!address)return json({error:"Address is required for this quote request."},400);
+      const servicePrice=Number(service.price);
+      if(Number.isFinite(servicePrice)&&servicePrice>=0)return json({error:"This service has a set price and should be booked online."},400);
+
+      let customer:any=null;
+      if(email){
+        const{data:matches,error:findError}=await db.from("customers").select("id").eq("company_id",s.company_id).ilike("email",email).limit(1);
+        if(findError)throw findError;
+        customer=matches?.[0]||null;
+      }
+      if(!customer&&phone){
+        const{data:matches,error:findError}=await db.from("customers").select("id").eq("company_id",s.company_id).eq("phone",phone).limit(1);
+        if(findError)throw findError;
+        customer=matches?.[0]||null;
+      }
+      if(customer){
+        const{error:updateCustomerError}=await db.from("customers").update({name,phone,email:email||null,address_line1:address||null}).eq("id",customer.id);
+        if(updateCustomerError)throw updateCustomerError;
+      }else{
+        const{data:newCustomer,error:ce}=await db.from("customers").insert({company_id:s.company_id,user_id:c.owner_id,name,phone,email:email||null,address_line1:address||null}).select("id").single();
+        if(ce)throw ce;customer=newCustomer;
+      }
+
+      const description=`Service requested: ${service.name}${notes?`\n\nCustomer notes: ${notes}`:"\n\nCustomer has requested a quote for this service."}`;
+      const{data:request,error:re}=await db.from("quote_requests").insert({company_id:s.company_id,requested_by:null,customer_name:name,phone,email:email||null,address:address||null,description,preferred_date:preferredDate||null,image_paths:[]}).select("id").single();
+      if(re)throw re;
+      return json({success:true,request_id:request.id,service:service.name,business:c.name});
+    }
+
     if(action!=="book"||req.method!=="POST")return json({error:"Invalid request."},400);
 
-    const service=(services||[]).find((x:any)=>x.id===body.service_id);if(!service)return json({error:"Please choose a valid service."},400);
+    const servicePrice=Number(service.price);
+    if(!Number.isFinite(servicePrice)||servicePrice<0)return json({error:"This service is available by quote request only."},400);
     const name=cleanText(body.name,120),phone=cleanText(body.phone,40),email=cleanText(body.email,160).toLowerCase(),address=cleanText(body.address,300),notes=cleanText(body.notes,1000),date=cleanText(body.date,10),time=cleanText(body.time,5);
     if(!name||!date||!time)return json({error:"Name, date and time are required."},400);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{2}:\d{2}$/.test(time))return json({error:"Invalid date or time."},400);
@@ -38,8 +75,6 @@ Deno.serve(async(req:Request)=>{
     const{data:existing}=await db.from("jobs").select("id,scheduled_time,status").eq("company_id",s.company_id).eq("scheduled_date",date).neq("status","cancelled");
     const rm=toMin(time);if((existing||[]).some((j:any)=>j.scheduled_time&&Math.abs(toMin(j.scheduled_time)-rm)<Number(service.duration_minutes)))return json({error:"That time has just become unavailable. Please choose another time."},409);
 
-    // Reuse an existing customer in this company when the email matches, so repeat bookings
-    // stay on one customer card and one portal account instead of creating duplicates.
     let customer:any=null;
     if(email){
       const{data:matches,error:findError}=await db.from("customers").select("id").eq("company_id",s.company_id).ilike("email",email).limit(1);
@@ -54,14 +89,11 @@ Deno.serve(async(req:Request)=>{
       if(ce)throw ce;customer=newCustomer;
     }
 
-    const{data:job,error:je}=await db.from("jobs").insert({company_id:s.company_id,customer_id:customer.id,user_id:c.owner_id,title:service.name,description:service.description||null,scheduled_date:date,scheduled_time:time,status:"scheduled",price:service.price??null,notes:notes||null}).select("id").single();
+    const{data:job,error:je}=await db.from("jobs").insert({company_id:s.company_id,customer_id:customer.id,user_id:c.owner_id,title:service.name,description:service.description||null,scheduled_date:date,scheduled_time:time,status:"scheduled",price:servicePrice,notes:notes||null}).select("id").single();
     if(je)throw je;
     const{data:r,error:re}=await db.from("booking_requests").insert({company_id:s.company_id,service_id:service.id,customer_id:customer.id,job_id:job.id,requested_date:date,requested_time:time,customer_name:name,customer_phone:phone||null,customer_email:email||null,customer_address:address||null,notes:notes||null,status:"confirmed"}).select("id").single();
     if(re)throw re;
 
-    // If an email was supplied, automatically establish portal access. A new customer
-    // receives the normal Supabase invitation; an existing Auth user gets a magic-link
-    // login link generated for the booking confirmation page.
     let portal:any={available:false};
     if(email){
       const{data:account}=await db.from("customer_portal_accounts").select("id,user_id,status").eq("company_id",s.company_id).eq("customer_id",customer.id).maybeSingle();
@@ -96,7 +128,7 @@ Deno.serve(async(req:Request)=>{
       }
     }
 
-    return json({success:true,booking_id:r.id,job_id:job.id,date,time,service:service.name,business:c.name,portal});
+    return json({success:true,booking_id:r.id,job_id:job.id,date,time,service:service.name,business:c.name,price:servicePrice,portal});
   }catch(e){console.error(e);return json({error:e instanceof Error?e.message:String(e)},500)}
 });
 function cleanSlug(v:string){return v.toLowerCase().trim().replace(/[^a-z0-9-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80)}

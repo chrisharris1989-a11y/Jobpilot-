@@ -36,31 +36,26 @@ Deno.serve(async(req:Request)=>{
 
       let customer:any=null;
       if(email){
-        const{data:matches,error:findError}=await db.from("customers").select("id").eq("company_id",s.company_id).ilike("email",email).limit(1);
-        if(findError)throw findError;
-        customer=matches?.[0]||null;
+        const{data:matches,error:e}=await db.from("customers").select("id").eq("company_id",s.company_id).ilike("email",email).limit(1);if(e)throw e;customer=matches?.[0]||null;
       }
       if(!customer&&phone){
-        const{data:matches,error:findError}=await db.from("customers").select("id").eq("company_id",s.company_id).eq("phone",phone).limit(1);
-        if(findError)throw findError;
-        customer=matches?.[0]||null;
+        const{data:matches,error:e}=await db.from("customers").select("id").eq("company_id",s.company_id).eq("phone",phone).limit(1);if(e)throw e;customer=matches?.[0]||null;
       }
       if(customer){
-        const{error:updateCustomerError}=await db.from("customers").update({name,phone,email:email||null,address_line1:address||null}).eq("id",customer.id);
-        if(updateCustomerError)throw updateCustomerError;
+        const{error:e}=await db.from("customers").update({name,phone,email:email||null,address_line1:address||null}).eq("id",customer.id);if(e)throw e;
       }else{
-        const{data:newCustomer,error:ce}=await db.from("customers").insert({company_id:s.company_id,user_id:c.owner_id,name,phone,email:email||null,address_line1:address||null}).select("id").single();
-        if(ce)throw ce;customer=newCustomer;
+        const{data:newCustomer,error:e}=await db.from("customers").insert({company_id:s.company_id,user_id:c.owner_id,name,phone,email:email||null,address_line1:address||null}).select("id").single();if(e)throw e;customer=newCustomer;
       }
 
       const description=`Service requested: ${service.name}${notes?`\n\nCustomer notes: ${notes}`:"\n\nCustomer has requested a quote for this service."}`;
       const{data:request,error:re}=await db.from("quote_requests").insert({company_id:s.company_id,requested_by:null,customer_name:name,phone,email:email||null,address:address||null,description,preferred_date:preferredDate||null,image_paths:[]}).select("id").single();
       if(re)throw re;
-      return json({success:true,request_id:request.id,service:service.name,business:c.name});
+
+      const portal=await ensurePortal(customer.id,email,s.company_id);
+      return json({success:true,request_id:request.id,service:service.name,business:c.name,portal});
     }
 
     if(action!=="book"||req.method!=="POST")return json({error:"Invalid request."},400);
-
     const hasFixedPrice=service.price!==null&&service.price!==undefined&&service.price!=="";
     const servicePrice=Number(service.price);
     if(!hasFixedPrice||!Number.isFinite(servicePrice)||servicePrice<0)return json({error:"This service is available by quote request only."},400);
@@ -78,61 +73,38 @@ Deno.serve(async(req:Request)=>{
     const rm=toMin(time);if((existing||[]).some((j:any)=>j.scheduled_time&&Math.abs(toMin(j.scheduled_time)-rm)<Number(service.duration_minutes)))return json({error:"That time has just become unavailable. Please choose another time."},409);
 
     let customer:any=null;
-    if(email){
-      const{data:matches,error:findError}=await db.from("customers").select("id").eq("company_id",s.company_id).ilike("email",email).limit(1);
-      if(findError)throw findError;
-      customer=matches?.[0]||null;
-    }
-    if(customer){
-      const{error:updateCustomerError}=await db.from("customers").update({name,phone:phone||null,email,address_line1:address||null}).eq("id",customer.id);
-      if(updateCustomerError)throw updateCustomerError;
-    }else{
-      const{data:newCustomer,error:ce}=await db.from("customers").insert({company_id:s.company_id,user_id:c.owner_id,name,phone:phone||null,email:email||null,address_line1:address||null}).select("id").single();
-      if(ce)throw ce;customer=newCustomer;
-    }
+    if(email){const{data:matches,error:e}=await db.from("customers").select("id").eq("company_id",s.company_id).ilike("email",email).limit(1);if(e)throw e;customer=matches?.[0]||null;}
+    if(customer){const{error:e}=await db.from("customers").update({name,phone:phone||null,email,address_line1:address||null}).eq("id",customer.id);if(e)throw e;}
+    else{const{data:newCustomer,error:e}=await db.from("customers").insert({company_id:s.company_id,user_id:c.owner_id,name,phone:phone||null,email:email||null,address_line1:address||null}).select("id").single();if(e)throw e;customer=newCustomer;}
 
-    const{data:job,error:je}=await db.from("jobs").insert({company_id:s.company_id,customer_id:customer.id,user_id:c.owner_id,title:service.name,description:service.description||null,scheduled_date:date,scheduled_time:time,status:"scheduled",price:servicePrice,notes:notes||null}).select("id").single();
-    if(je)throw je;
-    const{data:r,error:re}=await db.from("booking_requests").insert({company_id:s.company_id,service_id:service.id,customer_id:customer.id,job_id:job.id,requested_date:date,requested_time:time,customer_name:name,customer_phone:phone||null,customer_email:email||null,customer_address:address||null,notes:notes||null,status:"confirmed"}).select("id").single();
-    if(re)throw re;
-
-    let portal:any={available:false};
-    if(email){
-      const{data:account}=await db.from("customer_portal_accounts").select("id,user_id,status").eq("company_id",s.company_id).eq("customer_id",customer.id).maybeSingle();
-      let authUser:any=null;
-      const{data:userData}=await db.auth.admin.getUserByEmail(email);
-      authUser=userData?.user||null;
-
-      if(account){
-        portal={available:true,existing:true};
-        if(account.status!=="active")await db.from("customer_portal_accounts").update({status:"active",updated_at:new Date().toISOString()}).eq("id",account.id);
-      }else if(authUser){
-        const{data:userAccount}=await db.from("customer_portal_accounts").select("id,company_id,customer_id,status").eq("user_id",authUser.id).maybeSingle();
-        if(!userAccount){
-          const{error:insertAccountError}=await db.from("customer_portal_accounts").insert({user_id:authUser.id,customer_id:customer.id,company_id:s.company_id,status:"active",invited_at:new Date().toISOString()});
-          if(insertAccountError)throw insertAccountError;
-          const{data:linkData,error:linkError}=await db.auth.admin.generateLink({type:"magiclink",email,options:{redirectTo:PORTAL_URL}});
-          if(linkError||!linkData?.properties?.action_link)throw linkError||new Error("Could not create portal sign-in link.");
-          portal={available:true,existing:false,sign_in_link:linkData.properties.action_link};
-        }else if(userAccount.company_id===s.company_id&&userAccount.customer_id===customer.id){
-          const{data:linkData,error:linkError}=await db.auth.admin.generateLink({type:"magiclink",email,options:{redirectTo:PORTAL_URL}});
-          if(linkError||!linkData?.properties?.action_link)throw linkError||new Error("Could not create portal sign-in link.");
-          portal={available:true,existing:true,sign_in_link:linkData.properties.action_link};
-        }else{
-          portal={available:false,reason:"existing_auth_account"};
-        }
-      }else{
-        const{data:invited,error:inviteError}=await db.auth.admin.inviteUserByEmail(email,{redirectTo:PORTAL_URL,data:{portal_user:true}});
-        if(inviteError)throw inviteError;
-        const{error:insertAccountError}=await db.from("customer_portal_accounts").insert({user_id:invited.user.id,customer_id:customer.id,company_id:s.company_id,status:"active",invited_at:new Date().toISOString()});
-        if(insertAccountError)throw insertAccountError;
-        portal={available:true,existing:false,invited:true};
-      }
-    }
-
+    const{data:job,error:je}=await db.from("jobs").insert({company_id:s.company_id,customer_id:customer.id,user_id:c.owner_id,title:service.name,description:service.description||null,scheduled_date:date,scheduled_time:time,status:"scheduled",price:servicePrice,notes:notes||null}).select("id").single();if(je)throw je;
+    const{data:r,error:re}=await db.from("booking_requests").insert({company_id:s.company_id,service_id:service.id,customer_id:customer.id,job_id:job.id,requested_date:date,requested_time:time,customer_name:name,customer_phone:phone||null,customer_email:email||null,customer_address:address||null,notes:notes||null,status:"confirmed"}).select("id").single();if(re)throw re;
+    const portal=await ensurePortal(customer.id,email,s.company_id);
     return json({success:true,booking_id:r.id,job_id:job.id,date,time,service:service.name,business:c.name,price:servicePrice,portal});
   }catch(e){console.error(e);return json({error:e instanceof Error?e.message:String(e)},500)}
 });
+
+async function ensurePortal(customerId:string,email:string,companyId:string){
+  if(!email)return {available:false};
+  const{data:account,error:accountError}=await db.from("customer_portal_accounts").select("id,user_id,status").eq("company_id",companyId).eq("customer_id",customerId).maybeSingle();
+  if(accountError)throw accountError;
+  if(account){if(account.status!=="active"){const{error:e}=await db.from("customer_portal_accounts").update({status:"active",updated_at:new Date().toISOString()}).eq("id",account.id);if(e)throw e;}const link=await generateMagicLink(email);return {available:true,existing:true,sign_in_link:link};}
+
+  const{data:userData}=await db.auth.admin.getUserByEmail(email);const authUser=userData?.user||null;
+  if(authUser){
+    const{data:userAccount,error:userAccountError}=await db.from("customer_portal_accounts").select("id,company_id,customer_id,status").eq("user_id",authUser.id).maybeSingle();if(userAccountError)throw userAccountError;
+    if(userAccount&&userAccount.company_id===companyId&&userAccount.customer_id===customerId){const link=await generateMagicLink(email);return {available:true,existing:true,sign_in_link:link};}
+    if(userAccount)return {available:false,reason:"existing_auth_account"};
+    const{error:e}=await db.from("customer_portal_accounts").insert({user_id:authUser.id,customer_id:customerId,company_id:companyId,status:"active",invited_at:new Date().toISOString()});if(e)throw e;
+    const link=await generateMagicLink(email);return {available:true,existing:false,sign_in_link:link};
+  }
+
+  const{data:invited,error:inviteError}=await db.auth.admin.inviteUserByEmail(email,{redirectTo:PORTAL_URL,data:{portal_user:true}});if(inviteError)throw inviteError;
+  const{error:insertError}=await db.from("customer_portal_accounts").insert({user_id:invited.user.id,customer_id:customerId,company_id:companyId,status:"active",invited_at:new Date().toISOString()});if(insertError)throw insertError;
+  return {available:true,existing:false,invited:true};
+}
+
+async function generateMagicLink(email:string){const{data,error}=await db.auth.admin.generateLink({type:"magiclink",email,options:{redirectTo:PORTAL_URL}});if(error||!data?.properties?.action_link)throw error||new Error("Could not create portal sign-in link.");return data.properties.action_link;}
 function cleanSlug(v:string){return v.toLowerCase().trim().replace(/[^a-z0-9-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80)}
 function cleanText(v:unknown,m:number){return String(v??"").trim().slice(0,m)}
 function toMin(v:any){const s=String(v).slice(0,5);return Number(s.slice(0,2))*60+Number(s.slice(3,5))}

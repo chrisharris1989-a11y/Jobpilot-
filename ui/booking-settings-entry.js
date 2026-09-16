@@ -3,9 +3,10 @@ import { renderSettings } from "./settings.js";
 
 function addBookingsCard() {
   const grid = document.querySelector(".jp-settings-grid");
-  const existing = document.querySelector('[data-settings-section="bookings"]');
   const settingsPage = document.querySelector(".jp-settings-page");
-  if (!grid || !settingsPage || existing) return;
+  if (!grid || !settingsPage) return;
+  if (grid.querySelector('[data-settings-section="bookings"]')) return;
+
   const card = document.createElement("button");
   card.className = "jp-settings-card";
   card.type = "button";
@@ -25,6 +26,17 @@ function updateBookingServicePriceHelp() {
   if (label) label.firstChild.textContent = "Price (optional)";
 }
 
+function initialiseBookingsSettingsEntry() {
+  addBookingsCard();
+  updateBookingServicePriceHelp();
+
+  const observer = new MutationObserver(() => {
+    addBookingsCard();
+    updateBookingServicePriceHelp();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
 document.addEventListener("click", event => {
   const back = event.target.closest?.('[data-booking-back]');
   if (back) {
@@ -33,6 +45,7 @@ document.addEventListener("click", event => {
     renderSettings(document.getElementById("pageContent"));
     return;
   }
+
   const card = event.target.closest?.('[data-settings-section="bookings"]');
   if (!card) return;
   event.preventDefault();
@@ -40,10 +53,8 @@ document.addEventListener("click", event => {
   renderBookingsSettings(document.getElementById("pageContent"));
 }, true);
 
-const observer = new MutationObserver(() => {
-  addBookingsCard();
-  updateBookingServicePriceHelp();
-});
-observer.observe(document.body, { childList: true, subtree: true });
-addBookingsCard();
-updateBookingServicePriceHelp();
+if (document.body) {
+  initialiseBookingsSettingsEntry();
+} else {
+  document.addEventListener("DOMContentLoaded", initialiseBookingsSettingsEntry, { once: true });
+}

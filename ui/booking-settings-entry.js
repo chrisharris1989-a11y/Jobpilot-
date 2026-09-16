@@ -1,4 +1,5 @@
 import { renderBookingsSettings } from "./booking-settings.js";
+import { renderSettings } from "./settings.js";
 
 function addBookingsCard() {
   const grid = document.querySelector(".jp-settings-grid");
@@ -14,6 +15,13 @@ function addBookingsCard() {
 }
 
 document.addEventListener("click", event => {
+  const back = event.target.closest?.('[data-booking-back]');
+  if (back) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    renderSettings(document.getElementById("pageContent"));
+    return;
+  }
   const card = event.target.closest?.('[data-settings-section="bookings"]');
   if (!card) return;
   event.preventDefault();

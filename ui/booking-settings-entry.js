@@ -14,6 +14,22 @@ function addBookingsCard() {
   grid.insertBefore(card, grid.firstElementChild?.nextElementSibling || null);
 }
 
+function requireBookingServicePrice() {
+  const modal = document.querySelector(".jp-booking-modal");
+  if (!modal) return;
+  const price = modal.querySelector('[name="price"]');
+  const active = modal.querySelector('[name="active"]');
+  if (!price) return;
+  price.required = !!active?.checked;
+  price.placeholder = active?.checked ? "0.00" : "Optional for hidden services";
+  const label = price.closest("label");
+  if (label) label.firstChild.textContent = active?.checked ? "Price *" : "Price";
+  if (active && !active.dataset.priceRequirementBound) {
+    active.dataset.priceRequirementBound = "true";
+    active.addEventListener("change", requireBookingServicePrice);
+  }
+}
+
 document.addEventListener("click", event => {
   const back = event.target.closest?.('[data-booking-back]');
   if (back) {
@@ -29,6 +45,10 @@ document.addEventListener("click", event => {
   renderBookingsSettings(document.getElementById("pageContent"));
 }, true);
 
-const observer = new MutationObserver(addBookingsCard);
+const observer = new MutationObserver(() => {
+  addBookingsCard();
+  requireBookingServicePrice();
+});
 observer.observe(document.body, { childList: true, subtree: true });
 addBookingsCard();
+requireBookingServicePrice();

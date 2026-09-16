@@ -3,6 +3,7 @@ import { supabase } from "../supabase.js";
 const STRIPE_DISCONNECT_URL = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-disconnect";
 const FREEAGENT_DISCONNECT_URL = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/freeagent-disconnect";
 const XERO_URL = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/xero-oauth-callback";
+const QUICKBOOKS_URL = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/quickbooks-oauth-callback";
 
 function setManagementActive() {
   document.querySelectorAll(".nav-item").forEach(item => item.classList.remove("active"));
@@ -99,6 +100,13 @@ async function renderManagementAccounting() {
       </div>
 
       <div class="panel">
+        <div class="panel-header"><div><h2>📗 QuickBooks</h2><p>Connect QuickBooks Online to link your accounting data with JobPilot.</p></div></div>
+        <div id="managementQuickBooksStatus" class="muted" style="margin-top:10px">Checking connection…</div>
+        <button id="managementQuickBooksButton" class="primary-button" type="button" style="margin-top:12px">Connect QuickBooks</button>
+        <div id="managementQuickBooksDisconnectMount"></div>
+      </div>
+
+      <div class="panel">
         <div class="panel-header"><div><h2>💳 Stripe</h2><p>Accept online card payments from your customers.</p></div></div>
         <div id="managementStripeStatus" class="muted" style="margin-top:10px">Checking connection…</div>
         <button id="managementStripeButton" class="primary-button" type="button" style="margin-top:12px">Connect Stripe</button>
@@ -121,6 +129,8 @@ async function renderManagementAccounting() {
   const freeAgentButton = document.getElementById("managementFreeAgentButton");
   const xeroStatus = document.getElementById("managementXeroStatus");
   const xeroButton = document.getElementById("managementXeroButton");
+  const quickBooksStatus = document.getElementById("managementQuickBooksStatus");
+  const quickBooksButton = document.getElementById("managementQuickBooksButton");
 
   const refreshStripe = async () => {
     const originalStatus = document.createElement("div");
@@ -140,25 +150,10 @@ async function renderManagementAccounting() {
       const connected = /connected/i.test(originalStatus.textContent || "") || /connected/i.test(stripeStatus.textContent || "");
       document.getElementById("managementStripeDisconnect")?.remove();
       if (connected) {
-        addDisconnectButton(
-          document.getElementById("managementStripeDisconnectMount"),
-          "managementStripeDisconnect",
-          "Disconnect Stripe",
-          () => disconnectProvider({
-            url: STRIPE_DISCONNECT_URL,
-            button: document.getElementById("managementStripeDisconnect"),
-            status: stripeStatus,
-            successText: "<strong>Not connected</strong><br><small>Stripe has been disconnected from JobPilot.</small>",
-            reload: refreshStripe
-          })
-        );
+        addDisconnectButton(document.getElementById("managementStripeDisconnectMount"), "managementStripeDisconnect", "Disconnect Stripe", () => disconnectProvider({ url: STRIPE_DISCONNECT_URL, button: document.getElementById("managementStripeDisconnect"), status: stripeStatus, successText: "<strong>Not connected</strong><br><small>Stripe has been disconnected from JobPilot.</small>", reload: refreshStripe }));
       }
-    } catch (error) {
-      stripeStatus.textContent = error.message || "Could not check Stripe connection.";
-    } finally {
-      originalStatus.remove();
-      originalButton.remove();
-    }
+    } catch (error) { stripeStatus.textContent = error.message || "Could not check Stripe connection."; }
+    finally { originalStatus.remove(); originalButton.remove(); }
   };
 
   const refreshFreeAgent = async () => {
@@ -179,25 +174,10 @@ async function renderManagementAccounting() {
       const connected = /connected/i.test(originalStatus.textContent || "") || /connected/i.test(freeAgentStatus.textContent || "");
       document.getElementById("managementFreeAgentDisconnect")?.remove();
       if (connected) {
-        addDisconnectButton(
-          document.getElementById("managementFreeAgentDisconnectMount"),
-          "managementFreeAgentDisconnect",
-          "Disconnect FreeAgent",
-          () => disconnectProvider({
-            url: FREEAGENT_DISCONNECT_URL,
-            button: document.getElementById("managementFreeAgentDisconnect"),
-            status: freeAgentStatus,
-            successText: "<strong>Not connected</strong><br><small>FreeAgent has been disconnected from JobPilot.</small>",
-            reload: refreshFreeAgent
-          })
-        );
+        addDisconnectButton(document.getElementById("managementFreeAgentDisconnectMount"), "managementFreeAgentDisconnect", "Disconnect FreeAgent", () => disconnectProvider({ url: FREEAGENT_DISCONNECT_URL, button: document.getElementById("managementFreeAgentDisconnect"), status: freeAgentStatus, successText: "<strong>Not connected</strong><br><small>FreeAgent has been disconnected from JobPilot.</small>", reload: refreshFreeAgent }));
       }
-    } catch (error) {
-      freeAgentStatus.textContent = error.message || "Could not check FreeAgent connection.";
-    } finally {
-      originalStatus.remove();
-      originalButton.remove();
-    }
+    } catch (error) { freeAgentStatus.textContent = error.message || "Could not check FreeAgent connection."; }
+    finally { originalStatus.remove(); originalButton.remove(); }
   };
 
   const refreshXero = async () => {
@@ -209,28 +189,33 @@ async function renderManagementAccounting() {
         xeroButton.textContent = "Xero Connected";
         xeroButton.disabled = true;
         document.getElementById("managementXeroDisconnect")?.remove();
-        addDisconnectButton(
-          document.getElementById("managementXeroDisconnectMount"),
-          "managementXeroDisconnect",
-          "Disconnect Xero",
-          () => disconnectProvider({
-            url: XERO_URL,
-            button: document.getElementById("managementXeroDisconnect"),
-            status: xeroStatus,
-            successText: "<strong>Not connected</strong><br><small>Xero has been disconnected from JobPilot.</small>",
-            reload: refreshXero
-          })
-        );
+        addDisconnectButton(document.getElementById("managementXeroDisconnectMount"), "managementXeroDisconnect", "Disconnect Xero", () => disconnectProvider({ url: XERO_URL, button: document.getElementById("managementXeroDisconnect"), status: xeroStatus, successText: "<strong>Not connected</strong><br><small>Xero has been disconnected from JobPilot.</small>", reload: refreshXero }));
       } else {
         xeroStatus.innerHTML = "<strong>Not connected</strong><br><small>Connect Xero to link your accounting data.</small>";
         xeroButton.textContent = "Connect Xero";
         xeroButton.disabled = false;
         document.getElementById("managementXeroDisconnect")?.remove();
       }
-    } catch (error) {
-      xeroStatus.textContent = error.message || "Could not check Xero connection.";
-      xeroButton.disabled = false;
-    }
+    } catch (error) { xeroStatus.textContent = error.message || "Could not check Xero connection."; xeroButton.disabled = false; }
+  };
+
+  const refreshQuickBooks = async () => {
+    try {
+      const result = await authenticatedRequest(QUICKBOOKS_URL, { action: "status" });
+      if (result.connected && result.connection) {
+        const name = result.connection.company_name || "QuickBooks Online company connected to JobPilot.";
+        quickBooksStatus.innerHTML = `<strong style="color:green;">QuickBooks connected</strong><br><small>${escapeHtml(name)} · Sandbox</small>`;
+        quickBooksButton.textContent = "QuickBooks Connected";
+        quickBooksButton.disabled = true;
+        document.getElementById("managementQuickBooksDisconnect")?.remove();
+        addDisconnectButton(document.getElementById("managementQuickBooksDisconnectMount"), "managementQuickBooksDisconnect", "Disconnect QuickBooks", () => disconnectProvider({ url: QUICKBOOKS_URL, button: document.getElementById("managementQuickBooksDisconnect"), status: quickBooksStatus, successText: "<strong>Not connected</strong><br><small>QuickBooks has been disconnected from JobPilot.</small>", reload: refreshQuickBooks }));
+      } else {
+        quickBooksStatus.innerHTML = "<strong>Not connected</strong><br><small>Connect QuickBooks Online to link your accounting data.</small>";
+        quickBooksButton.textContent = "Connect QuickBooks";
+        quickBooksButton.disabled = false;
+        document.getElementById("managementQuickBooksDisconnect")?.remove();
+      }
+    } catch (error) { quickBooksStatus.textContent = error.message || "Could not check QuickBooks connection."; quickBooksButton.disabled = false; }
   };
 
   xeroButton.onclick = async () => {
@@ -240,24 +225,24 @@ async function renderManagementAccounting() {
       const result = await authenticatedRequest(XERO_URL, { action: "connect" });
       if (!result.url) throw new Error("Xero did not return an authorisation URL.");
       window.location.href = result.url;
-    } catch (error) {
-      console.error("Xero connection error:", error);
-      alert("Could not connect Xero:\n\n" + error.message);
-      xeroButton.disabled = false;
-      xeroButton.textContent = "Connect Xero";
-    }
+    } catch (error) { console.error("Xero connection error:", error); alert("Could not connect Xero:\n\n" + error.message); xeroButton.disabled = false; xeroButton.textContent = "Connect Xero"; }
   };
 
-  await Promise.all([refreshStripe(), refreshFreeAgent(), refreshXero()]);
+  quickBooksButton.onclick = async () => {
+    quickBooksButton.disabled = true;
+    quickBooksButton.textContent = "Connecting to QuickBooks…";
+    try {
+      const result = await authenticatedRequest(QUICKBOOKS_URL, { action: "connect" });
+      if (!result.url) throw new Error("QuickBooks did not return an authorisation URL.");
+      window.location.href = result.url;
+    } catch (error) { console.error("QuickBooks connection error:", error); alert("Could not connect QuickBooks:\n\n" + error.message); quickBooksButton.disabled = false; quickBooksButton.textContent = "Connect QuickBooks"; }
+  };
+
+  await Promise.all([refreshStripe(), refreshFreeAgent(), refreshXero(), refreshQuickBooks()]);
 }
 
 function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+  return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#039;");
 }
 
 function interceptAccountingClick(event) {

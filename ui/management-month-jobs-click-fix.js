@@ -12,6 +12,10 @@ function getMonthRange() {
   return { start, end };
 }
 
+function getCalendarDate() {
+  return new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>\"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[char]));
 }
@@ -52,8 +56,9 @@ function prepareCalendarCard() {
   if (!card) return null;
   const label = card.querySelector("span");
   const value = card.querySelector("strong");
+  const calendarDate = getCalendarDate();
   if (label && label.textContent !== "Calendar") label.textContent = "Calendar";
-  if (value && value.textContent !== "Open") value.textContent = "Open";
+  if (value && value.textContent !== calendarDate) value.textContent = calendarDate;
   if (card.style.cursor !== "pointer") card.style.cursor = "pointer";
   if (card.getAttribute("role") !== "button") card.setAttribute("role", "button");
   if (card.getAttribute("tabindex") !== "0") card.setAttribute("tabindex", "0");

@@ -1,4 +1,5 @@
 import { renderCompanyCalendar } from "./company-calendar.js";
+import "./company-calendar-mobile.js";
 
 let listenersBound = false;
 let dashboardCalendarRendered = false;

@@ -52,13 +52,13 @@ function prepareCalendarCard() {
   if (!card) return null;
   const label = card.querySelector("span");
   const value = card.querySelector("strong");
-  if (label) label.textContent = "Calendar";
-  if (value) value.textContent = "Open";
-  card.style.cursor = "pointer";
-  card.setAttribute("role", "button");
-  card.setAttribute("tabindex", "0");
-  card.setAttribute("aria-label", "Open calendar");
-  card.title = "Open calendar";
+  if (label && label.textContent !== "Calendar") label.textContent = "Calendar";
+  if (value && value.textContent !== "Open") value.textContent = "Open";
+  if (card.style.cursor !== "pointer") card.style.cursor = "pointer";
+  if (card.getAttribute("role") !== "button") card.setAttribute("role", "button");
+  if (card.getAttribute("tabindex") !== "0") card.setAttribute("tabindex", "0");
+  if (card.getAttribute("aria-label") !== "Open calendar") card.setAttribute("aria-label", "Open calendar");
+  if (card.title !== "Open calendar") card.title = "Open calendar";
   return card;
 }
 
@@ -198,16 +198,12 @@ function handleKeydown(event) {
   void openManagementCalendar();
 }
 
-function syncCard() {
-  prepareCalendarCard();
-}
-
 function start() {
   document.addEventListener("click", handleClick, true);
   document.addEventListener("keydown", handleKeydown, true);
-  const observer = new MutationObserver(syncCard);
+  const observer = new MutationObserver(() => prepareCalendarCard());
   observer.observe(document.body, { childList: true, subtree: true });
-  syncCard();
+  prepareCalendarCard();
 }
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });

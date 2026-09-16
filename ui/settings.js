@@ -2,6 +2,7 @@
 // Clean Settings entry point.
 
 import { supabase } from "../supabase.js";
+import { renderBookingsSettings } from "./booking-settings.js";
 
 export function renderSettings(content = document.getElementById("pageContent")) {
   if (!content) return;
@@ -17,6 +18,7 @@ function renderSettingsOverview(content) {
         <button class="jp-settings-card" type="button" data-settings-section="account"><span class="jp-settings-card-icon">👤</span><span class="jp-settings-card-body"><strong>Account</strong><small>Manage your profile, email address and password.</small></span><span class="jp-settings-card-arrow">→</span></button>
         <button class="jp-settings-card" type="button" data-settings-section="company"><span class="jp-settings-card-icon">🏢</span><span class="jp-settings-card-body"><strong>Company</strong><small>Manage your company details and logo.</small></span><span class="jp-settings-card-arrow">→</span></button>
         <button class="jp-settings-card" type="button" data-settings-section="documents"><span class="jp-settings-card-icon">📄</span><span class="jp-settings-card-body"><strong>Documents</strong><small>Manage templates and uploaded business documents.</small></span><span class="jp-settings-card-arrow">→</span></button>
+        <button class="jp-settings-card" type="button" data-settings-section="bookings"><span class="jp-settings-card-icon">📅</span><span class="jp-settings-card-body"><strong>Bookings</strong><small>Manage online bookings, services, availability and booking rules.</small></span><span class="jp-settings-card-arrow">→</span></button>
         <button class="jp-settings-card" type="button" data-settings-section="app-preferences"><span class="jp-settings-card-icon">⚙️</span><span class="jp-settings-card-body"><strong>App Preferences</strong><small>Manage how JobPilot looks and behaves.</small></span><span class="jp-settings-card-arrow">→</span></button>
         <button class="jp-settings-card" type="button" data-settings-section="notifications"><span class="jp-settings-card-icon">🔔</span><span class="jp-settings-card-body"><strong>Notifications</strong><small>Manage your JobPilot notification preferences.</small></span><span class="jp-settings-card-arrow">→</span></button>
         <button class="jp-settings-card jp-settings-danger-card" type="button" data-settings-section="danger-zone"><span class="jp-settings-card-icon">⚠️</span><span class="jp-settings-card-body"><strong>Danger Zone</strong><small>Irreversible account and data actions.</small></span><span class="jp-settings-card-arrow">→</span></button>
@@ -26,6 +28,7 @@ function renderSettingsOverview(content) {
   content.querySelector('[data-settings-section="account"]')?.addEventListener("click", () => renderAccountSettings(content));
   content.querySelector('[data-settings-section="company"]')?.addEventListener("click", () => renderCompanySettings(content));
   content.querySelector('[data-settings-section="documents"]')?.addEventListener("click", () => renderDocumentsSettings(content));
+  content.querySelector('[data-settings-section="bookings"]')?.addEventListener("click", () => renderBookingsSettings(content));
   content.querySelector('[data-settings-section="danger-zone"]')?.addEventListener("click", () => renderDangerZone(content));
 }
 

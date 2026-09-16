@@ -11,6 +11,8 @@ const APP_REDIRECT = "https://jobpilot-eosin.vercel.app/?quickbooks=connected";
 const AUTHORIZE_URL = "https://appcenter.intuit.com/connect/oauth2";
 const TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
 const ACCOUNTING_SCOPE = "com.intuit.quickbooks.accounting";
+const QUICKBOOKS_API_BASE = "https://quickbooks.api.intuit.com";
+const ENVIRONMENT = "production";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -56,7 +58,7 @@ async function exchangeToken(params: URLSearchParams, clientId: string, clientSe
 
 async function getCompanyName(realmId: string, accessToken: string) {
   const response = await fetch(
-    `https://sandbox-quickbooks.api.intuit.com/v3/company/${encodeURIComponent(realmId)}/companyinfo/${encodeURIComponent(realmId)}?minorversion=75`,
+    `${QUICKBOOKS_API_BASE}/v3/company/${encodeURIComponent(realmId)}/companyinfo/${encodeURIComponent(realmId)}?minorversion=75`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -104,7 +106,7 @@ async function handleCallback(req: Request, admin: ReturnType<typeof createClien
       user_id: oauthState.user_id,
       realm_id: realmId,
       company_name: companyName,
-      environment: "sandbox",
+      environment: ENVIRONMENT,
       access_token: token.access_token,
       refresh_token: token.refresh_token,
       access_token_expires_at: new Date(Date.now() + Number(token.expires_in || 3600) * 1000).toISOString(),
@@ -140,7 +142,7 @@ Deno.serve(async (req) => {
     if (url.searchParams.has("code") || url.searchParams.has("error")) {
       return handleCallback(req, admin, clientId, clientSecret);
     }
-    return json({ ok: true, service: "quickbooks-oauth-callback" });
+    return json({ ok: true, service: "quickbooks-oauth-callback", environment: ENVIRONMENT });
   }
 
   try {
@@ -173,7 +175,7 @@ Deno.serve(async (req) => {
       authUrl.searchParams.set("response_type", "code");
       authUrl.searchParams.set("scope", ACCOUNTING_SCOPE);
       authUrl.searchParams.set("state", state);
-      return json({ url: authUrl.toString(), scopes: [ACCOUNTING_SCOPE], environment: "sandbox" });
+      return json({ url: authUrl.toString(), scopes: [ACCOUNTING_SCOPE], environment: ENVIRONMENT });
     }
 
     if (action === "refresh") {

@@ -3,11 +3,12 @@ import { supabase } from "../supabase.js";
 // Dashboard calendar card for company-wide monthly jobs.
 let managementContext = null;
 let loading = false;
+let prefetchedJobs = null;
+let prefetchPromise = null;
 
-function getMonthRange() {
-  const now = new Date();
-  const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-  const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+function getMonthRange(year = new Date().getFullYear(), month = new Date().getMonth()) {
+  const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const endDate = new Date(year, month + 1, 0);
   const end = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`;
   return { start, end };
 }
@@ -37,34 +38,61 @@ async function getManagementContext() {
   }
 }
 
+async function fetchMonthJobs(year, month) {
+  const context = await getManagementContext();
+  if (!context) return [];
+  const { start, end } = getMonthRange(year, month);
+  const { data, error } = await supabase
+    .from("jobs")
+    .select("id, title, scheduled_date, scheduled_time, status, notes")
+    .eq("company_id", context.companyId)
+    .gte("scheduled_date", start)
+    .lte("scheduled_date", end);
+  if (error) throw error;
+  return data || [];
+}
+
+function prefetchCurrentMonth() {
+  if (prefetchPromise) return prefetchPromise;
+  const now = new Date();
+  prefetchPromise = fetchMonthJobs(now.getFullYear(), now.getMonth())
+    .then(data => { prefetchedJobs = data; return data; })
+    .catch(error => {
+      console.error("JobPilot dashboard calendar prefetch:", error);
+      prefetchedJobs = [];
+      return [];
+    });
+  return prefetchPromise;
+}
+
 function addCalendarStyles() {
   if (document.getElementById("jobpilot-dashboard-calendar-style")) return;
   const style = document.createElement("style");
   style.id = "jobpilot-dashboard-calendar-style";
   style.textContent = `
-    #jobpilot-dashboard-calendar{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:12px}
+    #jobpilot-dashboard-calendar{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:8px}
     #jobpilot-dashboard-calendar .backdrop{position:absolute;inset:0;background:rgba(15,23,42,.48)}
-    #jobpilot-dashboard-calendar .modal{position:relative;width:min(720px,94vw);max-height:82vh;overflow:auto;background:#fff;border-radius:14px;padding:14px;box-shadow:0 18px 55px rgba(15,23,42,.22)}
-    #jobpilot-dashboard-calendar .header{display:flex;justify-content:space-between;align-items:center;gap:10px}
-    #jobpilot-dashboard-calendar h2{margin:0;font-size:20px}
+    #jobpilot-dashboard-calendar .modal{position:relative;width:min(560px,92vw);max-height:70vh;overflow:auto;background:#fff;border-radius:12px;padding:10px;box-shadow:0 12px 36px rgba(15,23,42,.2)}
+    #jobpilot-dashboard-calendar .header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+    #jobpilot-dashboard-calendar h2{margin:0;font-size:17px}
     #jobpilot-dashboard-calendar .muted{display:none}
-    #jobpilot-dashboard-calendar .close{border:0;background:transparent;font-size:26px;line-height:1;cursor:pointer;padding:0 3px}
-    #jobpilot-dashboard-calendar .nav{display:flex;justify-content:space-between;align-items:center;margin:10px 0 7px}
-    #jobpilot-dashboard-calendar .nav button{border:1px solid #dbe2ea;background:#fff;border-radius:8px;padding:5px 10px;font-size:16px;cursor:pointer}
-    #jobpilot-dashboard-calendar .nav .today{font-size:12px}
+    #jobpilot-dashboard-calendar .close{border:0;background:transparent;font-size:24px;line-height:1;cursor:pointer;padding:0 2px}
+    #jobpilot-dashboard-calendar .nav{display:flex;justify-content:space-between;align-items:center;margin:6px 0 4px}
+    #jobpilot-dashboard-calendar .nav button{border:1px solid #dbe2ea;background:#fff;border-radius:7px;padding:3px 8px;font-size:14px;cursor:pointer}
+    #jobpilot-dashboard-calendar .nav .today{font-size:11px}
     #jobpilot-dashboard-calendar .grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-left:1px solid #e5e7eb;border-top:1px solid #e5e7eb}
-    #jobpilot-dashboard-calendar .weekday{font-weight:700;font-size:11px;text-align:center;padding:6px 3px;background:#f8fafc;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb}
-    #jobpilot-dashboard-calendar .day{min-height:62px;padding:5px;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;background:#fff;cursor:pointer;text-align:left}
+    #jobpilot-dashboard-calendar .weekday{font-weight:700;font-size:10px;text-align:center;padding:4px 2px;background:#f8fafc;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb}
+    #jobpilot-dashboard-calendar .day{min-height:48px;padding:3px;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;background:#fff;cursor:pointer;text-align:left}
     #jobpilot-dashboard-calendar .day.muted{background:#f8fafc;color:#94a3b8}
     #jobpilot-dashboard-calendar .day.today{outline:2px solid #2563eb;outline-offset:-2px}
     #jobpilot-dashboard-calendar .day.selected{background:#eff6ff}
-    #jobpilot-dashboard-calendar .number{font-weight:700;font-size:12px}
-    #jobpilot-dashboard-calendar .job{margin-top:3px;padding:3px 4px;border-radius:4px;background:#e0f2fe;font-size:10px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    #jobpilot-dashboard-calendar .more{font-size:10px;color:#475569;margin-top:2px}
-    #jobpilot-dashboard-calendar .details{margin-top:9px;padding:9px;background:#f8fafc;border-radius:8px;min-height:16px}
-    #jobpilot-dashboard-calendar .details h3{margin:0 0 5px;font-size:14px}
-    #jobpilot-dashboard-calendar .details p{margin:3px 0;font-size:12px}
-    @media(max-width:640px){#jobpilot-dashboard-calendar .modal{width:96vw;padding:10px;border-radius:10px}#jobpilot-dashboard-calendar .day{min-height:52px;padding:4px}#jobpilot-dashboard-calendar .job{font-size:8px}#jobpilot-dashboard-calendar .details{margin-top:8px}#jobpilot-dashboard-calendar h2{font-size:18px}}
+    #jobpilot-dashboard-calendar .number{font-weight:700;font-size:11px}
+    #jobpilot-dashboard-calendar .job{margin-top:2px;padding:2px 3px;border-radius:3px;background:#e0f2fe;font-size:8px;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    #jobpilot-dashboard-calendar .more{font-size:8px;color:#475569;margin-top:1px}
+    #jobpilot-dashboard-calendar .details{margin-top:6px;padding:7px;background:#f8fafc;border-radius:7px;min-height:12px}
+    #jobpilot-dashboard-calendar .details h3{margin:0 0 4px;font-size:12px}
+    #jobpilot-dashboard-calendar .details p{margin:2px 0;font-size:10px}
+    @media(max-width:640px){#jobpilot-dashboard-calendar .modal{width:94vw;padding:8px;border-radius:9px}#jobpilot-dashboard-calendar .day{min-height:42px;padding:3px}#jobpilot-dashboard-calendar .job{font-size:7px}#jobpilot-dashboard-calendar h2{font-size:16px}}
   `;
   document.head.appendChild(style);
 }
@@ -84,7 +112,7 @@ function openDashboardCalendar(initialJobs = []) {
       <div class="header"><h2 id="dashboard-calendar-title"></h2><button class="close" type="button" aria-label="Close">×</button></div>
       <div class="nav"><button type="button" id="dashboard-calendar-prev">‹</button><button type="button" class="today" id="dashboard-calendar-today">Today</button><button type="button" id="dashboard-calendar-next">›</button></div>
       <div class="grid" id="dashboard-calendar-grid"></div>
-      <div class="details" id="dashboard-calendar-details"><p>Loading jobs...</p></div>
+      <div class="details" id="dashboard-calendar-details"><p>Select a date to see its jobs.</p></div>
     </div>`;
   document.body.appendChild(overlay);
   const title = overlay.querySelector("#dashboard-calendar-title");
@@ -127,8 +155,16 @@ function openDashboardCalendar(initialJobs = []) {
       grid.appendChild(day);
     }
   };
-  overlay.querySelector("#dashboard-calendar-prev").addEventListener("click", () => { month--; if (month < 0) { month = 11; year--; } render(); });
-  overlay.querySelector("#dashboard-calendar-next").addEventListener("click", () => { month++; if (month > 11) { month = 0; year++; } render(); });
+  overlay.querySelector("#dashboard-calendar-prev").addEventListener("click", async () => {
+    month--; if (month < 0) { month = 11; year--; }
+    render();
+    try { overlay.refreshJobs(await fetchMonthJobs(year, month)); } catch (error) { console.error("JobPilot dashboard calendar:", error); }
+  });
+  overlay.querySelector("#dashboard-calendar-next").addEventListener("click", async () => {
+    month++; if (month > 11) { month = 0; year++; }
+    render();
+    try { overlay.refreshJobs(await fetchMonthJobs(year, month)); } catch (error) { console.error("JobPilot dashboard calendar:", error); }
+  });
   overlay.querySelector("#dashboard-calendar-today").addEventListener("click", () => { const current = new Date(); year = current.getFullYear(); month = current.getMonth(); render(); });
   overlay.refreshJobs = nextJobs => { jobs = nextJobs || []; render(); };
   const escape = event => { if (event.key === "Escape") { close(); document.removeEventListener("keydown", escape); } };
@@ -161,30 +197,13 @@ async function applyDashboardCalendarCard() {
   card.setAttribute("aria-label", "Open calendar");
   card.title = "Open calendar";
 
-  const loadCalendar = async event => {
+  // Fetch the current month before the user clicks so opening is immediate.
+  void prefetchCurrentMonth();
+
+  const loadCalendar = event => {
     event?.preventDefault();
     event?.stopImmediatePropagation();
-
-    // Open immediately. The calendar should never wait for the database request.
-    const overlay = openDashboardCalendar([]);
-
-    try {
-      const { start, end } = getMonthRange();
-      const { data, error } = await supabase
-        .from("jobs")
-        .select("id, title, scheduled_date, scheduled_time, status, notes")
-        .eq("company_id", context.companyId)
-        .gte("scheduled_date", start)
-        .lte("scheduled_date", end);
-      if (error) throw error;
-      if (overlay.isConnected) overlay.refreshJobs(data || []);
-    } catch (error) {
-      console.error("JobPilot dashboard calendar:", error);
-      if (overlay.isConnected) {
-        const details = overlay.querySelector("#dashboard-calendar-details");
-        if (details) details.innerHTML = "<p>Jobs could not be loaded. Please try again.</p>";
-      }
-    }
+    openDashboardCalendar(prefetchedJobs || []);
   };
   card.addEventListener("click", loadCalendar);
   card.addEventListener("keydown", event => {

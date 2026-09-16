@@ -55,11 +55,11 @@
     NZ: {
       plans: { core: 'NZ$0', solo: 'NZ$39.99', team: 'NZ$179.99', business: 'NZ$269.99', pro: 'NZ$359.99' },
       sms: {
-        core: 'NZ$0.11 per SMS',
-        solo: '0 free SMS/month|NZ$0.11 per SMS',
-        team: '0 free SMS/month|NZ$0.11 per SMS',
-        business: '0 free SMS/month|NZ$0.11 per SMS',
-        pro: '0 free SMS/month|NZ$0.11 per SMS'
+        core: 'NZ$0.13 per SMS',
+        solo: '0 free SMS/month|NZ$0.13 per SMS',
+        team: '0 free SMS/month|NZ$0.13 per SMS',
+        business: '0 free SMS/month|NZ$0.13 per SMS',
+        pro: '0 free SMS/month|NZ$0.13 per SMS'
       }
     }
   };

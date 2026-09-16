@@ -2,6 +2,7 @@ import { supabase } from "../supabase.js";
 
 const STRIPE_DISCONNECT_URL = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/stripe-disconnect";
 const FREEAGENT_DISCONNECT_URL = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/freeagent-disconnect";
+const XERO_URL = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/xero-oauth-callback";
 
 function setManagementActive() {
   document.querySelectorAll(".nav-item").forEach(item => item.classList.remove("active"));
@@ -91,6 +92,13 @@ async function renderManagementAccounting() {
       </div>
 
       <div class="panel">
+        <div class="panel-header"><div><h2>📘 Xero</h2><p>Connect Xero to link your accounting data with JobPilot.</p></div></div>
+        <div id="managementXeroStatus" class="muted" style="margin-top:10px">Checking connection…</div>
+        <button id="managementXeroButton" class="primary-button" type="button" style="margin-top:12px">Connect Xero</button>
+        <div id="managementXeroDisconnectMount"></div>
+      </div>
+
+      <div class="panel">
         <div class="panel-header"><div><h2>💳 Stripe</h2><p>Accept online card payments from your customers.</p></div></div>
         <div id="managementStripeStatus" class="muted" style="margin-top:10px">Checking connection…</div>
         <button id="managementStripeButton" class="primary-button" type="button" style="margin-top:12px">Connect Stripe</button>
@@ -111,6 +119,8 @@ async function renderManagementAccounting() {
   const stripeButton = document.getElementById("managementStripeButton");
   const freeAgentStatus = document.getElementById("managementFreeAgentStatus");
   const freeAgentButton = document.getElementById("managementFreeAgentButton");
+  const xeroStatus = document.getElementById("managementXeroStatus");
+  const xeroButton = document.getElementById("managementXeroButton");
 
   const refreshStripe = async () => {
     const originalStatus = document.createElement("div");
@@ -190,8 +200,64 @@ async function renderManagementAccounting() {
     }
   };
 
-  await refreshStripe();
-  await refreshFreeAgent();
+  const refreshXero = async () => {
+    try {
+      const result = await authenticatedRequest(XERO_URL, { action: "status" });
+      if (result.connected && result.connection) {
+        const name = result.connection.tenant_name || "Xero organisation connected to JobPilot.";
+        xeroStatus.innerHTML = `<strong style="color:green;">Xero connected</strong><br><small>${escapeHtml(name)}</small>`;
+        xeroButton.textContent = "Xero Connected";
+        xeroButton.disabled = true;
+        document.getElementById("managementXeroDisconnect")?.remove();
+        addDisconnectButton(
+          document.getElementById("managementXeroDisconnectMount"),
+          "managementXeroDisconnect",
+          "Disconnect Xero",
+          () => disconnectProvider({
+            url: XERO_URL,
+            button: document.getElementById("managementXeroDisconnect"),
+            status: xeroStatus,
+            successText: "<strong>Not connected</strong><br><small>Xero has been disconnected from JobPilot.</small>",
+            reload: refreshXero
+          })
+        );
+      } else {
+        xeroStatus.innerHTML = "<strong>Not connected</strong><br><small>Connect Xero to link your accounting data.</small>";
+        xeroButton.textContent = "Connect Xero";
+        xeroButton.disabled = false;
+        document.getElementById("managementXeroDisconnect")?.remove();
+      }
+    } catch (error) {
+      xeroStatus.textContent = error.message || "Could not check Xero connection.";
+      xeroButton.disabled = false;
+    }
+  };
+
+  xeroButton.onclick = async () => {
+    xeroButton.disabled = true;
+    xeroButton.textContent = "Connecting to Xero…";
+    try {
+      const result = await authenticatedRequest(XERO_URL, { action: "connect" });
+      if (!result.url) throw new Error("Xero did not return an authorisation URL.");
+      window.location.href = result.url;
+    } catch (error) {
+      console.error("Xero connection error:", error);
+      alert("Could not connect Xero:\n\n" + error.message);
+      xeroButton.disabled = false;
+      xeroButton.textContent = "Connect Xero";
+    }
+  };
+
+  await Promise.all([refreshStripe(), refreshFreeAgent(), refreshXero()]);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function interceptAccountingClick(event) {

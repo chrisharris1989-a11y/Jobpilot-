@@ -98,7 +98,7 @@ function openDashboardCalendar(jobs) {
     const dayJobs = jobs.filter(job => job.scheduled_date === iso && String(job.status || "").toLowerCase() !== "cancelled");
     const displayDate = window.JobPilotDate.formatDate(`${iso}T12:00:00`, { style: "long" });
     details.innerHTML = dayJobs.length
-      ? `<h3>${escapeHtml(displayDate)}</h3>${dayJobs.map(job => `<p><strong>${escapeHtml(job.scheduled_time ? `${job.scheduled_time} — ` : "")}${escapeHtml(job.title || "Job")}</strong>${job.notes ? ` — ${escapeHtml(job.notes)}` : ""}</p>`).join("")}`
+      ? `<h3>${escapeHtml(displayDate)}</h3>${dayJobs.map(job => `<p><strong>${escapeHtml(job.scheduled_time ? `${job.scheduled_time} - ` : "")}${escapeHtml(job.title || "Job")}</strong>${job.notes ? ` - ${escapeHtml(job.notes)}` : ""}</p>`).join("")}`
       : `<p>No planned jobs on ${escapeHtml(displayDate)}.</p>`;
   };
   const render = () => {

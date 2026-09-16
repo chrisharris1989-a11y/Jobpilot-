@@ -1,10 +1,214 @@
 import { supabase } from "../supabase.js";
-const ROLES=["owner","admin"];
-let ctx=null, bound=false;
-const range=()=>{const n=new Date(),s=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-01`,e0=new Date(n.getFullYear(),n.getMonth()+1,0),e=`${e0.getFullYear()}-${String(e0.getMonth()+1).padStart(2,"0")}-${String(e0.getDate()).padStart(2,"0")}`;return{start:s,end:e}};
-const esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
-async function getCtx(){if(ctx!==null)return ctx;const {data:{user}={}}=await supabase.auth.getUser();if(!user)return(ctx=false);const {data,error}=await supabase.from("company_members").select("role,company_id").eq("user_id",user.id).eq("status","active").limit(1).maybeSingle();if(error||!data?.company_id||!ROLES.includes(String(data.role||"").toLowerCase()))return(ctx=false);return(ctx={companyId:data.company_id})}
-function openCalendar(jobs){document.getElementById("jp-management-month-fix")?.remove();const n=new Date();let y=n.getFullYear(),m=n.getMonth();const o=document.createElement("div");o.id="jp-management-month-fix";o.innerHTML=`<div class="jp-mm-bg"></div><div class="jp-mm-box"><div class="jp-mm-head"><div><h2 id="jp-mm-title"></h2><p>All company jobs planned for the month</p></div><button id="jp-mm-close" type="button">×</button></div><div class="jp-mm-nav"><button id="jp-mm-prev" type="button">‹</button><button id="jp-mm-today" type="button">Today</button><button id="jp-mm-next" type="button">›</button></div><div class="jp-mm-grid" id="jp-mm-grid"></div><div class="jp-mm-details" id="jp-mm-details">Select a date to see company jobs.</div></div>`;document.body.appendChild(o);if(!document.getElementById("jp-mm-style")){const s=document.createElement("style");s.id="jp-mm-style";s.textContent=`#jp-management-month-fix{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:16px}#jp-management-month-fix .jp-mm-bg{position:absolute;inset:0;background:rgba(15,23,42,.48)}#jp-management-month-fix .jp-mm-box{position:relative;width:min(920px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;padding:20px;box-shadow:0 24px 80px rgba(15,23,42,.25)}#jp-management-month-fix .jp-mm-head{display:flex;justify-content:space-between}#jp-management-month-fix h2{margin:0}#jp-management-month-fix #jp-mm-close{border:0;background:none;font-size:30px;cursor:pointer}#jp-management-month-fix .jp-mm-nav{display:flex;justify-content:space-between;margin:16px 0 10px}#jp-management-month-fix .jp-mm-nav button{border:1px solid #dbe2ea;background:#fff;border-radius:8px;padding:7px 14px;cursor:pointer}#jp-management-month-fix .jp-mm-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-left:1px solid #e5e7eb;border-top:1px solid #e5e7eb}#jp-management-month-fix .jp-mm-wd{text-align:center;font-weight:700;font-size:12px;padding:8px;background:#f8fafc;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb}#jp-management-month-fix .jp-mm-day{min-height:82px;border:0;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;background:#fff;text-align:left;padding:6px;cursor:pointer}#jp-management-month-fix .jp-mm-day.muted{background:#f8fafc;color:#94a3b8}#jp-management-month-fix .jp-mm-day.today{outline:2px solid #2563eb;outline-offset:-2px}#jp-management-month-fix .jp-mm-job{margin-top:4px;padding:3px;border-radius:4px;background:#e0f2fe;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#jp-management-month-fix .jp-mm-details{margin-top:12px;padding:12px;background:#f8fafc;border-radius:10px;font-size:13px}`;document.head.appendChild(s)}const grid=o.querySelector("#jp-mm-grid"),title=o.querySelector("#jp-mm-title"),details=o.querySelector("#jp-mm-details");o.querySelector("#jp-mm-close").onclick=()=>o.remove();o.querySelector(".jp-mm-bg").onclick=()=>o.remove();const show=iso=>{const list=jobs.filter(j=>j.scheduled_date===iso&&String(j.status||"").toLowerCase()!=="cancelled"),d=new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"});details.innerHTML=list.length?`<strong>${esc(d)}</strong>${list.map(j=>`<p><strong>${esc(j.scheduled_time?j.scheduled_time+" — ":"")}${esc(j.title||"Job")}</strong>${j.notes?` — ${esc(j.notes)}`:""}</p>`).join("")}`:`<p>No planned jobs on ${esc(d)}.</p>`};const render=()=>{title.textContent=new Date(y,m,1).toLocaleDateString("en-GB",{month:"long",year:"numeric"});grid.innerHTML=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=>`<div class="jp-mm-wd">${d}</div>`).join("");const first=new Date(y,m,1),off=(first.getDay()+6)%7,days=new Date(y,m+1,0).getDate(),cells=Math.ceil((off+days)/7)*7,t=new Date(),ti=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`;for(let i=0;i<cells;i++){const num=i-off+1,d=new Date(y,m,num),iso=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`,list=jobs.filter(j=>j.scheduled_date===iso&&String(j.status||"").toLowerCase()!=="cancelled"),b=document.createElement("button");b.type="button";b.className=`jp-mm-day${num<1||num>days?" muted":""}${iso===ti?" today":""}`;b.innerHTML=`<div>${d.getDate()}</div>${list.slice(0,3).map(j=>`<div class="jp-mm-job">${esc(j.scheduled_time?j.scheduled_time+" ":"")}${esc(j.title||"Job")}</div>`).join("")}${list.length>3?`<div>+${list.length-3} more</div>`:""}`;b.onclick=()=>show(iso);grid.appendChild(b)}};o.querySelector("#jp-mm-prev").onclick=()=>{if(--m<0){m=11;y--}render()};o.querySelector("#jp-mm-next").onclick=()=>{if(++m>11){m=0;y++}render()};o.querySelector("#jp-mm-today").onclick=()=>{const d=new Date();y=d.getFullYear();m=d.getMonth();render()};render()}
-async function handle(e){const c=e.target?.closest?.(".stats .stat-card");if(!c)return;const cards=[...document.querySelectorAll(".stats .stat-card")];if(cards[5]!==c)return;const label=String(c.querySelector("span")?.textContent||c.textContent||"").trim().toLowerCase();if(label!=="calendar"&&!label.includes("this month's jobs"))return;const x=await getCtx();if(!x)return;e.preventDefault();e.stopImmediatePropagation();const {start,end}=range();const {data,error}=await supabase.from("jobs").select("id,title,scheduled_date,scheduled_time,status,notes").eq("company_id",x.companyId).gte("scheduled_date",start).lte("scheduled_date",end);if(error){console.error("Management monthly jobs:",error);alert("The company monthly jobs could not be loaded.");return}openCalendar(data||[])}
-function start(){if(bound)return;bound=true;document.addEventListener("click",handle,true)}
-if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start,{once:true});else start();
+
+const MANAGEMENT_ROLES = ["owner", "admin"];
+let managementContext = null;
+let opening = false;
+
+function getMonthRange() {
+  const now = new Date();
+  const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const end = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`;
+  return { start, end };
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>\"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[char]));
+}
+
+async function getManagementContext() {
+  if (managementContext !== null) return managementContext;
+  try {
+    const { data: { user } = {} } = await supabase.auth.getUser();
+    if (!user) return (managementContext = false);
+    const { data, error } = await supabase
+      .from("company_members")
+      .select("role, company_id")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .limit(1)
+      .maybeSingle();
+    if (error || !data?.company_id || !MANAGEMENT_ROLES.includes(String(data.role || "").toLowerCase())) {
+      return (managementContext = false);
+    }
+    return (managementContext = { companyId: data.company_id });
+  } catch (error) {
+    console.error("JobPilot dashboard calendar access:", error);
+    return (managementContext = false);
+  }
+}
+
+function getCalendarCard() {
+  const stats = document.querySelector(".stats");
+  if (!stats) return null;
+  return [...stats.querySelectorAll(":scope > .stat-card")].find(card => {
+    const label = String(card.querySelector("span")?.textContent || "").trim().toLowerCase();
+    return label === "calendar" || label === "this month's jobs";
+  }) || null;
+}
+
+function prepareCalendarCard() {
+  const card = getCalendarCard();
+  if (!card) return null;
+  const label = card.querySelector("span");
+  const value = card.querySelector("strong");
+  if (label) label.textContent = "Calendar";
+  if (value) value.textContent = "Open";
+  card.style.cursor = "pointer";
+  card.setAttribute("role", "button");
+  card.setAttribute("tabindex", "0");
+  card.setAttribute("aria-label", "Open calendar");
+  card.title = "Open calendar";
+  return card;
+}
+
+function openCalendar(jobs) {
+  document.getElementById("jp-management-month-calendar")?.remove();
+  const now = new Date();
+  let year = now.getFullYear();
+  let month = now.getMonth();
+  const overlay = document.createElement("div");
+  overlay.id = "jp-management-month-calendar";
+  overlay.innerHTML = `
+    <div class="jp-mm-bg"></div>
+    <div class="jp-mm-box" role="dialog" aria-modal="true" aria-label="Calendar">
+      <div class="jp-mm-head"><h2 id="jp-mm-title"></h2><button id="jp-mm-close" type="button" aria-label="Close">×</button></div>
+      <div class="jp-mm-nav"><button id="jp-mm-prev" type="button">‹</button><button id="jp-mm-today" type="button">Today</button><button id="jp-mm-next" type="button">›</button></div>
+      <div class="jp-mm-grid" id="jp-mm-grid"></div>
+      <div class="jp-mm-details" id="jp-mm-details">Select a date to see jobs.</div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  if (!document.getElementById("jp-mm-style")) {
+    const style = document.createElement("style");
+    style.id = "jp-mm-style";
+    style.textContent = `
+      #jp-management-month-calendar{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:8px}
+      #jp-management-month-calendar .jp-mm-bg{position:absolute;inset:0;background:rgba(15,23,42,.48)}
+      #jp-management-month-calendar .jp-mm-box{position:relative;width:min(720px,94vw);max-height:82vh;overflow:auto;background:#fff;border-radius:12px;padding:12px;box-shadow:0 16px 48px rgba(15,23,42,.22)}
+      #jp-management-month-calendar .jp-mm-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+      #jp-management-month-calendar h2{margin:0;font-size:17px}
+      #jp-management-month-calendar #jp-mm-close{border:0;background:transparent;font-size:24px;cursor:pointer}
+      #jp-management-month-calendar .jp-mm-nav{display:flex;justify-content:space-between;align-items:center;margin:6px 0 4px}
+      #jp-management-month-calendar .jp-mm-nav button{border:1px solid #dbe2ea;background:#fff;border-radius:7px;padding:3px 8px;font-size:14px;cursor:pointer}
+      #jp-management-month-calendar .jp-mm-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-left:1px solid #e5e7eb;border-top:1px solid #e5e7eb}
+      #jp-management-month-calendar .jp-mm-wd{font-weight:700;font-size:10px;text-align:center;padding:4px 2px;background:#f8fafc;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb}
+      #jp-management-month-calendar .jp-mm-day{min-height:48px;padding:3px;border:0;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;background:#fff;cursor:pointer;text-align:left}
+      #jp-management-month-calendar .jp-mm-day.muted{background:#f8fafc;color:#94a3b8}
+      #jp-management-month-calendar .jp-mm-day.today{outline:2px solid #2563eb;outline-offset:-2px}
+      #jp-management-month-calendar .jp-mm-job{margin-top:2px;padding:2px 3px;border-radius:3px;background:#e0f2fe;font-size:8px;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      #jp-management-month-calendar .jp-mm-details{margin-top:6px;padding:7px;background:#f8fafc;border-radius:7px;font-size:10px}
+      #jp-management-month-calendar .jp-mm-details p{margin:2px 0}
+      @media(max-width:640px){#jp-management-month-calendar .jp-mm-box{width:94vw;padding:8px;border-radius:9px}#jp-management-month-calendar .jp-mm-day{min-height:42px}#jp-management-month-calendar .jp-mm-job{font-size:7px}}
+    `;
+    document.head.appendChild(style);
+  }
+
+  const grid = overlay.querySelector("#jp-mm-grid");
+  const title = overlay.querySelector("#jp-mm-title");
+  const details = overlay.querySelector("#jp-mm-details");
+  const close = () => overlay.remove();
+  overlay.querySelector("#jp-mm-close").addEventListener("click", close);
+  overlay.querySelector(".jp-mm-bg").addEventListener("click", close);
+
+  const show = iso => {
+    const dayJobs = jobs.filter(job => job.scheduled_date === iso && String(job.status || "").toLowerCase() !== "cancelled");
+    const date = new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    details.innerHTML = dayJobs.length
+      ? `<strong>${escapeHtml(date)}</strong>${dayJobs.map(job => `<p><strong>${escapeHtml(job.scheduled_time ? `${job.scheduled_time} ` : "")}${escapeHtml(job.title || "Job")}</strong>${job.notes ? ` - ${escapeHtml(job.notes)}` : ""}</p>`).join("")}`
+      : `<p>No planned jobs on ${escapeHtml(date)}.</p>`;
+  };
+
+  const render = () => {
+    title.textContent = new Date(year, month, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    grid.innerHTML = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(day => `<div class="jp-mm-wd">${day}</div>`).join("");
+    const first = new Date(year, month, 1);
+    const offset = (first.getDay() + 6) % 7;
+    const days = new Date(year, month + 1, 0).getDate();
+    const cells = Math.ceil((offset + days) / 7) * 7;
+    const today = new Date();
+    const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    for (let index = 0; index < cells; index++) {
+      const number = index - offset + 1;
+      const date = new Date(year, month, number);
+      const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      const inMonth = number >= 1 && number <= days;
+      const dayJobs = jobs.filter(job => job.scheduled_date === iso && String(job.status || "").toLowerCase() !== "cancelled");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `jp-mm-day${inMonth ? "" : " muted"}${iso === todayIso ? " today" : ""}`;
+      button.innerHTML = `<div>${date.getDate()}</div>${dayJobs.slice(0, 3).map(job => `<div class="jp-mm-job">${escapeHtml(job.scheduled_time ? `${job.scheduled_time} ` : "")}${escapeHtml(job.title || "Job")}</div>`).join("")}${dayJobs.length > 3 ? `<div>+${dayJobs.length - 3} more</div>` : ""}`;
+      button.addEventListener("click", () => show(iso));
+      grid.appendChild(button);
+    }
+    show(todayIso);
+  };
+
+  overlay.querySelector("#jp-mm-prev").addEventListener("click", () => { if (--month < 0) { month = 11; year--; } render(); });
+  overlay.querySelector("#jp-mm-next").addEventListener("click", () => { if (++month > 11) { month = 0; year++; } render(); });
+  overlay.querySelector("#jp-mm-today").addEventListener("click", () => { const current = new Date(); year = current.getFullYear(); month = current.getMonth(); render(); });
+  render();
+}
+
+async function openManagementCalendar() {
+  if (opening) return;
+  opening = true;
+  try {
+    const context = await getManagementContext();
+    if (!context) return;
+    const { start, end } = getMonthRange();
+    const { data, error } = await supabase
+      .from("jobs")
+      .select("id, title, scheduled_date, scheduled_time, status, notes")
+      .eq("company_id", context.companyId)
+      .gte("scheduled_date", start)
+      .lte("scheduled_date", end);
+    if (error) throw error;
+    openCalendar(data || []);
+  } catch (error) {
+    console.error("JobPilot management calendar:", error);
+    alert("The calendar could not be loaded. Please try again.");
+  } finally {
+    opening = false;
+  }
+}
+
+function handleClick(event) {
+  const card = event.target?.closest?.(".stats .stat-card");
+  if (!card) return;
+  const label = String(card.querySelector("span")?.textContent || "").trim().toLowerCase();
+  if (label !== "calendar" && label !== "this month's jobs") return;
+  const prepared = prepareCalendarCard();
+  if (prepared !== card) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  void openManagementCalendar();
+}
+
+function handleKeydown(event) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const card = event.target?.closest?.(".stats .stat-card");
+  if (!card) return;
+  const label = String(card.querySelector("span")?.textContent || "").trim().toLowerCase();
+  if (label !== "calendar" && label !== "this month's jobs") return;
+  const prepared = prepareCalendarCard();
+  if (prepared !== card) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  void openManagementCalendar();
+}
+
+function syncCard() {
+  prepareCalendarCard();
+}
+
+function start() {
+  document.addEventListener("click", handleClick, true);
+  document.addEventListener("keydown", handleKeydown, true);
+  const observer = new MutationObserver(syncCard);
+  observer.observe(document.body, { childList: true, subtree: true });
+  syncCard();
+}
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
+else start();

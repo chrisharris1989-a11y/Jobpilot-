@@ -24,7 +24,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
-        portal: resolve(__dirname, 'portal/index.html')
+        portal: resolve(__dirname, 'portal/index.html'),
+        booking: resolve(__dirname, 'book/index.html')
       }
     }
   }

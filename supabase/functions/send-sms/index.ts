@@ -5,9 +5,15 @@ const corsHeaders = {"Access-Control-Allow-Origin":"*","Access-Control-Allow-Hea
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {status, headers:{...corsHeaders,"Content-Type":"application/json"}});
 const VERIFIED_SENDER = "JobPilot";
 const PHONE_MARKETS: Record<string,{callingCode:string;trunkPrefix:string}> = {GB:{callingCode:"44",trunkPrefix:"0"},AU:{callingCode:"61",trunkPrefix:"0"},NZ:{callingCode:"64",trunkPrefix:"0"},IE:{callingCode:"353",trunkPrefix:"0"},US:{callingCode:"1",trunkPrefix:""},CA:{callingCode:"1",trunkPrefix:""}};
-const US_SMS_ALLOWANCES: Record<string,number> = {core:0,solo:500,team:1000,business:1500,pro:2000};
-const US_SMS_OVERAGE = 0.02;
-const GB_SMS_PRICE = 0.035;
+const SMS_ALLOWANCES: Record<string,Record<string,number>> = {
+  GB:{core:0,solo:0,team:0,business:0,pro:0},
+  US:{core:0,solo:500,team:1000,business:1500,pro:2000},
+  CA:{core:0,solo:500,team:1000,business:1500,pro:2000},
+  AU:{core:0,solo:500,team:1000,business:1500,pro:2000},
+  IE:{core:0,solo:500,team:1000,business:1500,pro:2000},
+  NZ:{core:0,solo:0,team:0,business:0,pro:0}
+};
+const SMS_OVERAGE_GBP: Record<string,number> = {GB:0.035,US:0.02,CA:0.02,AU:0.02,IE:0.045,NZ:0.045};
 
 function normalizeRecipient(value:string,countryCode="GB") {
   let raw=String(value??"").trim().replace(/[\u00a0\s().-]/g,"").replace(/[^\d+]/g,"");
@@ -54,7 +60,10 @@ Deno.serve(async(req)=>{
   const {data:company,error:companyError}=await admin.from("companies").select("country_code,plan,stripe_customer_id,billing_status").eq("id",companyId).maybeSingle();
   if(companyError||!company)return json({error:"Unable to load company billing settings"},500);
   const countryCode=String(company.country_code||"GB").toUpperCase();const plan=String(company.plan||"core").toLowerCase();
-  if(countryCode==="US"&&!testMessage&&plan==="core")return json({error:"SMS is not included on the Core plan in the US. Upgrade to a paid plan to send SMS."},403);
+  const allowances=SMS_ALLOWANCES[countryCode]||SMS_ALLOWANCES.GB;
+  const includedAllowance=allowances[plan]??0;
+  const overageUnitPrice=SMS_OVERAGE_GBP[countryCode]??SMS_OVERAGE_GBP.GB;
+  if(!testMessage&&plan==="core"&&includedAllowance===0&&countryCode!=="GB"&&countryCode!=="NZ")return json({error:"SMS is not included on the Core plan. Upgrade to a paid plan to send SMS."},403);
   const normalizedRecipient=normalizeRecipient(destination!,countryCode);if(!/^\+[1-9]\d{7,14}$/.test(normalizedRecipient))return json({error:"Recipient must be in E.164 format, e.g. +447700900123"},400);
 
   const providerResponse=await fetch("https://connect-api.divergent.cloud/sms/send",{method:"POST",headers:{"X-Api-Key":pureSmsApiKey,"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({sender:VERIFIED_SENDER,recipient:normalizedRecipient,content,unicode:"Allow",enableLinkShortening:true})});
@@ -68,23 +77,25 @@ Deno.serve(async(req)=>{
   }
 
   const result=typeof providerBody==="object"&&providerBody!==null?providerBody as Record<string,unknown>:{};const providerId=typeof result.id==="string"?result.id:null;const sentAt=new Date().toISOString();
-  const usageMonth=monthStartUTC();const includedMessages=countryCode==="US"?(US_SMS_ALLOWANCES[plan]??0):0;const overageUnitPrice=countryCode==="US"?US_SMS_OVERAGE:GB_SMS_PRICE;const usageCurrency=countryCode==="US"?"USD":"GBP";
+  const usageMonth=monthStartUTC();const usageCurrency="GBP";
   let totalMessages=0,included=0,overageMessages=0,isOverage=false;
   if(!testMessage){
-    const {data:usage,error:usageError}=await admin.rpc("consume_sms_usage",{p_company_id:companyId,p_usage_month:usageMonth,p_included_messages:includedMessages,p_currency:usageCurrency,p_overage_unit_price:overageUnitPrice});
-    if(usageError||!usage?.[0]){console.error("SMS usage tracking error",usageError);await admin.from("sms_messages").insert({company_id:companyId,user_id:user.id,customer_id:customerId,recipient:normalizedRecipient,message:content,message_type:messageType,status:"sent",provider_message_id:providerId,segments:1,cost:countryCode==="US"?0:GB_SMS_PRICE,sent_at:sentAt});return json({success:true,id:providerId,recipient:normalizedRecipient,billable:countryCode!=="US",usage_tracking_error:true});}
+    const {data:usage,error:usageError}=await admin.rpc("consume_sms_usage",{p_company_id:companyId,p_usage_month:usageMonth,p_included_messages:includedAllowance,p_currency:usageCurrency,p_overage_unit_price:overageUnitPrice});
+    if(usageError||!usage?.[0]){console.error("SMS usage tracking error",usageError);await admin.from("sms_messages").insert({company_id:companyId,user_id:user.id,customer_id:customerId,recipient:normalizedRecipient,message:content,message_type:messageType,status:"sent",provider_message_id:providerId,segments:1,cost:overageUnitPrice,sent_at:sentAt});return json({success:true,id:providerId,recipient:normalizedRecipient,billable:true,usage_tracking_error:true});}
     totalMessages=Number(usage[0].total_messages||0);included=Number(usage[0].included_messages||0);overageMessages=Number(usage[0].overage_messages||0);isOverage=Boolean(usage[0].is_overage);
   }
-  const billable=!testMessage&&(countryCode!=="US"||isOverage);const customerCharge=billable?overageUnitPrice:0;
+  const billable=!testMessage&&isOverage;
+  const customerCharge=billable?overageUnitPrice:0;
   const {error:logError}=await admin.from("sms_messages").insert({company_id:companyId,user_id:user.id,customer_id:customerId,recipient:normalizedRecipient,message:content,message_type:messageType,status:"sent",provider_message_id:providerId,segments:1,cost:customerCharge,sent_at:sentAt});if(logError)console.error("SMS billing log error",logError);
 
   let stripeChargeError:string|undefined;
   if(billable&&stripeSecret&&company.stripe_customer_id&&!testMessage){
     try{
       const {data:usageRow}=await admin.from("sms_usage_monthly").select("stripe_invoice_item_id,overage_messages").eq("company_id",companyId).eq("usage_month",usageMonth).maybeSingle();
-      const amountMinor=Math.round(Number(usageRow?.overage_messages||1)*(usageCurrency==="USD"?2:3.5));const description=`JobPilot SMS usage - ${usageMonth.slice(0,7)}`;let invoiceItemId=usageRow?.stripe_invoice_item_id||null;
+      const amountMinor=Math.max(1,Math.round(Number(usageRow?.overage_messages||1)*overageUnitPrice*100));
+      const description=`JobPilot SMS usage - ${usageMonth.slice(0,7)}`;let invoiceItemId=usageRow?.stripe_invoice_item_id||null;
       if(invoiceItemId)await stripeRequest(stripeSecret,`/v1/invoiceitems/${encodeURIComponent(invoiceItemId)}`,"POST",{amount:amountMinor,description});
-      else{const invoiceItem=await stripeRequest(stripeSecret,"/v1/invoiceitems","POST",{customer:company.stripe_customer_id,amount:amountMinor,currency:usageCurrency.toLowerCase(),description,metadata:{company_id:companyId,usage_month:usageMonth,product:"jobpilot_sms"}});invoiceItemId=invoiceItem.id||null;if(invoiceItemId)await admin.from("sms_usage_monthly").update({stripe_invoice_item_id:invoiceItemId,stripe_customer_id:company.stripe_customer_id}).eq("company_id",companyId).eq("usage_month",usageMonth);}
+      else{const invoiceItem=await stripeRequest(stripeSecret,"/v1/invoiceitems","POST",{customer:company.stripe_customer_id,amount:amountMinor,currency:"gbp",description,metadata:{company_id:companyId,usage_month:usageMonth,product:"jobpilot_sms"}});invoiceItemId=invoiceItem.id||null;if(invoiceItemId)await admin.from("sms_usage_monthly").update({stripe_invoice_item_id:invoiceItemId,stripe_customer_id:company.stripe_customer_id}).eq("company_id",companyId).eq("usage_month",usageMonth);}
     }catch(error){stripeChargeError=error instanceof Error?error.message:String(error);console.error("SMS Stripe usage charge error",error);}
   }
   return json({success:true,id:providerId,recipient:normalizedRecipient,billable,usage:{month:usageMonth,total:totalMessages,included,overage:overageMessages,remaining:Math.max(included-totalMessages,0),currency:usageCurrency,overage_unit_price:overageUnitPrice},...(stripeChargeError?{stripe_charge_error:stripeChargeError}:{})});

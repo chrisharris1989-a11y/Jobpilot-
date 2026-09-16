@@ -1,4 +1,4 @@
-import { supabase } from "./supabase.js";
+import { supabase } from "../supabase.js";
 const API=`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/public-booking-v1`;
 let companyId=null,settings=null,services=[],hours=[];
 function esc(s){return String(s??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}

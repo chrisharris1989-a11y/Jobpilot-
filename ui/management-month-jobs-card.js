@@ -1,7 +1,6 @@
 import { supabase } from "../supabase.js";
 
 // Dashboard calendar card for company-wide monthly jobs.
-const MANAGEMENT_ROLES = ["owner", "admin"];
 let managementContext = null;
 let loading = false;
 
@@ -24,14 +23,13 @@ async function getManagementContext() {
     if (!user) return (managementContext = false);
     const { data, error } = await supabase
       .from("company_members")
-      .select("role, company_id")
+      .select("company_id")
       .eq("user_id", user.id)
       .eq("status", "active")
       .limit(1)
       .maybeSingle();
     if (error) throw error;
-    const role = String(data?.role || "").toLowerCase();
-    if (!MANAGEMENT_ROLES.includes(role) || !data?.company_id) return (managementContext = false);
+    if (!data?.company_id) return (managementContext = false);
     return (managementContext = { companyId: data.company_id });
   } catch (error) {
     console.error("JobPilot dashboard calendar access:", error);
@@ -143,8 +141,13 @@ async function applyDashboardCalendarCard() {
   const context = await getManagementContext();
   if (!context) return;
   const cards = [...stats.querySelectorAll(":scope > .stat-card")];
-  const card = cards.find(item => String(item.textContent || "").toLowerCase().includes("today's job value"));
-  if (!card || card.dataset.dashboardCalendar === "true") return;
+  const card = cards.find(item => String(item.textContent || "").toLowerCase().includes("today's job value") || String(item.textContent || "").toLowerCase().includes("calendar"));
+  if (!card) return;
+
+  const isAlreadyCorrect = card.dataset.dashboardCalendar === "true" &&
+    String(card.querySelector("span")?.textContent || "").trim().toLowerCase() === "calendar" &&
+    String(card.querySelector("strong")?.textContent || "").trim().toLowerCase() === "open";
+  if (isAlreadyCorrect) return;
 
   loading = true;
   card.dataset.dashboardCalendar = "true";

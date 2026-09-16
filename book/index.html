@@ -1,1 +1,56 @@
-<!doctype html><html><body><main id="bookingApp">Loading booking page…</main><script type="module" src="./booking.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <title>Book an appointment | JobPilot</title>
+  <link rel="icon" type="image/svg+xml" href="/jobpilot-icon.svg">
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    :root{--primary:#2563eb;--primary-dark:#1d4ed8;--primary-light:#eff6ff;--bg:#f5f7fb;--surface:#fff;--border:#e5e7eb;--text:#172033;--muted:#697386;--radius:14px;--shadow:0 2px 8px rgba(15,23,42,.04);--shadow-lg:0 15px 45px rgba(15,23,42,.12)}
+    html,body{margin:0;min-height:100%;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+    body{min-height:100vh}
+    #bookingApp{min-height:100vh}
+    .wrap{width:100%;max-width:760px;margin:0 auto;padding:34px 20px 44px}
+    .brand{display:flex;align-items:center;gap:11px;margin:0 0 28px;padding:0 4px}
+    .brand .mark{width:42px;height:42px;border-radius:11px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:700;box-shadow:0 5px 12px rgba(37,99,235,.25)}
+    .brand strong{display:block;font-size:19px;letter-spacing:-.2px}
+    .brand span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;box-shadow:var(--shadow-lg)}
+    .steps{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:26px;padding-bottom:18px;border-bottom:1px solid var(--border)}
+    .steps span{display:inline-flex;align-items:center;min-height:30px;padding:5px 11px;border-radius:999px;background:#f3f4f6;color:#697386;font-size:12px;font-weight:650}
+    .steps span.active{background:var(--primary-light);color:var(--primary)}
+    h1{margin:0 0 7px;font-size:27px;letter-spacing:-.5px}
+    .lead{margin:0 0 25px;color:var(--muted);line-height:1.5;font-size:14px}
+    form label{display:block;margin:0 0 16px;font-size:13px;font-weight:650;color:#374151}
+    input,select,textarea{width:100%;box-sizing:border-box;margin-top:7px;padding:12px 13px;border:1px solid var(--border);border-radius:9px;background:#fff;color:var(--text);outline:none;transition:border-color .15s ease,box-shadow .15s ease}
+    input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+    textarea{min-height:100px;resize:vertical}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    small{display:block;margin-top:6px;color:var(--muted);font-size:11px;font-weight:400;line-height:1.4}
+    #availabilityStatus{margin:-5px 0 16px}
+    .quote-notice{margin:4px 0 18px;padding:14px 15px;border:1px solid #dbeafe;border-radius:10px;background:var(--primary-light);color:#374151}
+    .quote-notice strong{color:var(--primary);font-size:13px}
+    .quote-notice p{margin:5px 0 0;font-size:13px;line-height:1.5}
+    .details{margin-top:4px;padding-top:22px;border-top:1px solid var(--border)}
+    #submit{width:100%;min-height:46px;margin-top:5px;padding:11px 16px;border:0;border-radius:9px;background:var(--primary);color:#fff;font-size:14px;font-weight:650;box-shadow:0 2px 5px rgba(37,99,235,.2);transition:background .15s ease,transform .15s ease}
+    #submit:hover{background:var(--primary-dark);transform:translateY(-1px)}
+    #submit:disabled{opacity:.6;transform:none;cursor:not-allowed}
+    #message{min-height:20px;margin-top:12px;color:#697386;font-size:13px;line-height:1.4}
+    .powered{text-align:center;color:var(--muted);font-size:12px;margin:18px 0 0}
+    .success{text-align:center;padding:24px 8px 10px}
+    .successIcon{width:52px;height:52px;margin:0 auto 16px;border-radius:50%;background:#f0fdf4;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:25px;font-weight:700}
+    .success h2{margin:0 0 8px;font-size:22px}
+    .success p{color:var(--muted);line-height:1.55;font-size:14px}
+    .success .button{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:10px 15px;border-radius:9px;background:var(--primary);color:#fff;text-decoration:none;font-size:14px;font-weight:650}
+    .errorPage{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center}
+    .errorPage h1{font-size:25px}.errorPage p{color:var(--muted)}
+    @media(max-width:640px){.wrap{padding:22px 14px 32px}.card{padding:20px 17px;border-radius:14px}.grid{grid-template-columns:1fr}h1{font-size:24px}.steps{gap:5px}.steps span{font-size:11px}}
+  </style>
+</head>
+<body>
+  <main id="bookingApp">Loading booking page…</main>
+  <script type="module" src="./booking.js"></script>
+</body>
+</html>

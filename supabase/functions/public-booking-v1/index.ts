@@ -30,8 +30,9 @@ Deno.serve(async(req:Request)=>{
       if(email&&!/^\S+@\S+\.\S+$/.test(email))return json({error:"Please enter a valid email address."},400);
       if(preferredDate&&!/^\d{4}-\d{2}-\d{2}$/.test(preferredDate))return json({error:"Invalid preferred date."},400);
       if(s.require_address&&!address)return json({error:"Address is required for this quote request."},400);
+      const hasFixedPrice=service.price!==null&&service.price!==undefined&&service.price!=="";
       const servicePrice=Number(service.price);
-      if(Number.isFinite(servicePrice)&&servicePrice>=0)return json({error:"This service has a set price and should be booked online."},400);
+      if(hasFixedPrice&&Number.isFinite(servicePrice)&&servicePrice>=0)return json({error:"This service has a set price and should be booked online."},400);
 
       let customer:any=null;
       if(email){
@@ -60,8 +61,9 @@ Deno.serve(async(req:Request)=>{
 
     if(action!=="book"||req.method!=="POST")return json({error:"Invalid request."},400);
 
+    const hasFixedPrice=service.price!==null&&service.price!==undefined&&service.price!=="";
     const servicePrice=Number(service.price);
-    if(!Number.isFinite(servicePrice)||servicePrice<0)return json({error:"This service is available by quote request only."},400);
+    if(!hasFixedPrice||!Number.isFinite(servicePrice)||servicePrice<0)return json({error:"This service is available by quote request only."},400);
     const name=cleanText(body.name,120),phone=cleanText(body.phone,40),email=cleanText(body.email,160).toLowerCase(),address=cleanText(body.address,300),notes=cleanText(body.notes,1000),date=cleanText(body.date,10),time=cleanText(body.time,5);
     if(!name||!date||!time)return json({error:"Name, date and time are required."},400);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{2}:\d{2}$/.test(time))return json({error:"Invalid date or time."},400);

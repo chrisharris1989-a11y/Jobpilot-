@@ -199,24 +199,35 @@ async function applyDashboardCalendarCard() {
 
   // Fetch the current month before the user clicks so opening is immediate.
   void prefetchCurrentMonth();
-
-  const loadCalendar = event => {
-    event?.preventDefault();
-    event?.stopImmediatePropagation();
-    openDashboardCalendar(prefetchedJobs || []);
-  };
-  card.addEventListener("click", loadCalendar);
-  card.addEventListener("keydown", event => {
-    if (event.key === "Enter" || event.key === " ") loadCalendar(event);
-  });
-
   loading = false;
+}
+
+// Use event delegation because the dashboard replaces the stats card during navigation.
+// The previous direct listener could be attached to an old card while the current card
+// was rendered afterwards, making the first click appear to do nothing.
+function handleDashboardCalendarClick(event) {
+  const card = event.target?.closest?.('.stats > .stat-card[data-dashboard-calendar="true"]');
+  if (!card) return;
+  event.preventDefault();
+  event.stopPropagation();
+  openDashboardCalendar(prefetchedJobs || []);
+}
+
+function handleDashboardCalendarKeydown(event) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const card = event.target?.closest?.('.stats > .stat-card[data-dashboard-calendar="true"]');
+  if (!card) return;
+  event.preventDefault();
+  event.stopPropagation();
+  openDashboardCalendar(prefetchedJobs || []);
 }
 
 const observer = new MutationObserver(() => { void applyDashboardCalendarCard(); });
 
 function start() {
   observer.observe(document.body, { childList: true, subtree: true });
+  document.addEventListener("click", handleDashboardCalendarClick);
+  document.addEventListener("keydown", handleDashboardCalendarKeydown);
   void applyDashboardCalendarCard();
 }
 

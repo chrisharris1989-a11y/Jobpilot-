@@ -201,6 +201,8 @@ function handleKeydown(event) {
 function start() {
   document.addEventListener("click", handleClick, true);
   document.addEventListener("keydown", handleKeydown, true);
+  const observer = new MutationObserver(() => prepareCalendarCard());
+  observer.observe(document.body, { childList: true, subtree: true });
   prepareCalendarCard();
 }
 

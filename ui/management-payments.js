@@ -26,7 +26,7 @@ async function freeAgentRequest(action) {
     body: JSON.stringify({ action })
   });
   const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.error || "FreeAgent request failed.");
+  if (!response.ok) throw new Error(result.error || "Accounting sync request failed.");
   return result;
 }
 
@@ -56,7 +56,7 @@ async function loadPayments() {
 
 function statusText(invoice) {
   if (invoice.freeagent_payment_explanation_id || invoice.freeagent_payment_sync_status === "synced") return "✅ Reconciled";
-  if (!invoice.freeagent_invoice_id) return "⚠️ FreeAgent invoice not linked";
+  if (!invoice.freeagent_invoice_id) return "⚠️ Accounting invoice not linked";
   if (invoice.freeagent_payment_sync_status === "awaiting_match") return "🟠 Awaiting match";
   if (invoice.freeagent_payment_sync_status === "error") return "❌ Error";
   return "— Not reconciled";
@@ -73,7 +73,7 @@ async function renderPaymentsSection() {
     const section = document.createElement("div");
     section.id = "jobpilot-accounting-payments";
     section.style.marginTop = "18px";
-    section.innerHTML = `<div class="panel"><div class="panel-header" style="align-items:flex-start;gap:16px;flex-wrap:wrap;"><div><h2>💷 Customer Payments</h2><p>Reconcile paid JobPilot invoices against transactions already imported by your FreeAgent bank feed.</p></div><button id="jobpilotSyncPayments" class="secondary-button" type="button" ${connected ? "" : "disabled"}>Sync Payments to FreeAgent</button></div><div id="jobpilotPaymentStatus" class="muted" style="margin:10px 0 14px;">${connected ? "FreeAgent is connected. JobPilot will never create a second bank transaction; it explains the existing bank-feed transaction." : "Connect FreeAgent above before reconciling payments."}</div><div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:10px;">Invoice</th><th style="text-align:left;padding:10px;">Customer</th><th style="text-align:left;padding:10px;">Paid</th><th style="text-align:right;padding:10px;">Amount</th><th style="text-align:center;padding:10px;">FreeAgent</th><th style="text-align:left;padding:10px;">Details</th></tr></thead><tbody>${payments.length ? payments.map(i => `<tr><td style="padding:10px;">${escapeHtml(i.invoice_number || i.id)}</td><td style="padding:10px;">${escapeHtml(i.customer_name)}</td><td style="padding:10px;">${escapeHtml(i.paid_at ? new Date(i.paid_at).toLocaleDateString("en-GB") : i.paid_date || "—")}</td><td style="padding:10px;text-align:right;">£${Number(i.total || 0).toFixed(2)}</td><td style="padding:10px;text-align:center;">${statusText(i)}</td><td style="padding:10px;">${escapeHtml(i.freeagent_payment_sync_error || "")}</td></tr>`).join("") : `<tr><td colspan="6" style="padding:24px;text-align:center;">No paid invoices found.</td></tr>`}</tbody></table></div></div>`;
+    section.innerHTML = `<div class="panel"><div class="panel-header" style="align-items:flex-start;gap:16px;flex-wrap:wrap;"><div><h2>💷 Customer Payments</h2><p>Reconcile paid JobPilot invoices against transactions already imported by your connected accounting software.</p></div><button id="jobpilotSyncPayments" class="secondary-button" type="button" ${connected ? "" : "disabled"}>Sync Payments</button></div><div id="jobpilotPaymentStatus" class="muted" style="margin:10px 0 14px;">${connected ? "Your accounting connection is ready. JobPilot will never create a second bank transaction; it explains the existing bank-feed transaction." : "Connect an accounting service above before reconciling payments."}</div><div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:10px;">Invoice</th><th style="text-align:left;padding:10px;">Customer</th><th style="text-align:left;padding:10px;">Paid</th><th style="text-align:right;padding:10px;">Amount</th><th style="text-align:center;padding:10px;">Accounting</th><th style="text-align:left;padding:10px;">Details</th></tr></thead><tbody>${payments.length ? payments.map(i => `<tr><td style="padding:10px;">${escapeHtml(i.invoice_number || i.id)}</td><td style="padding:10px;">${escapeHtml(i.customer_name)}</td><td style="padding:10px;">${escapeHtml(i.paid_at ? new Date(i.paid_at).toLocaleDateString("en-GB") : i.paid_date || "—")}</td><td style="padding:10px;text-align:right;">£${Number(i.total || 0).toFixed(2)}</td><td style="padding:10px;text-align:center;">${statusText(i)}</td><td style="padding:10px;">${escapeHtml(i.freeagent_payment_sync_error || "")}</td></tr>`).join("") : `<tr><td colspan="6" style="padding:24px;text-align:center;">No paid invoices found.</td></tr>`}</tbody></table></div></div>`;
     content.appendChild(section);
     section.querySelector("#jobpilotSyncPayments")?.addEventListener("click", syncPayments);
   } catch (error) {
@@ -88,8 +88,8 @@ async function syncPayments() {
   const status = document.getElementById("jobpilotPaymentStatus");
   if (!button) return;
   button.disabled = true;
-  button.textContent = "Reconciling…";
-  if (status) status.textContent = "Checking FreeAgent bank-feed transactions for matching paid invoices…";
+  button.textContent = "Syncing…";
+  if (status) status.textContent = "Checking your accounting connection for matching paid invoices…";
   try {
     const result = await freeAgentRequest("sync_payments");
     const errors = Array.isArray(result.errors) ? result.errors : [];
@@ -100,7 +100,7 @@ async function syncPayments() {
   } catch (error) {
     if (status) status.textContent = `❌ ${error.message || "Payment reconciliation failed."}`;
     button.disabled = false;
-    button.textContent = "Sync Payments to FreeAgent";
+    button.textContent = "Sync Payments";
   }
 }
 

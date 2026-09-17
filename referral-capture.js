@@ -2,10 +2,37 @@ import { supabase } from "./supabase.js";
 
 const STORAGE_KEY = "jobpilot_referral_code";
 
-function captureReferralCode() {
+function removeReferralFromUrl() {
   try {
-    const code = new URLSearchParams(window.location.search).get("ref");
-    if (code?.trim()) localStorage.setItem(STORAGE_KEY, code.trim().toUpperCase());
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("ref")) return;
+    url.searchParams.delete("ref");
+    window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+  } catch (error) {
+    console.warn("JobPilot referral URL cleanup:", error);
+  }
+}
+
+async function captureReferralCode() {
+  try {
+    const code = new URLSearchParams(window.location.search).get("ref")?.trim().toUpperCase();
+    if (!code) return;
+
+    const { data: promoter, error } = await supabase
+      .from("referral_promoters")
+      .select("id")
+      .eq("code", code)
+      .eq("active", true)
+      .maybeSingle();
+
+    if (error || !promoter) {
+      // Deleted/inactive referral codes are invalid and must not remain in the URL.
+      localStorage.removeItem(STORAGE_KEY);
+      removeReferralFromUrl();
+      return;
+    }
+
+    localStorage.setItem(STORAGE_KEY, code);
   } catch (error) {
     console.warn("JobPilot referral capture:", error);
   }

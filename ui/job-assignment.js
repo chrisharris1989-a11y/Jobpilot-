@@ -63,7 +63,7 @@ if (!window.__jobPilotAssignmentInitialized) {
     usersLoading = (async () => {
       try {
         const plan = await resolveCompanyPlan();
-        assignmentEnabled = plan === "business" || plan === "pro";
+        assignmentEnabled = ["team", "business", "pro"].includes(plan);
 
         if (!assignmentEnabled) {
           assignableUsers = [];

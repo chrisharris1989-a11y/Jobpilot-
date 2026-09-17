@@ -1,7 +1,7 @@
 import { supabase } from "../supabase.js";
 
 const JOBPILOT_ADMIN_ID = "9a89bdf0-1f17-48ec-a622-db59545e8ada";
-const PLANS = { solo: { label: "Solo", price: 7.49 }, team: { label: "Team", price: 24.99 }, business: { label: "Business", price: 59.99 }, pro: { label: "Pro", price: 99.99 } };
+const PLANS = { core: { label: "Core", price: 0 }, solo: { label: "Solo", price: 7.49 }, team: { label: "Team", price: 24.99 }, business: { label: "Business", price: 59.99 }, pro: { label: "Pro", price: 99.99 } };
 
 function escapeHtml(value) { return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#039;"); }
 function money(value) { return `£${Number(value || 0).toFixed(2)}`; }

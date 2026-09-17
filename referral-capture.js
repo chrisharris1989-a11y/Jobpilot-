@@ -17,61 +17,46 @@ async function captureReferralCode() {
   try {
     const code = new URLSearchParams(window.location.search).get("ref")?.trim().toUpperCase();
     if (!code) return;
-
-    const { data: promoter, error } = await supabase
-      .from("referral_promoters")
-      .select("id")
-      .eq("code", code)
-      .eq("active", true)
-      .maybeSingle();
-
+    const { data: promoter, error } = await supabase.from("referral_promoters").select("id").eq("code", code).eq("active", true).maybeSingle();
     if (error || !promoter) {
-      // Deleted/inactive referral codes are invalid and must not remain in the URL.
       localStorage.removeItem(STORAGE_KEY);
       removeReferralFromUrl();
       return;
     }
-
     localStorage.setItem(STORAGE_KEY, code);
-  } catch (error) {
-    console.warn("JobPilot referral capture:", error);
-  }
+    removeReferralFromUrl();
+  } catch (error) { console.warn("JobPilot referral capture:", error); }
 }
 
 async function claimReferral() {
   try {
     const code = localStorage.getItem(STORAGE_KEY);
-    if (!code) return;
+    if (!code) return null;
     const { data: { session } = {} } = await supabase.auth.getSession();
-    if (!session?.user) return;
+    if (!session?.user) return null;
     const { data, error } = await supabase.rpc("claim_referral_code", { p_code: code });
-    if (error) { console.warn("JobPilot referral claim:", error.message); return; }
-    if (data?.claimed || ["already_attributed", "invalid_code"].includes(data?.reason)) localStorage.removeItem(STORAGE_KEY);
-  } catch (error) {
-    console.warn("JobPilot referral claim:", error);
-  }
+    if (error) { console.warn("JobPilot referral claim:", error.message); return null; }
+    if (data?.claimed || ["already_attributed", "invalid_code", "self_referral"].includes(data?.reason)) localStorage.removeItem(STORAGE_KEY);
+    return data;
+  } catch (error) { console.warn("JobPilot referral claim:", error); return null; }
 }
+
+// Signup flow calls this after the customer's company has been created.
+window.claimJobPilotReferral = claimReferral;
 
 async function addPromoterDetailRemoveButton() {
   try {
     const backButton = document.getElementById("promoter-detail-back");
     if (!backButton || document.getElementById("promoter-detail-remove")) return;
-
     const detailPanel = backButton.closest("#pageContent") || document.getElementById("pageContent");
     if (!detailPanel) return;
     const referralInput = detailPanel.querySelector('input[readonly][value*="?ref="]');
     if (!referralInput) return;
-
     const match = String(referralInput.value || "").match(/[?&]ref=([^&]+)/i);
     if (!match?.[1]) return;
     const code = decodeURIComponent(match[1]);
-    const { data: promoter, error } = await supabase
-      .from("referral_promoters")
-      .select("id,name")
-      .eq("code", code)
-      .maybeSingle();
+    const { data: promoter, error } = await supabase.from("referral_promoters").select("id,name").eq("code", code).maybeSingle();
     if (error || !promoter) return;
-
     const button = document.createElement("button");
     button.id = "promoter-detail-remove";
     button.type = "button";
@@ -94,11 +79,8 @@ async function addPromoterDetailRemoveButton() {
         alert(removeError?.message || "The promoter could not be removed.");
       }
     });
-
     backButton.parentElement?.appendChild(button);
-  } catch (error) {
-    console.warn("JobPilot promoter detail remove button:", error);
-  }
+  } catch (error) { console.warn("JobPilot promoter detail remove button:", error); }
 }
 
 function watchPromoterDetail() {

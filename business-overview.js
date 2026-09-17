@@ -81,6 +81,24 @@ function renderStyles() {
   document.head.appendChild(style);
 }
 
+function openBillingUpgrade() {
+  const managementButton = document.getElementById("jobpilot-management-button");
+  managementButton?.click();
+
+  // Management navigation is handled by a capture-phase guard, so wait until
+  // that landing page has rendered before opening its Billing section.
+  setTimeout(() => {
+    const billing = window.renderManagementBillingPage;
+    if (typeof billing === "function") {
+      const title = document.getElementById("pageTitle");
+      if (title) title.textContent = "Billing";
+      billing();
+      return;
+    }
+    console.error("JobPilot: Billing page is not available.");
+  }, 0);
+}
+
 function renderLocked(content) {
   content.innerHTML = `
     <div class="jp-overview-page">
@@ -92,9 +110,7 @@ function renderLocked(content) {
         <button type="button" id="jp-overview-upgrade" style="border:0;border-radius:9px;padding:10px 16px;background:var(--primary,#2563eb);color:#fff;font:inherit;font-weight:600;cursor:pointer">View plans</button>
       </div>
     </div>`;
-  document.getElementById("jp-overview-upgrade")?.addEventListener("click", () => {
-    document.querySelector('.nav-item[data-page="management"]')?.click();
-  });
+  document.getElementById("jp-overview-upgrade")?.addEventListener("click", openBillingUpgrade);
 }
 
 function renderOverview(content, data) {

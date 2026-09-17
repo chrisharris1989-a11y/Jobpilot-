@@ -6,13 +6,7 @@ let allowed = false;
 async function checkManagementAccess() {
   const { data: { user } = {} } = await supabase.auth.getUser();
   if (!user) return false;
-  const { data, error } = await supabase
-    .from("company_members")
-    .select("role")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
+  const { data, error } = await supabase.from("company_members").select("role").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
   if (error) {
     console.error("JobPilot management access:", error);
     return false;
@@ -28,6 +22,31 @@ function getGrid() {
   return document.querySelector("#pageContent .content-grid");
 }
 
+function renameManagementRequests() {
+  if (!isManagement()) return;
+
+  const content = document.getElementById("pageContent");
+  if (!content) return;
+
+  // Rename the Management card without changing its underlying route/functionality.
+  const grid = getGrid();
+  if (grid) {
+    grid.querySelectorAll("h2").forEach(heading => {
+      if (heading.textContent.trim().replace(/^\S+\s*/, "") === "Quote Requests") {
+        heading.textContent = heading.textContent.trim().startsWith("💷") ? "💷 Requests" : "Requests";
+        const card = heading.closest("[data-management-section], .panel, button");
+        card?.setAttribute("aria-label", "Requests");
+      }
+    });
+  }
+
+  if (document.getElementById("pageTitle")?.textContent.trim() === "Quote Requests") {
+    document.getElementById("pageTitle").textContent = "Requests";
+    const subtitle = document.getElementById("pageSubtitle");
+    if (subtitle) subtitle.textContent = "Review requests submitted by your team and customers.";
+  }
+}
+
 function renameAccountingCard() {
   if (!isManagement()) return;
 
@@ -40,8 +59,6 @@ function renameAccountingCard() {
     card.setAttribute("aria-label", "Accounting");
   }
 
-  // The existing Management connections screen is still used underneath;
-  // rename its visible heading so the terminology is consistent.
   if (document.getElementById("pageTitle")?.textContent.trim() === "Connections") {
     document.getElementById("pageTitle").textContent = "Accounting";
     const heading = document.querySelector("#pageContent .page-actions h2");
@@ -90,11 +107,13 @@ async function init() {
   if (!allowed) return;
 
   const observer = new MutationObserver(() => {
+    renameManagementRequests();
     renameAccountingCard();
     addImportExportCard();
   });
   observer.observe(document.body, { childList: true, subtree: true });
 
+  renameManagementRequests();
   renameAccountingCard();
   addImportExportCard();
 }

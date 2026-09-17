@@ -17,15 +17,13 @@ async function captureReferralCode() {
   try {
     const code = new URLSearchParams(window.location.search).get("ref")?.trim().toUpperCase();
     if (!code) return;
-    const { data: promoter, error } = await supabase.from("referral_promoters").select("id").eq("code", code).eq("active", true).maybeSingle();
-    if (error || !promoter) {
-      localStorage.removeItem(STORAGE_KEY);
-      removeReferralFromUrl();
-      return;
-    }
+    // Signup visitors are normally logged out, so referral_promoters RLS blocks a
+    // direct table lookup here. The claim RPC validates the code after signup.
     localStorage.setItem(STORAGE_KEY, code);
     removeReferralFromUrl();
-  } catch (error) { console.warn("JobPilot referral capture:", error); }
+  } catch (error) {
+    console.warn("JobPilot referral capture:", error);
+  }
 }
 
 async function claimReferral() {
@@ -35,10 +33,18 @@ async function claimReferral() {
     const { data: { session } = {} } = await supabase.auth.getSession();
     if (!session?.user) return null;
     const { data, error } = await supabase.rpc("claim_referral_code", { p_code: code });
-    if (error) { console.warn("JobPilot referral claim:", error.message); return null; }
-    if (data?.claimed || ["already_attributed", "invalid_code", "self_referral"].includes(data?.reason)) localStorage.removeItem(STORAGE_KEY);
+    if (error) {
+      console.warn("JobPilot referral claim:", error.message);
+      return null;
+    }
+    if (data?.claimed || ["already_attributed", "invalid_code", "self_referral"].includes(data?.reason)) {
+      localStorage.removeItem(STORAGE_KEY);
+    }
     return data;
-  } catch (error) { console.warn("JobPilot referral claim:", error); return null; }
+  } catch (error) {
+    console.warn("JobPilot referral claim:", error);
+    return null;
+  }
 }
 
 // Signup flow calls this after the customer's company has been created.
@@ -80,7 +86,9 @@ async function addPromoterDetailRemoveButton() {
       }
     });
     backButton.parentElement?.appendChild(button);
-  } catch (error) { console.warn("JobPilot promoter detail remove button:", error); }
+  } catch (error) {
+    console.warn("JobPilot promoter detail remove button:", error);
+  }
 }
 
 function watchPromoterDetail() {

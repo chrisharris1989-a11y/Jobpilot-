@@ -47,7 +47,7 @@ function renderPromoters(container, promoters, rows, onSelectPromoter) {
     statsByPromoter.set(row.promoterId, current);
   });
 
-  container.innerHTML = `<div class="page-actions"><div><h2>Promoters</h2><p>Click a promoter to view their referrals, subscribers and commission.</p></div><button id="referral-add-promoter" class="button primary" type="button">+ Add Promoter</button></div><div class="panel"><div class="table-container"><table><thead><tr><th>Promoter</th><th>Referrals</th><th>Active</th><th>MRR</th><th>Commission / month</th><th>Status</th><th>Actions</th></tr></thead><tbody>${promoters.map(p => { const s = statsByPromoter.get(p.id) || { referrals: 0, active: 0, atRisk: 0, cancelled: 0, mrr: 0, commission: 0 }; return `<tr class="referral-promoter-row" data-view-promoter="${escapeHtml(p.id)}" style="cursor:pointer"><td><strong>${escapeHtml(p.name)}</strong><div class="muted">${escapeHtml(p.email || "")}</div></td><td>${s.referrals}</td><td>${s.active}</td><td>${money(s.mrr)}</td><td>${money(s.commission)}</td><td>${p.active ? "Active" : "Inactive"}</td><td><button type="button" class="secondary-btn" data-edit-promoter="${escapeHtml(p.id)}">Edit</button> <button type="button" class="secondary-btn" data-toggle-promoter="${escapeHtml(p.id)}">${p.active ? "Disable" : "Enable"}</button></td></tr>`; }).join("") || `<tr><td colspan="7">No promoters yet.</td></tr>`}</tbody></table></div></div>`;
+  container.innerHTML = `<div class="page-actions"><div><h2>Promoters</h2><p>Click a promoter to view their referrals, subscribers and commission.</p></div><button id="referral-add-promoter" class="button primary" type="button">+ Add Promoter</button></div><div class="panel"><div class="table-container"><table><thead><tr><th>Promoter</th><th>Referrals</th><th>Active</th><th>MRR</th><th>Commission / month</th><th>Status</th><th>Actions</th></tr></thead><tbody>${promoters.map(p => { const s = statsByPromoter.get(p.id) || { referrals: 0, active: 0, atRisk: 0, cancelled: 0, mrr: 0, commission: 0 }; return `<tr class="referral-promoter-row" data-view-promoter="${escapeHtml(p.id)}" style="cursor:pointer"><td><strong>${escapeHtml(p.name)}</strong><div class="muted">${escapeHtml(p.email || "")}</div></td><td>${s.referrals}</td><td>${s.active}</td><td>${money(s.mrr)}</td><td>${money(s.commission)}</td><td>${p.active ? "Active" : "Inactive"}</td><td><button type="button" class="secondary-btn" data-edit-promoter="${escapeHtml(p.id)}">Edit</button> <button type="button" class="secondary-btn" data-toggle-promoter="${escapeHtml(p.id)}">${p.active ? "Disable" : "Enable"}</button> <button type="button" class="secondary-btn" data-remove-promoter="${escapeHtml(p.id)}" style="color:#b42318;border-color:#fecdca;">Remove</button></td></tr>`; }).join("") || `<tr><td colspan="7">No promoters yet.</td></tr>`}</tbody></table></div></div>`;
 
   document.getElementById("referral-add-promoter")?.addEventListener("click", async () => {
     const name = window.prompt("Promoter name:"); if (!name?.trim()) return;
@@ -69,6 +69,21 @@ function renderPromoters(container, promoters, rows, onSelectPromoter) {
     if (error) return alert(error.message); await renderReferralsPage();
   }));
   container.querySelectorAll("[data-toggle-promoter]").forEach(button => button.addEventListener("click", async () => { const id = button.getAttribute("data-toggle-promoter"); const promoter = promoters.find(p => p.id === id); if (!promoter) return; const { error } = await supabase.from("referral_promoters").update({ active: !promoter.active, updated_at: new Date().toISOString() }).eq("id", id); if (error) return alert(error.message); await renderReferralsPage(); }));
+  container.querySelectorAll("[data-remove-promoter]").forEach(button => button.addEventListener("click", async () => {
+    const id = button.getAttribute("data-remove-promoter"); const promoter = promoters.find(p => p.id === id); if (!promoter) return;
+    const confirmed = window.confirm(`Remove ${promoter.name || "this promoter"} as a JobPilot promoter?\n\nThis will remove their promoter status, delete their referral attribution records, and downgrade their linked company to the free Core plan. Their JobPilot account and company will not be deleted.`);
+    if (!confirmed) return;
+    button.disabled = true; button.textContent = "Removing…";
+    try {
+      const { data, error } = await supabase.rpc("delete_promoter", { p_promoter_id: id });
+      if (error) throw error;
+      if (!data?.deleted) throw new Error("The promoter could not be removed.");
+      await renderReferralsPage();
+    } catch (error) {
+      button.disabled = false; button.textContent = "Remove";
+      alert(error?.message || "The promoter could not be removed.");
+    }
+  }));
 }
 
 function renderPromoterDetail(container, promoter, rows, onBack) {

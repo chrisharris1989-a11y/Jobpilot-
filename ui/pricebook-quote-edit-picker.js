@@ -16,7 +16,7 @@ function install(modal, items) {
   const wrap = document.createElement("div");
   wrap.setAttribute("data-jp-pricebook-edit-picker", "true");
   wrap.style.cssText = "display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:12px 0 8px;padding:12px;border:1px solid rgba(0,0,0,.1);border-radius:10px;background:rgba(0,0,0,.025)";
-  wrap.innerHTML = `<div style="flex:1;min-width:220px"><label style="display:block;font-size:12px;font-weight:700;margin-bottom:5px">Add from Pricebook</label><select data-jp-pb-select style="width:100%;box-sizing:border-box;padding:9px;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:var(--card-bg,#fff);color:inherit"><option value="">Select an item…</option>${items.map(i => `<option value="${esc(i.id)}">${esc(i.name)} — £${Number(i.sale_price || 0).toFixed(2)} / ${esc(i.unit || "item")}</option>`).join("")}</select></div><div><label style="display:block;font-size:12px;font-weight:700;margin-bottom:5px">Qty</label><input data-jp-pb-qty type="number" min="0.01" step="0.01" value="1" style="width:80px;box-sizing:border-box;padding:9px;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:var(--card-bg,#fff);color:inherit"></div><button type="button" class="button secondary" data-jp-pb-add ${items.length ? "" : "disabled"}>Add to quote</button>`;
+  wrap.innerHTML = `<div style="flex:1;min-width:220px"><label style="display:block;font-size:12px;font-weight:700;margin-bottom:5px">Add from Pricebook</label><select data-jp-pb-select style="width:100%;box-sizing:border-box;padding:9px;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:var(--card-bg,#fff);color:inherit"><option value="">Select an item…</option>${items.map(i => `<option value="${esc(i.id)}">${esc(i.name)} — £${Number(i.sale_price || 0).toFixed(2)} / ${esc(i.unit || "item")}</option>`).join("")}</select></div><div><label style="display:block;font-size:12px;font-weight:700;margin-bottom:5px">Qty</label><input data-jp-pb-qty type="number" min="0.01" step="0.01" value="1" style="width:80px;box-sizing:border-box;padding:9px;border:1px solid rgba(0,0,0,.15);border-radius:8px;background:var(--card-bg,#fff);color:inherit"></div><button type="button" class="button secondary" data-jp-pb-add ${items.length ? "" : "disabled"}>Add item</button>`;
   lines.before(wrap);
   wrap.querySelector("[data-jp-pb-add]").addEventListener("click", () => {
     const item = items.find(i => String(i.id) === String(wrap.querySelector("[data-jp-pb-select]").value));
@@ -27,6 +27,7 @@ function install(modal, items) {
     row.innerHTML = `<input data-k="d" value="${esc(item.name)}"><input data-k="q" type="number" min="0" step="0.01" value="${qty}"><input data-k="u" value="${esc(item.unit || "item")}"><input data-k="p" type="number" min="0" step="0.01" value="${Number(item.sale_price || 0).toFixed(2)}"><button type="button" class="button danger" data-remove>×</button>`;
     lines.appendChild(row);
     wrap.querySelector("[data-jp-pb-select]").value = "";
+    wrap.querySelector("[data-jp-pb-qty]").value = "1";
     lines.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }

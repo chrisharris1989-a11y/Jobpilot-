@@ -1,17 +1,22 @@
 import { supabase } from "../supabase.js";
 
+let checkTimer = null;
+let promoterChecked = false;
+
 async function addPromoterDashboardLink() {
+  if (promoterChecked || document.getElementById("jobpilot-promoter-dashboard-button")) return;
+
+  const sidebarBottom = document.querySelector(".sidebar-bottom");
+  if (!sidebarBottom) return;
+
+  promoterChecked = true;
+
   try {
     const { data: { session } = {} } = await supabase.auth.getSession();
     if (!session?.user) return;
 
     const { data, error } = await supabase.rpc("get_my_promoter_dashboard");
     if (error || !Array.isArray(data) || !data.length) return;
-
-    if (document.getElementById("jobpilot-promoter-dashboard-button")) return;
-
-    const sidebarBottom = document.querySelector(".sidebar-bottom");
-    if (!sidebarBottom) return;
 
     const button = document.createElement("button");
     button.id = "jobpilot-promoter-dashboard-button";
@@ -26,15 +31,24 @@ async function addPromoterDashboardLink() {
     if (settingsButton) sidebarBottom.insertBefore(button, settingsButton);
     else sidebarBottom.insertBefore(button, sidebarBottom.firstChild);
   } catch (error) {
+    promoterChecked = false;
     console.warn("JobPilot promoter dashboard link:", error);
   }
 }
 
-function watchForAppRender() {
-  addPromoterDashboardLink();
-  const observer = new MutationObserver(() => addPromoterDashboardLink());
-  observer.observe(document.getElementById("app") || document.body, { childList: true, subtree: true });
+function scheduleCheck() {
+  clearTimeout(checkTimer);
+  checkTimer = setTimeout(addPromoterDashboardLink, 100);
 }
 
-watchForAppRender();
-supabase.auth.onAuthStateChange(() => setTimeout(addPromoterDashboardLink, 0));
+scheduleCheck();
+
+const observer = new MutationObserver(() => {
+  if (!document.getElementById("jobpilot-promoter-dashboard-button")) scheduleCheck();
+});
+observer.observe(document.getElementById("app") || document.body, { childList: true, subtree: true });
+
+supabase.auth.onAuthStateChange(() => {
+  promoterChecked = false;
+  scheduleCheck();
+});

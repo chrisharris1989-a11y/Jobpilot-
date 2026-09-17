@@ -1,10 +1,8 @@
 import { supabase } from "../supabase.js";
 
-// Job assignment UI is implemented in this single module only.
-// Keep initialization idempotent so the field cannot be duplicated.
-if (window.__jobPilotAssignmentInitialized) {
-  console.debug("JobPilot job assignment already initialized");
-} else {
+// Job assignment is intentionally event-driven. A global MutationObserver here
+// can race with the Add Job modal being created and interfere with the main UI.
+if (!window.__jobPilotAssignmentInitialized) {
   window.__jobPilotAssignmentInitialized = true;
 
   const FIELD_ID = "jobpilot-assignment-field";
@@ -27,28 +25,35 @@ if (window.__jobPilotAssignmentInitialized) {
   }
 
   async function resolveCompanyPlan() {
-    const existing = window.JobPilotCompany?.company;
-    if (existing?.plan) return String(existing.plan).toLowerCase();
+    try {
+      const existing = window.JobPilotCompany?.company;
+      if (existing?.plan) return String(existing.plan).toLowerCase();
 
-    const { data: { user } = {} } = await supabase.auth.getUser();
-    if (!user) return "solo";
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data?.user) return "solo";
 
-    const { data: membership } = await supabase
-      .from("company_members")
-      .select("company_id")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .maybeSingle();
+      const { data: membership, error: membershipError } = await supabase
+        .from("company_members")
+        .select("company_id")
+        .eq("user_id", data.user.id)
+        .eq("status", "active")
+        .limit(1)
+        .maybeSingle();
 
-    if (!membership?.company_id) return "solo";
+      if (membershipError || !membership?.company_id) return "solo";
 
-    const { data: company } = await supabase
-      .from("companies")
-      .select("plan")
-      .eq("id", membership.company_id)
-      .maybeSingle();
+      const { data: company, error: companyError } = await supabase
+        .from("companies")
+        .select("plan")
+        .eq("id", membership.company_id)
+        .maybeSingle();
 
-    return String(company?.plan || "solo").toLowerCase();
+      if (companyError) return "solo";
+      return String(company?.plan || "solo").toLowerCase();
+    } catch (error) {
+      console.warn("JobPilot assignment plan lookup failed:", error);
+      return "solo";
+    }
   }
 
   async function loadAssignableUsers() {
@@ -73,7 +78,7 @@ if (window.__jobPilotAssignmentInitialized) {
         usersLoaded = true;
         return assignableUsers;
       } catch (error) {
-        console.error("JobPilot job assignment users:", error);
+        console.warn("JobPilot job assignment users could not be loaded:", error);
         assignableUsers = [];
         usersLoaded = true;
         return assignableUsers;
@@ -158,25 +163,24 @@ if (window.__jobPilotAssignmentInitialized) {
     if (!form || !form.isConnected) return;
     if (form.querySelector(`#${SELECT_ID}`) || form.querySelector(`#${FIELD_ID}`)) return;
 
-    await loadAssignableUsers();
+    try {
+      await loadAssignableUsers();
+      if (!form.isConnected || !assignmentEnabled || !assignableUsers.length) return;
 
-    if (!form.isConnected || !assignmentEnabled || !assignableUsers.length) return;
-    if (form.querySelector(`#${SELECT_ID}`) || form.querySelector(`#${FIELD_ID}`)) return;
+      addStyles();
 
-    addStyles();
+      let currentValue = "";
+      if (form.id === "editJobForm") {
+        currentValue = await getEditJobAssignment(form);
+        if (!form.isConnected) return;
+      }
 
-    let currentValue = "";
-    if (form.id === "editJobForm") {
-      currentValue = await getEditJobAssignment(form);
-      if (!form.isConnected) return;
+      addAssignmentField(form, currentValue);
+    } catch (error) {
+      // Assignment must never prevent the core job form from opening or working.
+      console.warn("JobPilot assignment enhancement skipped:", error);
     }
-
-    addAssignmentField(form, currentValue);
   }
-
-  // Do not monkey-patch supabase.from(). The original implementation could
-  // interfere with other jobs queries and was unnecessary for the UI.
-  // Assignment persistence is handled explicitly by the form listeners below.
 
   function wireCreateForm(form) {
     if (!form || form.getAttribute(WIRED_ATTR)) return;
@@ -201,32 +205,35 @@ if (window.__jobPilotAssignmentInitialized) {
   async function saveCreatedJobAssignment(snapshot, attempt = 0) {
     if (!snapshot?.selectedUserId) return;
 
-    const { data: { user } = {} } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const { data, error: userError } = await supabase.auth.getUser();
+      if (userError || !data?.user) return;
 
-    let query = supabase
-      .from("jobs")
-      .select("id,customer_id,title,scheduled_date,scheduled_time,created_at")
-      .eq("user_id", user.id)
-      .eq("customer_id", snapshot.customerId)
-      .eq("title", snapshot.title)
-      .order("created_at", { ascending: false })
-      .limit(10);
-
-    if (snapshot.scheduledDate) query = query.eq("scheduled_date", snapshot.scheduledDate);
-    if (snapshot.scheduledTime) query = query.eq("scheduled_time", snapshot.scheduledTime);
-
-    const { data: candidates, error } = await query;
-
-    if (!error && candidates?.length) {
-      const job = candidates[0];
-      const { error: updateError } = await supabase
+      let query = supabase
         .from("jobs")
-        .update({ assigned_user_id: snapshot.selectedUserId })
-        .eq("id", job.id);
+        .select("id,customer_id,title,scheduled_date,scheduled_time,created_at")
+        .eq("user_id", data.user.id)
+        .eq("customer_id", snapshot.customerId)
+        .eq("title", snapshot.title)
+        .order("created_at", { ascending: false })
+        .limit(10);
 
-      if (!updateError) return;
-      console.warn("Job assignment could not be saved:", updateError);
+      if (snapshot.scheduledDate) query = query.eq("scheduled_date", snapshot.scheduledDate);
+      if (snapshot.scheduledTime) query = query.eq("scheduled_time", snapshot.scheduledTime);
+
+      const { data: candidates, error } = await query;
+
+      if (!error && candidates?.length) {
+        const job = candidates[0];
+        const { error: updateError } = await supabase
+          .from("jobs")
+          .update({ assigned_user_id: snapshot.selectedUserId })
+          .eq("id", job.id);
+
+        if (!updateError) return;
+      }
+    } catch (error) {
+      console.warn("JobPilot assignment save skipped:", error);
     }
 
     if (attempt < 8) {
@@ -239,35 +246,39 @@ if (window.__jobPilotAssignmentInitialized) {
     form.setAttribute(WIRED_ATTR, "true");
 
     form.querySelector(`#${SELECT_ID}`)?.addEventListener("change", async event => {
-      const value = event.target.value || null;
-      const customerId = form.querySelector("#editJobCustomer")?.value || "";
-      const title = form.querySelector("#editJobTitle")?.value?.trim() || "";
-      const scheduledDate = form.querySelector("#editJobDate")?.value || null;
-      const scheduledTime = form.querySelector("#editJobTime")?.value || null;
+      try {
+        const value = event.target.value || null;
+        const customerId = form.querySelector("#editJobCustomer")?.value || "";
+        const title = form.querySelector("#editJobTitle")?.value?.trim() || "";
+        const scheduledDate = form.querySelector("#editJobDate")?.value || null;
+        const scheduledTime = form.querySelector("#editJobTime")?.value || null;
 
-      if (!customerId || !title) return;
+        if (!customerId || !title) return;
 
-      let query = supabase
-        .from("jobs")
-        .select("id,created_at")
-        .eq("customer_id", customerId)
-        .eq("title", title)
-        .limit(20);
+        let query = supabase
+          .from("jobs")
+          .select("id,created_at")
+          .eq("customer_id", customerId)
+          .eq("title", title)
+          .limit(20);
 
-      if (scheduledDate) query = query.eq("scheduled_date", scheduledDate);
-      if (scheduledTime) query = query.eq("scheduled_time", scheduledTime);
+        if (scheduledDate) query = query.eq("scheduled_date", scheduledDate);
+        if (scheduledTime) query = query.eq("scheduled_time", scheduledTime);
 
-      const { data, error } = await query.order("created_at", { ascending: false });
-      if (error || !data?.[0]) return;
+        const { data, error } = await query.order("created_at", { ascending: false });
+        if (error || !data?.[0]) return;
 
-      const { error: updateError } = await supabase
-        .from("jobs")
-        .update({ assigned_user_id: value })
-        .eq("id", data[0].id);
+        const { error: updateError } = await supabase
+          .from("jobs")
+          .update({ assigned_user_id: value })
+          .eq("id", data[0].id);
 
-      if (updateError) {
-        console.error("Job assignment could not be updated:", updateError);
-        alert("The job assignment could not be saved. Please try again.");
+        if (updateError) {
+          console.error("Job assignment could not be updated:", updateError);
+          alert("The job assignment could not be saved. Please try again.");
+        }
+      } catch (error) {
+        console.warn("JobPilot assignment update skipped:", error);
       }
     });
   }
@@ -277,28 +288,32 @@ if (window.__jobPilotAssignmentInitialized) {
     const editForm = document.getElementById("editJobForm");
 
     if (createForm) {
-      void enhanceJobForm(createForm).then(() => wireCreateForm(createForm));
+      void enhanceJobForm(createForm).then(() => wireCreateForm(createForm)).catch(() => {});
     }
 
     if (editForm) {
-      void enhanceJobForm(editForm).then(() => wireEditForm(editForm));
+      void enhanceJobForm(editForm).then(() => wireEditForm(editForm)).catch(() => {});
     }
   }
 
-  let scheduled = false;
-  const observer = new MutationObserver(() => {
-    if (scheduled) return;
-    scheduled = true;
-    queueMicrotask(() => {
-      scheduled = false;
-      processForms();
-    });
-  });
+  // Only inspect forms after the user opens an Add/Edit Job form. This keeps
+  // the assignment feature isolated from normal application rendering.
+  document.addEventListener("click", event => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
 
-  if (document.body) {
-    observer.observe(document.body, { childList: true, subtree: true });
-    processForms();
-  } else {
-    document.addEventListener("DOMContentLoaded", processForms, { once: true });
-  }
+    const button = target.closest("button");
+    if (!button) return;
+
+    const label = String(button.textContent || "").trim().toLowerCase();
+    const opensJobForm =
+      button.id === "addJobButton" ||
+      label === "+ add job" ||
+      label === "add job" ||
+      label === "edit job";
+
+    if (!opensJobForm) return;
+
+    setTimeout(processForms, 0);
+  });
 }

@@ -15,6 +15,11 @@ export default defineConfig({
               attrs: { type: 'module', src: '/portal-auth.js' },
               injectTo: 'head',
             },
+            {
+              tag: 'script',
+              attrs: { type: 'module', src: '/portal-booking.js' },
+              injectTo: 'head',
+            },
           ],
         };
       },

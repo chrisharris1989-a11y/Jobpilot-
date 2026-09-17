@@ -2,6 +2,7 @@ import { supabase } from "../supabase.js";
 
 (function () {
   const PLANS = {
+    core: { label: "Core", users: 1, price: 0 },
     solo: { label: "Solo", users: 1, price: 7.49 },
     team: { label: "Team", users: 5, price: 24.99 },
     business: { label: "Business", users: 10, price: 59.99 },
@@ -9,10 +10,11 @@ import { supabase } from "../supabase.js";
   };
 
   const allowedPlans = {
-    solo: ["team", "business", "pro"],
-    team: ["solo", "business", "pro"],
-    business: ["solo", "team", "pro"],
-    pro: ["solo", "team", "business"]
+    core: ["solo", "team", "business", "pro"],
+    solo: ["core", "team", "business", "pro"],
+    team: ["core", "solo", "business", "pro"],
+    business: ["core", "solo", "team", "pro"],
+    pro: ["core", "solo", "team", "business"]
   };
 
   const SMS_AUTOMATIONS = [

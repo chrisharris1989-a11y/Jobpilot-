@@ -25,7 +25,9 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         portal: resolve(__dirname, 'portal/index.html'),
-        booking: resolve(__dirname, 'book/index.html')
+        booking: resolve(__dirname, 'book/index.html'),
+        promoterSignup: resolve(__dirname, 'promoter-signup.html'),
+        promoterDashboard: resolve(__dirname, 'promoter-dashboard.html')
       }
     }
   }

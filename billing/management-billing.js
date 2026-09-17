@@ -22,7 +22,9 @@ import { supabase } from "../supabase.js";
     { key: "appointment_confirmed", label: "Appointment confirmed", description: "Send an SMS when an appointment is confirmed." },
     { key: "appointment_reminder", label: "Appointment reminder", description: "Send an SMS reminder before an upcoming appointment." },
     { key: "appointment_rescheduled", label: "Appointment rescheduled", description: "Send an SMS when an appointment is rescheduled." },
-    { key: "invoice_overdue", label: "Invoice overdue", description: "Send an SMS when an invoice becomes overdue." }
+    { key: "invoice_overdue", label: "Invoice overdue", description: "Send an SMS when an invoice becomes overdue." },
+    { key: "review_request", label: "Review request", description: "Send an SMS asking for a review after a completed job." },
+    { key: "customer_reactivation", label: "Customer reactivation", description: "Send an SMS to customers who have not had a job for a set period." }
   ];
 
   const SMS_DEFAULT_CONFIG = {
@@ -30,7 +32,9 @@ import { supabase } from "../supabase.js";
     appointment_confirmed: { value: 0, unit: "minutes", message: "Hi {customer_name}, your appointment has been confirmed for {appointment_date} at {appointment_time}." },
     appointment_reminder: { value: 24, unit: "hours", message: "Hi {customer_name}, this is a reminder that your appointment is on {appointment_date} at {appointment_time}." },
     appointment_rescheduled: { value: 0, unit: "minutes", message: "Hi {customer_name}, your appointment has been rescheduled to {appointment_date} at {appointment_time}." },
-    invoice_overdue: { value: 7, unit: "days overdue", message: "Hi {customer_name}, invoice {invoice_number} is now overdue. Please let us know if you have any questions." }
+    invoice_overdue: { value: 7, unit: "days overdue", message: "Hi {customer_name}, invoice {invoice_number} is now overdue. Please let us know if you have any questions." },
+    review_request: { value: 1, unit: "days after completion", message: "Hi {customer_name}, thanks for choosing us. We'd really appreciate it if you could leave us a review. Thank you!" },
+    customer_reactivation: { value: 180, unit: "days since last job", message: "Hi {customer_name}, it's been a while since your last service with us. If you need anything, we'd be happy to help." }
   };
 
   function isBillingPage() { return document.getElementById("pageTitle")?.textContent.trim() === "Billing"; }
@@ -222,7 +226,9 @@ import { supabase } from "../supabase.js";
         appointment_confirmed: { label: "Appointment confirmed", timing: "Send after", unit: "minutes" },
         appointment_reminder: { label: "Appointment reminder", timing: "Send before", unit: "hours" },
         appointment_rescheduled: { label: "Appointment rescheduled", timing: "Send after", unit: "minutes" },
-        invoice_overdue: { label: "Invoice overdue", timing: "Send after", unit: "days overdue" }
+        invoice_overdue: { label: "Invoice overdue", timing: "Send after", unit: "days overdue" },
+        review_request: { label: "Review request", timing: "Send after completion", unit: "days" },
+        customer_reactivation: { label: "Customer reactivation", timing: "Send after last job", unit: "days" }
       };
       Object.entries(fields).forEach(([key, field]) => {
         const config = smsConfig[key];

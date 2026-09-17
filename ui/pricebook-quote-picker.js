@@ -77,38 +77,16 @@ function addCreatePicker(form, items) {
   });
 }
 
-function addEditPicker(modal) {
-  const lines = modal.querySelector("#jpeLines");
-  if (!lines || modal.querySelector("[data-pricebook-picker]")) return;
-  const pickerWrap = document.createElement("div");
-  pickerWrap.innerHTML = pickerHtml(window.__jpPricebookItems || []);
-  const picker = pickerWrap.firstElementChild;
-  lines.before(picker);
-  picker.querySelector("[data-pricebook-add]")?.addEventListener("click", () => {
-    const items = window.__jpPricebookItems || [];
-    const item = items.find(i => String(i.id) === String(picker.querySelector("[data-pricebook-select]").value));
-    if (!item) return;
-    const qty = Math.max(0.01, Number(picker.querySelector("[data-pricebook-qty]").value || 1));
-    const amount = qty * Number(item.sale_price || 0);
-    const row = document.createElement("div");
-    row.className = "jpe-line";
-    row.innerHTML = `<input data-k="d" value="${esc(item.name)}"><input data-k="q" type="number" min="0" step="0.01" value="${qty}"><input data-k="u" value="${esc(item.unit || "item")}"><input data-k="p" type="number" min="0" step="0.01" value="${Number(item.sale_price || 0).toFixed(2)}"><button type="button" class="button danger" data-remove>×</button>`;
-    lines.appendChild(row);
-    picker.querySelector("[data-pricebook-select]").value = "";
-    row.querySelector('[data-k="p"]').dispatchEvent(new Event("input", { bubbles: true }));
-    lines.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-}
+const installingForms = new WeakSet();
 
 async function scan() {
   injectStyles();
-  const editModal = document.querySelector(".modal.show #jpeLines");
-  if (editModal) addEditPicker(editModal.closest(".modal-content"));
   const form = findCreateQuoteForm();
-  if (!form || form.querySelector("[data-pricebook-picker]")) return;
+  if (!form || form.querySelector("[data-pricebook-picker]") || installingForms.has(form)) return;
+  installingForms.add(form);
   try {
     const items = await getItems();
-    window.__jpPricebookItems = items;
+    if (!form.isConnected || form.querySelector("[data-pricebook-picker]")) return;
     addCreatePicker(form, items);
   } catch (error) {
     console.error("JobPilot Pricebook quote picker:", error);

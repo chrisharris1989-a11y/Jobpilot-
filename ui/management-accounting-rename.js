@@ -28,20 +28,19 @@ function renameManagementRequests() {
   const content = document.getElementById("pageContent");
   if (!content) return;
 
-  // Rename the Management card without changing its underlying route/functionality.
-  const grid = getGrid();
-  if (grid) {
-    grid.querySelectorAll("h2").forEach(heading => {
-      if (heading.textContent.trim().replace(/^\S+\s*/, "") === "Quote Requests") {
-        heading.textContent = heading.textContent.trim().startsWith("💷") ? "💷 Requests" : "Requests";
-        const card = heading.closest("[data-management-section], .panel, button");
-        card?.setAttribute("aria-label", "Requests");
-      }
-    });
-  }
+  // Older Management renderers use different heading elements. Rename any exact
+  // visible occurrence of the old label so the card itself is always "Requests".
+  content.querySelectorAll("*").forEach(element => {
+    if (element.children.length) return;
+    if (element.textContent.trim() !== "Quote Requests") return;
+    element.textContent = "Requests";
+    const card = element.closest("[data-management-section], .panel, button");
+    card?.setAttribute("aria-label", "Requests");
+  });
 
-  if (document.getElementById("pageTitle")?.textContent.trim() === "Quote Requests") {
-    document.getElementById("pageTitle").textContent = "Requests";
+  const title = document.getElementById("pageTitle");
+  if (title?.textContent.trim() === "Quote Requests") {
+    title.textContent = "Requests";
     const subtitle = document.getElementById("pageSubtitle");
     if (subtitle) subtitle.textContent = "Review requests submitted by your team and customers.";
   }

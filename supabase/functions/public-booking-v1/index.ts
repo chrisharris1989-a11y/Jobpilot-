@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type","Access-Control-Allow-Methods":"GET, POST, OPTIONS"};
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const PORTAL_URL="https://portal.jobpilotcrm.co.uk/portal/";
+const PORTAL_URL="https://portal.jobpilotcrm.com/";
 const db=createClient(SUPABASE_URL,SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
 
 Deno.serve(async(req:Request)=>{

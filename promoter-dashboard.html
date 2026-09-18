@@ -4,13 +4,19 @@ import {supabase} from './supabase.js';
 const $=id=>document.getElementById(id),errBox=$('error');
 function fail(e){errBox.textContent=e?.message||String(e);errBox.style.display='block';}
 function showLogin(){
- $('content').innerHTML='<section class="login-card"><h1>Promoter Dashboard</h1><p>Your promoter dashboard uses your normal JobPilot account. You do not need a separate promoter signup.</p><p>Sign in to your JobPilot account first, then return to this dashboard.</p><a class="btn primary" id="promoterSignIn" href="https://app.jobpilotcrm.com/?return=promoter">Sign in to JobPilot</a></section>';
+ $('content').innerHTML='<section class="login-card"><h1>Promoter Dashboard</h1><p>Sign in with your normal JobPilot account to access your promoter dashboard.</p><form id="promoterLoginForm"><input id="promoterEmail" type="email" required placeholder="Email" style="width:100%;box-sizing:border-box;padding:12px;margin:8px 0;border:1px solid #d0d5dd;border-radius:9px"><input id="promoterPassword" type="password" required placeholder="Password" style="width:100%;box-sizing:border-box;padding:12px;margin:8px 0;border:1px solid #d0d5dd;border-radius:9px"><button class="btn primary" type="submit">Sign in</button><div id="promoterLoginError" style="color:#b42318;margin-top:12px"></div></form></section>';
  $('logout').style.display='none';
+ $('promoterLoginForm').addEventListener('submit', signInPromoter);
 }
-document.getElementById('promoterSignIn')?.addEventListener('click', async (event) => {
- const {data:{session}}=await supabase.auth.getSession();
- if(session){event.preventDefault();await supabase.auth.signOut();window.location.href='https://app.jobpilotcrm.com/?return=promoter';}
-});
+async function signInPromoter(event){
+ event.preventDefault();
+ const button=event.target.querySelector('button');
+ const errorBox=$('promoterLoginError');
+ button.disabled=true;button.textContent='Signing in...';errorBox.textContent='';
+ const {error}=await supabase.auth.signInWithPassword({email:$('promoterEmail').value.trim(),password:$('promoterPassword').value});
+ if(error){errorBox.textContent=error.message;button.disabled=false;button.textContent='Sign in';return;}
+ await load();
+}
 async function load(){
  const {data:{session}}=await supabase.auth.getSession();
  if(!session){showLogin();return;}

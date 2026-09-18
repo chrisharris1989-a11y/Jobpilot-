@@ -1,4 +1,4 @@
-import { supabase } from "../supabase.js";
+import { supabase, getCachedUserResponse } from "../supabase.js";
 
 const MANAGER_ROLES = ["owner", "admin"];
 let refreshTimer = null;
@@ -19,7 +19,7 @@ function monthRange() {
 }
 
 async function getCurrentMembership() {
-  const { data: { user } = {} } = await supabase.auth.getUser();
+  const { data: { user } = {} } = await getCachedUserResponse();
   if (!user) return null;
   const { data, error } = await supabase
     .from("company_members")

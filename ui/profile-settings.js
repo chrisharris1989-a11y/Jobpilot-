@@ -1,4 +1,4 @@
-import { supabase } from "../supabase.js";
+import { supabase, getCachedUserResponse } from "../supabase.js";
 
 function esc(value) {
   return String(value ?? "").replace(/[&<>'"]/g, char => ({
@@ -115,14 +115,14 @@ function renderEmailPassword(content) {
 }
 
 async function loadCurrentEmail(content) {
-  const { data, error } = await supabase.auth.getUser();
+  const { data, error } = await getCachedUserResponse();
   if (error || !data?.user) return;
   const input = content.querySelector('[name="current_email"]');
   if (input) input.value = data.user.email || "";
 }
 
 async function loadProfile(content) {
-  const { data, error } = await supabase.auth.getUser();
+  const { data, error } = await getCachedUserResponse();
   if (error || !data?.user) return;
   const meta = data.user.user_metadata || {};
   const firstName = meta.given_name || meta.first_name || "";

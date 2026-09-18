@@ -35,24 +35,7 @@ export async function loadUserPermissions() {
       .limit(1)
       .maybeSingle();
 
-    // If the membership lookup is blocked or temporarily fails, use the
-    // canonical company owner record before falling back to restricted access.
-    if (membershipError) {
-      const { data: ownedCompany, error: ownerError } = await supabase
-        .from("companies")
-        .select("id")
-        .eq("owner_id", user.id)
-        .limit(1)
-        .maybeSingle();
-
-      if (ownerError) throw membershipError;
-      if (ownedCompany) {
-        permissions = { all: true };
-        loaded = true;
-        return permissions;
-      }
-      throw membershipError;
-    }
+    if (membershipError) throw membershipError;
 
     const role = String(membership?.role || "").toLowerCase();
 

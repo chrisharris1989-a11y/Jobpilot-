@@ -24,7 +24,7 @@ async function addPromoterDashboardLink() {
     button.className = "nav-item";
     button.textContent = "📣 Promoter Dashboard";
     button.addEventListener("click", () => {
-      window.location.href = "/promoter-dashboard.html";
+      window.location.href = "https://promoter.jobpilotcrm.com/";
     });
 
     const settingsButton = sidebarBottom.querySelector('[data-page="settings"]');

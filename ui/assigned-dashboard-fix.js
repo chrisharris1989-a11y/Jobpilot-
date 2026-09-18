@@ -21,13 +21,7 @@ function monthRange() {
 async function getCurrentMembership() {
   const { data: { user } = {} } = await getCachedUserResponse();
   if (!user) return null;
-  const { data, error } = await supabase
-    .from("company_members")
-    .select("company_id,role,status")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
+  const { data, error } = await getCachedCompanyMembership(user.id);
   if (error || !data) return null;
   return { user, membership: data };
 }

@@ -1,4 +1,4 @@
-import { supabase } from "../supabase.js";
+import { supabase, getCachedUserResponse } from "../supabase.js";
 
 const POSTCODES = "https://api.postcodes.io/postcodes";
 const OSRM = "https://router.project-osrm.org/table/v1/driving";
@@ -11,7 +11,7 @@ let normalUserPromise;
 async function isNormalUser() {
   if (!normalUserPromise) {
     normalUserPromise = (async () => {
-      const { data: { user } = {} } = await supabase.auth.getUser();
+      const { data: { user } = {} } = await getCachedUserResponse();
       if (!user) return false;
       const { data: member, error } = await supabase.from("company_members").select("company_id,role").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
       if (error) throw error;
@@ -22,7 +22,7 @@ async function isNormalUser() {
 }
 
 async function assignedJobs() {
-  const { data: { user } = {} } = await supabase.auth.getUser();
+  const { data: { user } = {} } = await getCachedUserResponse();
   if (!user) throw new Error("You are not signed in.");
   const { data: member, error: memberError } = await supabase.from("company_members").select("company_id,role").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
   if (memberError) throw memberError;

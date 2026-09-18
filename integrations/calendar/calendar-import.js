@@ -2,7 +2,7 @@ import { supabase } from "../../supabase.js";
 
 const GOOGLE_CLIENT_ID = import.meta.env?.VITE_GOOGLE_CALENDAR_CLIENT_ID || "";
 const MICROSOFT_CLIENT_ID = import.meta.env?.VITE_MICROSOFT_CALENDAR_CLIENT_ID || "";
-const CALENDAR_REDIRECT_URI = import.meta.env?.VITE_CALENDAR_REDIRECT_URI || "https://jobpilot-eosin.vercel.app/";
+const CALENDAR_REDIRECT_URI = import.meta.env?.VITE_CALENDAR_REDIRECT_URI || "https://app.jobpilotcrm.com/";
 const GOOGLE_FUNCTION = "google-calendar-import";
 const APPLE_FUNCTION = "apple-caldav-import";
 const GOOGLE_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";

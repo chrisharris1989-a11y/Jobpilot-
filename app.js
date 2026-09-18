@@ -1,4 +1,4 @@
-import { supabase } from "./supabase.js";
+import { supabase, getCachedUserResponse } from "./supabase.js";
 import { startSignup } from "./signup-flow.js";
 import { showFeedbackForm } from "./feedback.js";
 import { showFeedbackAdmin } from "./feedback-admin.js";
@@ -5555,7 +5555,7 @@ async function loadFreeAgentStatus() {
     const {
       data: { user },
       error: userError
-    } = await supabase.auth.getUser();
+    } = await getCachedUserResponse();
 
     if (userError || !user) {
       status.textContent = "FreeAgent not connected.";

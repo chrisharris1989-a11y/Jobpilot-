@@ -1,4 +1,4 @@
-import { supabase, getCachedUserResponse } from "../supabase.js";
+import { supabase, getCachedUserResponse, getCachedCompanyMembership } from "../supabase.js";
 
 const MANAGEMENT_ROLES = ["owner", "admin"];
 
@@ -20,13 +20,7 @@ async function getAssignedDescriptions() {
   const { data: { user } = {} } = await getCachedUserResponse();
   if (!user) return [];
 
-  const { data: membership, error: membershipError } = await supabase
-    .from("company_members")
-    .select("company_id,role")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
+  const { data: membership, error: membershipError } = await getCachedCompanyMembership(user.id);
 
   if (membershipError || !membership?.company_id) return [];
   if (MANAGEMENT_ROLES.includes(String(membership.role || "").toLowerCase())) return [];

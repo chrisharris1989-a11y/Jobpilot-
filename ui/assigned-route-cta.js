@@ -13,7 +13,7 @@ async function isNormalUser() {
     normalUserPromise = (async () => {
       const { data: { user } = {} } = await getCachedUserResponse();
       if (!user) return false;
-      const { data: member, error } = await supabase.from("company_members").select("company_id,role").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
+      const { data: member, error } = await getCachedCompanyMembership(user.id);
       if (error) throw error;
       return !!member && !MANAGEMENT_ROLES.includes(String(member.role || "").toLowerCase());
     })().catch(error => { console.error("JobPilot Stops role check:", error); return false; });

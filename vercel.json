@@ -1,0 +1,25 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "portal.jobpilotcrm.com"
+        }
+      ],
+      "destination": "/portal/index.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "promoter.jobpilotcrm.com"
+        }
+      ],
+      "destination": "/promoter-dashboard.html"
+    }
+  ]
+}

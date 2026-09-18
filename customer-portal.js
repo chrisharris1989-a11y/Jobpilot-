@@ -19,32 +19,70 @@ export async function getPortalBranding() {
   return Array.isArray(data) ? (data[0] || null) : (data || null);
 }
 
+let portalBrandingCache = null;
+let portalBrandingPromise = null;
+let portalBrandingUserId = null;
+
+function applyPortalBrandingToDom(branding) {
+  const companyName = String(branding?.company_name || '').trim();
+  if (!companyName) return;
+
+  const brand = document.querySelector('.jp-portal-brand');
+  if (brand) {
+    const logo = String(branding?.logo_url || '').trim();
+    const safeName = companyName.replace(/[&<>\\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','\\"':'&quot;',"'":'&#39;'}[m]));
+    const safeLogo = logo.replace(/\\"/g, '&quot;');
+    const nextHtml = logo
+      ? `<img src="${safeLogo}" alt="${safeName} logo"><span>${safeName}</span>`
+      : `<span>${safeName}</span>`;
+
+    // Avoid mutating the DOM when it already contains the correct branding.
+    // This prevents our own mutation from waking the observer again.
+    if (brand.innerHTML !== nextHtml) brand.innerHTML = nextHtml;
+  }
+
+  const subtitle = document.querySelector('#portal-root > p.jp-portal-muted');
+  const nextSubtitle = `Your ${companyName} customer portal`;
+  if (subtitle && subtitle.textContent !== nextSubtitle) {
+    subtitle.textContent = nextSubtitle;
+  }
+}
+
 async function applyPortalBranding() {
   try {
-    const { data: { session } = {} } = await supabase.auth.getSession();
-    if (!session?.user) return;
-    const branding = await getPortalBranding();
-    const companyName = String(branding?.company_name || '').trim();
-    if (!companyName) return;
-
-    const brand = document.querySelector('.jp-portal-brand');
-    if (brand) {
-      const logo = String(branding?.logo_url || '').trim();
-      const safeName = companyName.replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]));
-      const safeLogo = logo.replace(/\"/g, '&quot;');
-      brand.innerHTML = logo
-        ? `<img src="${safeLogo}" alt="${safeName} logo"><span>${safeName}</span>`
-        : `<span>${safeName}</span>`;
+    // Portal rendering can cause many DOM mutations. Reuse branding for the
+    // current authenticated session instead of repeating auth/RPC requests.
+    if (portalBrandingCache && portalBrandingUserId) {
+      applyPortalBrandingToDom(portalBrandingCache);
+      return;
     }
 
-    const subtitle = document.querySelector('#portal-root > p.jp-portal-muted');
-    if (subtitle) subtitle.textContent = `Your ${companyName} customer portal`;
+    if (!portalBrandingPromise) {
+      portalBrandingPromise = supabase.auth.getSession().then(async ({ data: { session } = {} }) => {
+        if (!session?.user) return null;
+        portalBrandingUserId = session.user.id;
+        return getPortalBranding();
+      });
+    }
+
+    const branding = await portalBrandingPromise;
+    if (!branding) return;
+    portalBrandingCache = branding;
+    applyPortalBrandingToDom(branding);
   } catch (error) {
+    portalBrandingPromise = null;
     console.warn('JobPilot portal branding:', error);
   }
 }
 
-supabase.auth.onAuthStateChange(() => setTimeout(applyPortalBranding, 0));
+supabase.auth.onAuthStateChange((_event, session) => {
+  // Auth changes are the point at which cached branding can become stale.
+  portalBrandingCache = null;
+  portalBrandingPromise = null;
+  portalBrandingUserId = session?.user?.id || null;
+  setTimeout(applyPortalBranding, 0);
+});
+
 setTimeout(applyPortalBranding, 0);
 
 const portalRootObserver = new MutationObserver(() => setTimeout(applyPortalBranding, 0));

@@ -1,4 +1,4 @@
-import { supabase, getCachedUserResponse } from "../supabase.js";
+import { supabase, getCachedUserResponse, getCachedCompanyMembership } from "../supabase.js";
 
 const POSTCODES = "https://api.postcodes.io/postcodes";
 const OSRM = "https://router.project-osrm.org/table/v1/driving";
@@ -24,7 +24,7 @@ async function isNormalUser() {
 async function assignedJobs() {
   const { data: { user } = {} } = await getCachedUserResponse();
   if (!user) throw new Error("You are not signed in.");
-  const { data: member, error: memberError } = await supabase.from("company_members").select("company_id,role").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
+  const { data: member, error: memberError } = await getCachedCompanyMembership(user.id);
   if (memberError) throw memberError;
   if (!member?.company_id) throw new Error("Your company could not be found.");
   const [{ data: jobs, error: je }, { data: customers, error: ce }] = await Promise.all([

@@ -1,4 +1,4 @@
-import { supabase } from "./supabase.js";
+import { supabase, getCachedUserResponse } from "./supabase.js";
 
 const BUCKET = "jobpilot-photos";
 const MAX_FILES = 20;
@@ -8,7 +8,7 @@ let activeQuoteCapture = null;
 let observerStarted = false;
 
 async function getMembership() {
-  const { data: { user } = {} } = await supabase.auth.getUser();
+  const { data: { user } = {} } = await getCachedUserResponse();
   if (!user) return null;
 
   const { data, error } = await supabase

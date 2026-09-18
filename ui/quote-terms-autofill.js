@@ -1,5 +1,5 @@
 import "./app-preferences.js";
-import { supabase } from "../supabase.js";
+import { supabase, getCachedUserResponse } from "../supabase.js";
 
 (() => {
   let templatePromise = null;
@@ -8,7 +8,7 @@ import { supabase } from "../supabase.js";
     if (templatePromise) return templatePromise;
 
     templatePromise = (async () => {
-      const { data: { user } = {} } = await supabase.auth.getUser();
+      const { data: { user } = {} } = await getCachedUserResponse();
       if (!user) return "";
 
       let companyId = null;

@@ -1,4 +1,4 @@
-import { supabase, getCachedUserResponse } from "../supabase.js";
+import { supabase, getCachedUserResponse, getCachedCompanyMembership } from "../supabase.js";
 
 // Keep the app shell hidden until both authentication/role checks and the
 // first real app render are complete. This prevents the raw header/sidebar

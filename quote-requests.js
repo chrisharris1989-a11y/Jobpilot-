@@ -1,9 +1,9 @@
-import { supabase } from "./supabase.js";
+import { supabase, getCachedUserResponse } from "./supabase.js";
 import { formatJobPilotMoney } from "./regional-currency.js";
 import { getJobPilotPhoneDigits } from "./regional-phone.js";
 
 async function getActiveMembership() {
-  const { data: { user } = {} } = await supabase.auth.getUser();
+  const { data: { user } = {} } = await getCachedUserResponse();
   if (!user) return null;
 
   const { data, error } = await supabase
@@ -130,7 +130,7 @@ function showQuoteRequestForm() {
     submit.textContent = "Sending...";
     message.textContent = "";
 
-    const { data: { user } = {} } = await supabase.auth.getUser();
+    const { data: { user } = {} } = await getCachedUserResponse();
     const membership = await getActiveMembership();
 
     if (!user || !membership?.company_id) {

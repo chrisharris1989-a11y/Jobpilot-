@@ -1,4 +1,4 @@
-import { supabase } from "./supabase.js";
+import { supabase, getCachedUserResponse } from "./supabase.js";
 
 // Dashboard-only UI enhancements.
 const MANAGEMENT_ROLES = ["owner", "admin"];
@@ -68,7 +68,7 @@ function hideQuickActions() {
 
 async function hasManagementAccess() {
   try {
-    const { data: { user } = {} } = await supabase.auth.getUser();
+    const { data: { user } = {} } = await getCachedUserResponse();
     if (!user) return false;
     const { data, error } = await supabase.from("company_members").select("role").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
     if (error) {
@@ -147,7 +147,7 @@ async function updateTodaySnapshot() {
   monthJobsCard.innerHTML = `<div class="stat-icon">🗓️</div><div><span>This Month's Jobs</span><strong>—</strong></div>`;
   [todayJobsCard, monthJobsCard].forEach(card => { card.style.gridColumn = "span 2"; });
 
-  const { data: { user } = {} } = await supabase.auth.getUser();
+  const { data: { user } = {} } = await getCachedUserResponse();
   if (!user) return;
 
   const managementUser = await hasManagementAccess();
@@ -256,7 +256,7 @@ async function updateUserMonthSnapshot(managementUser) {
   monthCard.dataset.bound = "true";
   const loadCalendar = async () => {
     try {
-      const { data: { user } = {} } = await supabase.auth.getUser(); if (!user) return;
+      const { data: { user } = {} } = await getCachedUserResponse(); if (!user) return;
       const { data: membership, error: membershipError } = await supabase.from("company_members").select("company_id").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
       if (membershipError) throw membershipError; if (!membership?.company_id) throw new Error("No active company membership found for this user.");
       const { start, end } = getMonthRange();

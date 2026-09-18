@@ -1,4 +1,4 @@
-import { supabase } from "./supabase.js";
+import { supabase, getCachedUserResponse } from "./supabase.js";
 import { formatJobPilotMoney } from "./regional-currency.js";
 
 const BUSINESS_PLANS = new Set(["business", "pro"]);
@@ -24,7 +24,7 @@ function money(value) {
 }
 
 async function getCompanyContext() {
-  const { data: { user } = {}, error: userError } = await supabase.auth.getUser();
+  const { data: { user } = {}, error: userError } = await getCachedUserResponse();
   if (userError || !user) throw new Error("Please sign in again to view Business Overview.");
 
   const { data: membership, error: membershipError } = await supabase

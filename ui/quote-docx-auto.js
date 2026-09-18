@@ -1,4 +1,4 @@
-import { supabase } from "../supabase.js";
+import { supabase, getCachedUserResponse } from "../supabase.js";
 
 const KEY = "jobpilot_pending_quote_docx";
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -62,7 +62,7 @@ async function openQuotePreview(quoteId) {
 
     const [{ data: customer }, { data: settings }] = await Promise.all([
       quote.customer_id ? supabase.from("customers").select("*").eq("id", quote.customer_id).maybeSingle() : { data: null },
-      supabase.auth.getUser().then(async ({ data: { user } = {} }) => user ? supabase.from("user_settings").select("business_name,phone,email,website,address_line1,city,postcode,currency,business_logo_url,quote_footer").eq("user_id", user.id).maybeSingle() : { data: null })
+      getCachedUserResponse().then(async ({ data: { user } = {} }) => user ? supabase.from("user_settings").select("business_name,phone,email,website,address_line1,city,postcode,currency,business_logo_url,quote_footer").eq("user_id", user.id).maybeSingle() : { data: null })
     ]);
 
     const s = settings || {};
@@ -137,7 +137,7 @@ async function generatePendingDocument() {
   if (!pending?.startedAt || typeof window.__jobpilotDownloadQuoteDocx !== "function") return;
 
   for (let attempt = 0; attempt < 8; attempt++) {
-    const { data: { user } = {} } = await supabase.auth.getUser();
+    const { data: { user } = {} } = await getCachedUserResponse();
     if (!user) return;
     const { data: quote } = await supabase.from("quotes").select("id,quote_number,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (quote?.id && new Date(quote.created_at).getTime() >= pending.startedAt - 5000) {

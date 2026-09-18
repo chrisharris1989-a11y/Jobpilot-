@@ -1,4 +1,4 @@
-import { supabase } from "../supabase.js";
+import { supabase, getCachedUserResponse } from "../supabase.js";
 
 // Apply User dashboard restrictions synchronously whenever the base dashboard
 // is rendered. This prevents the base company dashboard from ever becoming
@@ -31,7 +31,7 @@ function applyUserDashboardGuard() {
 
 async function resolveRole() {
   try {
-    const { data: { user } = {} } = await supabase.auth.getUser();
+    const { data: { user } = {} } = await getCachedUserResponse();
     if (!user) return;
 
     const { data, error } = await supabase

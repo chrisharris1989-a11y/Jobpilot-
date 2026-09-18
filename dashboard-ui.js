@@ -1,4 +1,4 @@
-import { supabase, getCachedUserResponse } from "./supabase.js";
+import { supabase, getCachedUserResponse, getCachedCompanyMembership } from "./supabase.js";
 
 // Dashboard-only UI enhancements.
 const MANAGEMENT_ROLES = ["owner", "admin"];
@@ -151,13 +151,7 @@ async function updateTodaySnapshot() {
   if (!user) return;
 
   const managementUser = await hasManagementAccess();
-  const { data: membership, error: membershipError } = await supabase
-    .from("company_members")
-    .select("company_id")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
+  const { data: membership, error: membershipError } = await getCachedCompanyMembership(user.id);
   if (membershipError || !membership?.company_id) {
     if (membershipError) console.error("JobPilot dashboard company membership:", membershipError);
     return;
@@ -257,7 +251,7 @@ async function updateUserMonthSnapshot(managementUser) {
   const loadCalendar = async () => {
     try {
       const { data: { user } = {} } = await getCachedUserResponse(); if (!user) return;
-      const { data: membership, error: membershipError } = await supabase.from("company_members").select("company_id").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
+      const { data: membership, error: membershipError } = await getCachedCompanyMembership(user.id);
       if (membershipError) throw membershipError; if (!membership?.company_id) throw new Error("No active company membership found for this user.");
       const { start, end } = getMonthRange();
       const { data, error } = await supabase.from("jobs").select("id, customer_id, title, scheduled_date, scheduled_time, status, notes").eq("company_id", membership.company_id).eq("assigned_user_id", user.id).gte("scheduled_date", start).lte("scheduled_date", end);

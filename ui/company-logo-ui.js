@@ -1,4 +1,4 @@
-import { supabase } from "../supabase.js";
+import { supabase, getCachedUserResponse } from "../supabase.js";
 import { uploadBusinessLogo, deleteBusinessLogo } from "../integrations/supabase/storage.js";
 
 const style = document.createElement("style");
@@ -69,7 +69,7 @@ style.textContent = `
 document.head.append(style);
 
 async function getUser() {
-  return (await supabase.auth.getUser()).data.user;
+  return (await getCachedUserResponse()).data.user;
 }
 
 async function loadLogoUrl(userId) {

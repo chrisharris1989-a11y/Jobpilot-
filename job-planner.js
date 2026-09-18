@@ -27,48 +27,15 @@ import { supabase } from "./supabase.js";
   async function loadContext() {
     state.company = await resolveCompany();
     state.plan = String(state.company?.plan || "solo").toLowerCase();
-
-    const contextPromise = Promise.all([
+    const [{data:jobs,error:je},{data:customers,error:ce},{data:plans,error:pe}] = await Promise.all([
       supabase.from("jobs").select("id,title,description,scheduled_date,customer_id,assigned_user_id,status,notes").order("scheduled_date",{ascending:true,nullsFirst:false}),
       supabase.from("customers").select("id,name").order("created_at",{ascending:false}),
       state.company?.id ? supabase.from("job_plans").select("*").eq("company_id",state.company.id).order("created_at",{ascending:false}) : Promise.resolve({data:[],error:null})
     ]);
-
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Job Planner data is taking too long to load. Please try again.")), 12000)
-    );
-
-    const [{data:jobs,error:je},{data:customers,error:ce},{data:plans,error:pe}] =
-      await Promise.race([contextPromise, timeoutPromise]);
-
-    if (je) throw je;
-    if (ce) throw ce;
-    if (pe) throw pe;
-
-    state.jobs=jobs||[];
-    state.customers=customers||[];
-    state.plans=plans||[];
-
+    if (je) throw je; if (ce) throw ce; if (pe) throw pe;
+    state.jobs=jobs||[]; state.customers=customers||[]; state.plans=plans||[];
     if (hasPlan("team")) {
-      try {
-        const { data:{session}={} }=await supabase.auth.getSession();
-        if(session){
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 8000);
-          try {
-            const r=await fetch("https://qxoynttvipducubmczwl.supabase.co/functions/v1/management-users-v1",{
-              method:"POST",
-              headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`},
-              body:JSON.stringify({action:"list"}),
-              signal:controller.signal
-            });
-            const json=await r.json();
-            state.members=(json.users||[]).filter(u=>u.status==="active");
-          } finally {
-            clearTimeout(timer);
-          }
-        }
-      } catch(e){ console.warn("JobPilot planner team lookup:",e); }
+      try { const { data:{session}={} }=await supabase.auth.getSession(); if(session){ const r=await fetch("https://qxoynttvipducubmczwl.supabase.co/functions/v1/management-users-v1",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({action:"list"})}); const json=await r.json(); state.members=(json.users||[]).filter(u=>u.status==="active"); } } catch(e){ console.warn("JobPilot planner team lookup:",e); }
     }
   }
 

@@ -1,9 +1,9 @@
-import { supabase } from "./supabase.js";
+import { supabase, getCachedUserResponse } from "./supabase.js";
 
 const MANAGEMENT_ROLES = ["owner", "admin"];
 
 async function getManagementContext() {
-  const { data: { user } = {} } = await supabase.auth.getUser();
+  const { data: { user } = {} } = await getCachedUserResponse();
   if (!user) return null;
 
   const { data, error } = await supabase

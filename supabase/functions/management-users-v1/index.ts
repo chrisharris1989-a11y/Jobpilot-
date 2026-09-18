@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
         if (createError) return json({ error: createError.message || "Unable to create TEST user." }, 400);
         target = created.user;
       } else {
-        const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, { data: { name, phone }, redirectTo: req.headers.get("origin") || "https://jobpilot-eosin.vercel.app/" });
+        const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, { data: { name, phone }, redirectTo: req.headers.get("origin") || "https://app.jobpilotcrm.com/" });
         if (inviteError) return json({ error: inviteError.message || "Unable to send invitation." }, 400);
         target = invited.user;
       }

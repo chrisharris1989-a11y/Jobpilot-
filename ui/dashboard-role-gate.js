@@ -123,7 +123,7 @@ async function resolveDashboardRole() {
 
     if (await isCustomerPortalUser(user)) {
       customerPortalRedirecting = true;
-      window.location.replace("/portal/");
+      window.location.replace("https://portal.jobpilotcrm.com/");
       return;
     }
 

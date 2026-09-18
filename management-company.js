@@ -1,4 +1,4 @@
-import { supabase } from "./supabase.js";
+import { supabase, getCachedUserResponse } from "./supabase.js";
 import { getJobPilotAddressContext, normalizeJobPilotPostalCode } from "./regional-address.js";
 
 const SETTINGS_KEY = "jobpilot_settings";
@@ -97,7 +97,7 @@ function addCompanyPageStyles() {
 }
 
 async function loadCompanySettings() {
-  const { data: { user } = {} } = await supabase.auth.getUser();
+  const { data: { user } = {} } = await getCachedUserResponse();
   if (!user) throw new Error("You are not logged in.");
 
   const { data, error } = await supabase.from("user_settings").select(`
@@ -275,7 +275,7 @@ async function saveCompanySettings() {
   button.disabled = true;
   message.textContent = "Saving…";
   try {
-    const { data: { user } = {} } = await supabase.auth.getUser();
+    const { data: { user } = {} } = await getCachedUserResponse();
     if (!user) throw new Error("You are not logged in.");
     const { error } = await supabase.from("user_settings").update({
       business_name: next.businessName, contact_name: next.contactName, phone: next.phone,

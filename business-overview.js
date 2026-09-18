@@ -1,4 +1,4 @@
-import { supabase, getCachedUserResponse } from "./supabase.js";
+import { supabase, getCachedUserResponse, getCachedCompanyMembership } from "./supabase.js";
 import { formatJobPilotMoney } from "./regional-currency.js";
 
 const BUSINESS_PLANS = new Set(["business", "pro"]);
@@ -27,13 +27,7 @@ async function getCompanyContext() {
   const { data: { user } = {}, error: userError } = await getCachedUserResponse();
   if (userError || !user) throw new Error("Please sign in again to view Business Overview.");
 
-  const { data: membership, error: membershipError } = await supabase
-    .from("company_members")
-    .select("company_id,role,status")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
+  const { data: membership, error: membershipError } = await getCachedCompanyMembership(user.id);
   if (membershipError) throw membershipError;
   if (!membership?.company_id) throw new Error("Your company could not be found.");
 

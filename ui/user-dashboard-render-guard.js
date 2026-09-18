@@ -34,13 +34,7 @@ async function resolveRole() {
     const { data: { user } = {} } = await getCachedUserResponse();
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from("company_members")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .limit(1)
-      .maybeSingle();
+    const { data, error } = await getCachedCompanyMembership(user.id);
 
     if (error) {
       console.error("User dashboard render guard:", error);

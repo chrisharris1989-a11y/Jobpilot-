@@ -2,7 +2,7 @@ import { supabase } from "./supabase.js";
 
 /* JobPilot signup flow */
 const COUNTRIES = [["GB","United Kingdom","£","GBP"],["US","United States","$","USD"],["AU","Australia","A$","AUD"],["NZ","New Zealand","NZ$","NZD"],["IE","Ireland","€","EUR"],["CA","Canada","C$","CAD"]];
-const PRICES={GB:{core:"£0",solo:"£7.49",team:"£24.99",business:"£59.99",pro:"£99.99"},US:{core:"$0",solo:"$29.99",team:"$139.99",business:"$209.99",pro:"$279.99"},AU:{core:"A$0",solo:"A$39.99",team:"A$79.99",business:"A$149.99",pro:"A$249.99"},NZ:{core:"NZ$0",solo:"NZ$44.99",team:"NZ$89.99",business:"NZ$169.99",pro:"NZ$279.99"},IE:{core:"€0",solo:"€14.99",team:"€34.99",business:"€74.99",pro:"€119.99"},CA:{core:"C$0",solo:"C$39.99",team:"C$79.99",business:"C$149.99",pro:"C$249.99"}};
+const PRICES={GB:{core:"£0",solo:"£7.49",team:"£24.99",business:"£59.99",pro:"£99.99"},US:{core:"$0",solo:"$29.99",team:"$139.99",business:"$209.99",pro:"$279.99"},AU:{core:"A$0",solo:"A$39.99",team:"A$179.99",business:"A$269.99",pro:"A$359.99"},NZ:{core:"NZ$0",solo:"NZ$39.99",team:"NZ$179.99",business:"NZ$269.99",pro:"NZ$359.99"},IE:{core:"€0",solo:"€29.99",team:"€99.99",business:"€179.99",pro:"€299.99"},CA:{core:"C$0",solo:"C$39.99",team:"C$179.99",business:"C$269.99",pro:"C$359.99"}};
 const PLANS=[["core","Core",1],["solo","Solo",1],["team","Team",5],["business","Business",10],["pro","Pro",15]];
 let credentials={email:"",password:""},selectedCountry=null,selectedPlan="core",companyName="",running=false;
 function root(){return document.getElementById("app");}

@@ -3,6 +3,7 @@ import { startSignup } from "./signup-flow.js";
 import { showFeedbackForm } from "./feedback.js";
 import { showFeedbackAdmin } from "./feedback-admin.js";
 import { getJobPilotAddressContext, normalizeJobPilotPostalCode } from "./regional-address.js";
+import "./ui/user-permission-gate.js";
 
 let currentUser = null;
 let customers = [];

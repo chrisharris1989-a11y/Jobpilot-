@@ -1,35 +1,35 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [
+  "routes": [
     {
-      "source": "/",
+      "src": "/",
       "has": [
         {
           "type": "host",
           "value": "portal.jobpilotcrm.com"
         }
       ],
-      "destination": "/portal/index.html"
+      "dest": "/portal/index.html"
     },
     {
-      "source": "/",
+      "src": "/",
       "has": [
         {
           "type": "host",
           "value": "portal.jobpilotcrm.co.uk"
         }
       ],
-      "destination": "/portal/index.html"
+      "dest": "/portal/index.html"
     },
     {
-      "source": "/",
+      "src": "/",
       "has": [
         {
           "type": "host",
           "value": "promoter.jobpilotcrm.com"
         }
       ],
-      "destination": "/promoter-dashboard.html"
+      "dest": "/promoter-dashboard.html"
     }
   ]
 }

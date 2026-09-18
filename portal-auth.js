@@ -1,7 +1,7 @@
 import { supabase } from './supabase.js';
 
 const PIN_FUNCTION_URL = 'https://qxoynttvipducubmczwl.supabase.co/functions/v1/customer-portal-pin';
-const PORTAL_URL = `${window.location.origin}/portal/`;
+const PORTAL_URL = 'https://portal.jobpilotcrm.com/';
 const esc = value => String(value ?? '').replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]));
 
 async function callPin(action, payload = {}) {

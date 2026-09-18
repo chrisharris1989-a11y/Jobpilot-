@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const REDIRECT_URI = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/quickbooks-oauth-callback";
-const APP_REDIRECT = "https://jobpilot-eosin.vercel.app/?quickbooks=connected";
+const APP_REDIRECT = "https://app.jobpilotcrm.com/?quickbooks=connected";
 const AUTHORIZE_URL = "https://appcenter.intuit.com/connect/oauth2";
 const TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
 const ACCOUNTING_SCOPE = "com.intuit.quickbooks.accounting";

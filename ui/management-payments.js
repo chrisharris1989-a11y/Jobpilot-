@@ -1,4 +1,4 @@
-import { supabase, getCachedUserResponse } from "../supabase.js";
+import { supabase, getCachedUserResponse, getCachedCompanyMembership } from "../supabase.js";
 
 const FREEAGENT_CONNECT_URL = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/freeagent-connect";
 let started = false;

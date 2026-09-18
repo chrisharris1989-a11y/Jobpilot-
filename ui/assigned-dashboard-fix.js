@@ -145,6 +145,7 @@ async function refreshAssignedDashboard() {
       todayCard.style.display = "";
       todayCard.style.visibility = "visible";
       todayCard.removeAttribute("aria-hidden");
+      todayCard.dataset.assignedDashboardCard = "true";
       todayCard.innerHTML = `<div class="stat-icon">📅</div><div><span>Today's Jobs</span><strong>${todayJobs.length}</strong></div>`;
       todayCard.style.gridColumn = "span 2";
       todayCard.style.cursor = "pointer";
@@ -174,7 +175,38 @@ function scheduleRefresh() {
   refreshTimer = setTimeout(() => void refreshAssignedDashboard(), 150);
 }
 
-const observer = new MutationObserver(scheduleRefresh);
+// Only react to structural dashboard changes. The old observer reacted to every
+// childList mutation under #app, including the mutations made by
+// refreshAssignedDashboard() itself. That created a feedback loop:
+// render -> observer -> query -> render -> observer -> query.
+//
+// The assigned dashboard owns the contents of the Today's Jobs card and the
+// assigned month count, so mutations inside those elements can safely be
+// ignored. A replacement/addition of the cards happens higher up (usually on
+// the .stats container) and will still trigger a refresh.
+function isAssignedDashboardOwnMutation(record) {
+  const target = record.target instanceof Element
+    ? record.target
+    : record.target?.parentElement;
+
+  if (!target) return false;
+
+  if (target.closest(".stats .stat-card[data-assigned-dashboard-card=\"true\"]")) {
+    return true;
+  }
+
+  if (target.closest("#jobpilot-user-month-jobs")) {
+    return true;
+  }
+
+  return false;
+}
+
+const observer = new MutationObserver(records => {
+  if (records.length && records.every(isAssignedDashboardOwnMutation)) return;
+  scheduleRefresh();
+});
+
 const start = () => {
   const app = document.getElementById("app");
   if (!app) return;

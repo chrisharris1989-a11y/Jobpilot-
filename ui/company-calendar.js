@@ -1,4 +1,4 @@
-import { supabase } from "../supabase.js";
+import { supabase, getCachedUserResponse } from "../supabase.js";
 
 let currentDate = new Date();
 let currentView = "week";
@@ -50,7 +50,7 @@ function rangeForView() {
 }
 
 async function loadCalendarData() {
-  const { data: { user } = {} } = await supabase.auth.getUser();
+  const { data: { user } = {} } = await getCachedUserResponse();
   if (!user) throw new Error("You must be signed in to view the calendar.");
 
   const { start, end } = rangeForView();

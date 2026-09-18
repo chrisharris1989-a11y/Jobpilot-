@@ -23,10 +23,6 @@ async function init() {
   currentUser = data.session?.user || null;
 
   if (currentUser) {
-    if (new URLSearchParams(window.location.search).get("return") === "promoter") {
-      window.location.replace("https://promoter.jobpilotcrm.com/");
-      return;
-    }
     await loadApp();
   } else {
     showLogin();
@@ -36,7 +32,7 @@ async function init() {
     currentUser = session?.user || null;
 
     if (currentUser) {
-      if (new URLSearchParams(window.location.search).get("return") === "promoter") {
+      if (_event === "SIGNED_IN" && new URLSearchParams(window.location.search).get("return") === "promoter") {
         window.location.replace("https://promoter.jobpilotcrm.com/");
         return;
       }

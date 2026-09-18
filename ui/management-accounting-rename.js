@@ -1,4 +1,4 @@
-import { supabase, getCachedUserResponse } from "../supabase.js";
+import { supabase, getCachedUserResponse, getCachedCompanyMembership } from "../supabase.js";
 import { mountDataTransfer } from "../data-transfer.js";
 
 let allowed = false;

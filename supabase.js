@@ -65,10 +65,14 @@ export function clearCachedCompanyMembership() {
 
 export async function getCachedUserResponse() {
   if (!cachedUserPromise) {
-    cachedUserPromise = supabase.auth.getUser().catch(error => ({
-      data: { user: null },
-      error
-    }));
+    cachedUserPromise = supabase.auth.getUser().catch(error => {
+      // Do not permanently cache a transient Auth/network failure.
+      cachedUserPromise = null;
+      return {
+        data: { user: null },
+        error
+      };
+    });
   }
   return cachedUserPromise;
 }

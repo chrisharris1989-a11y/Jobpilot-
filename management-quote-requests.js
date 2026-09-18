@@ -1,4 +1,4 @@
-import { supabase, getCachedUserResponse } from "./supabase.js";
+import { supabase, getCachedUserResponse, getCachedCompanyMembership } from "./supabase.js";
 
 const MANAGEMENT_ROLES = ["owner", "admin"];
 

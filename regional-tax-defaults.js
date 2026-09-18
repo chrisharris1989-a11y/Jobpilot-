@@ -1,4 +1,4 @@
-import { supabase } from "./supabase.js";
+import { supabase, getCachedUserResponse } from "./supabase.js";
 import { getJobPilotTaxProfile } from "./regional-tax.js";
 
 const SETTINGS_KEY = "jobpilot_settings";
@@ -19,7 +19,7 @@ function syncLegacySettings(profile) {
 
 async function syncRegionalTaxDefaults(countryCode) {
   const profile = getJobPilotTaxProfile(countryCode || "GB");
-  const { data: { user } = {} } = await supabase.auth.getUser();
+  const { data: { user } = {} } = await getCachedUserResponse();
   if (!user) return profile;
 
   const { error } = await supabase.from("user_settings").update({

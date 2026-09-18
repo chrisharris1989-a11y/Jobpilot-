@@ -1,4 +1,4 @@
-import { supabase } from "../supabase.js";
+import { supabase, getCachedUserResponse } from "../supabase.js";
 
 const DAYS = [
   [1, "Monday"], [2, "Tuesday"], [3, "Wednesday"], [4, "Thursday"],
@@ -19,7 +19,7 @@ function esc(value) {
 function getContent() { return document.getElementById("pageContent"); }
 
 async function getCompanyId() {
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: userData } = await getCachedUserResponse();
   const userId = userData?.user?.id;
   if (!userId) throw new Error("You are not signed in.");
   const { data, error } = await supabase.from("companies").select("id").eq("owner_id", userId).maybeSingle();

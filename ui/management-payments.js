@@ -1,4 +1,4 @@
-import { supabase } from "../supabase.js";
+import { supabase, getCachedUserResponse } from "../supabase.js";
 
 const FREEAGENT_CONNECT_URL = "https://qxoynttvipducubmczwl.supabase.co/functions/v1/freeagent-connect";
 let started = false;
@@ -9,7 +9,7 @@ function escapeHtml(value) {
 }
 
 async function getContext() {
-  const { data: { user } = {} } = await supabase.auth.getUser();
+  const { data: { user } = {} } = await getCachedUserResponse();
   if (!user) throw new Error("You are not logged in.");
   const { data: membership, error } = await supabase.from("company_members").select("company_id,role").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
   if (error) throw error;
@@ -31,7 +31,7 @@ async function freeAgentRequest(action) {
 }
 
 async function isFreeAgentConnected() {
-  const { data: { user } = {} } = await supabase.auth.getUser();
+  const { data: { user } = {} } = await getCachedUserResponse();
   if (!user) return false;
   const { data, error } = await supabase.from("freeagent_connections").select("user_id").eq("user_id", user.id).maybeSingle();
   if (error) throw error;

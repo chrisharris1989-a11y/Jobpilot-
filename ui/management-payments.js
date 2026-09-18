@@ -11,7 +11,7 @@ function escapeHtml(value) {
 async function getContext() {
   const { data: { user } = {} } = await getCachedUserResponse();
   if (!user) throw new Error("You are not logged in.");
-  const { data: membership, error } = await supabase.from("company_members").select("company_id,role").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
+  const { data: membership, error } = await getCachedCompanyMembership(user.id);
   if (error) throw error;
   if (!membership?.company_id) throw new Error("No active company membership found.");
   return { user, companyId: membership.company_id };

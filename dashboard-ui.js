@@ -301,6 +301,36 @@ function enhanceDashboard() {
   makeTodayJobsClickable(); updateTodaySnapshot(); applyDashboardRoleVisibility();
 }
 
-const observer = new MutationObserver(() => enhanceDashboard());
-function startDashboardEnhancement() { const app = document.getElementById("app"); if (!app) return; observer.observe(app, { childList: true, subtree: true }); enhanceDashboard(); }
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", startDashboardEnhancement); else startDashboardEnhancement();
+// Watch for the dashboard itself being mounted/replaced, not every DOM mutation.
+// The previous observer reacted to mutations made by this module (cards, panels,
+// navigation), which could repeatedly call enhanceDashboard() and its Supabase
+// queries. A dashboard navigation replaces/adds the .stats tree, so that is the
+// structural change we actually need to observe.
+let enhanceTimer = null;
+
+function mutationContainsDashboard(records) {
+  const containsStats = node => {
+    if (!(node instanceof Element)) return false;
+    return node.matches(".stats") || Boolean(node.querySelector(".stats"));
+  };
+
+  return records.some(record =>
+    [...record.addedNodes, ...record.removedNodes].some(containsStats)
+  );
+}
+
+const observer = new MutationObserver(records => {
+  if (!mutationContainsDashboard(records)) return;
+  clearTimeout(enhanceTimer);
+  enhanceTimer = setTimeout(() => enhanceDashboard(), 0);
+});
+
+function startDashboardEnhancement() {
+  const app = document.getElementById("app");
+  if (!app) return;
+  observer.observe(app, { childList: true, subtree: true });
+  enhanceDashboard();
+}
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", startDashboardEnhancement);
+else startDashboardEnhancement();

@@ -1,4 +1,4 @@
-import { supabase, getCachedUserResponse } from "../supabase.js";
+import { supabase, getCachedUserResponse, getCachedCompanyMembership } from "../supabase.js";
 
 // Job assignment is intentionally event-driven. A global MutationObserver here
 // can race with the Add Job modal being created and interfere with the main UI.
@@ -32,13 +32,7 @@ if (!window.__jobPilotAssignmentInitialized) {
       const { data, error } = await getCachedUserResponse();
       if (error || !data?.user) return "solo";
 
-      const { data: membership, error: membershipError } = await supabase
-        .from("company_members")
-        .select("company_id")
-        .eq("user_id", data.user.id)
-        .eq("status", "active")
-        .limit(1)
-        .maybeSingle();
+      const { data: membership, error: membershipError } = await getCachedCompanyMembership(data.user.id);
 
       if (membershipError || !membership?.company_id) return "solo";
 

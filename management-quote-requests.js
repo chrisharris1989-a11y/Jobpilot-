@@ -6,13 +6,7 @@ async function getManagementContext() {
   const { data: { user } = {} } = await getCachedUserResponse();
   if (!user) return null;
 
-  const { data, error } = await supabase
-    .from("company_members")
-    .select("company_id, role")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
+  const { data: data, error } = await getCachedCompanyMembership(user.id);
 
   if (error || !data || !MANAGEMENT_ROLES.includes(String(data.role || "").toLowerCase())) {
     return null;

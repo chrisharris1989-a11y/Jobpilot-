@@ -1,4 +1,4 @@
-import { supabase } from "../supabase.js";
+import { supabase, getCachedUserResponse } from "../supabase.js";
 
 const MANAGEMENT_ROLES = ["owner", "admin"];
 let managementContext = null;
@@ -31,7 +31,7 @@ function dateLabel(iso, options = { weekday: "long", day: "numeric", month: "lon
 async function getManagementContext() {
   if (managementContext !== null) return managementContext;
   try {
-    const { data: { user } = {} } = await supabase.auth.getUser();
+    const { data: { user } = {} } = await getCachedUserResponse();
     if (!user) return (managementContext = false);
     const { data, error } = await supabase.from("company_members").select("role, company_id").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
     if (error || !data?.company_id || !MANAGEMENT_ROLES.includes(String(data.role || "").toLowerCase())) return (managementContext = false);

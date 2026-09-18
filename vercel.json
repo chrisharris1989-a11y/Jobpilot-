@@ -16,6 +16,16 @@
       "has": [
         {
           "type": "host",
+          "value": "portal.jobpilotcrm.co.uk"
+        }
+      ],
+      "destination": "/portal/index.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
           "value": "promoter.jobpilotcrm.com"
         }
       ],

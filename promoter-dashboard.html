@@ -1,5 +1,68 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JobPilot Promoter Dashboard</title><style>body{font-family:Inter,system-ui,sans-serif;background:#f5f7fb;margin:0;color:#101828}.wrap{max-width:1000px;margin:auto;padding:28px 18px}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:24px}.brand{font-size:24px;font-weight:800}.btn{border:1px solid #d0d5dd;background:#fff;border-radius:9px;padding:9px 13px;cursor:pointer;text-decoration:none;color:#101828;display:inline-block}.hero{background:#111827;color:#fff;border-radius:18px;padding:24px;margin-bottom:18px}.hero h1{margin:0 0 8px}.linkbox{display:flex;gap:8px;margin-top:18px}.linkbox input{flex:1;padding:12px;border-radius:9px;border:0;min-width:0}.copy{background:#fff;color:#111827;border:0;border-radius:9px;padding:0 15px;font-weight:700;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}.card{background:#fff;border:1px solid #eaecf0;border-radius:14px;padding:18px}.label{color:#667085;font-size:13px}.value{font-size:26px;font-weight:800;margin-top:6px}table{width:100%;border-collapse:collapse;background:#fff;border-radius:14px;overflow:hidden}th,td{text-align:left;padding:13px;border-bottom:1px solid #eaecf0;font-size:14px}th{color:#667085;background:#f9fafb}.empty{text-align:center;padding:30px;color:#667085}.error{background:#fef3f2;color:#b42318;padding:14px;border-radius:10px;display:none}.login-card{background:#fff;border:1px solid #eaecf0;border-radius:18px;padding:30px;text-align:center;max-width:520px;margin:80px auto}.login-card h1{margin-top:0}.login-card p{color:#667085;line-height:1.6}.primary{background:#111827;color:#fff;border-color:#111827;margin-top:12px}@media(max-width:700px){.grid{grid-template-columns:repeat(2,1fr)}.linkbox{flex-direction:column}.copy{padding:12px}.top{align-items:flex-start}}@media(max-width:420px){.grid{grid-template-columns:1fr 1fr}}</style></head><body><div class="wrap"><div class="top"><div class="brand">JobPilot Promoter</div><button id="logout" class="btn">Sign out</button></div><div id="error" class="error"></div><div id="content"></div></div><script type="module">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>JobPilot Promoter Dashboard</title><style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f7fb;color:#101828}
+.wrap{width:100%;max-width:1000px;margin:0 auto;padding:28px 18px 40px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:24px;min-width:0}
+.brand-area{display:flex;align-items:center;gap:18px;min-width:0}
+.brand-logo{display:block;width:148px;height:auto;max-height:52px;object-fit:contain;object-position:left center}
+.brand-divider{width:1px;height:42px;background:#d0d5dd;flex:0 0 auto}
+.brand-title{font-size:22px;font-weight:800;color:#101828;white-space:nowrap}
+.btn{border:1px solid #d0d5dd;background:#fff;border-radius:10px;padding:10px 14px;cursor:pointer;text-decoration:none;color:#101828;display:inline-block;font-weight:650;white-space:nowrap}
+.hero{background:#111827;color:#fff;border-radius:20px;padding:28px;margin-bottom:18px;box-shadow:0 8px 24px rgba(16,24,40,.08)}
+.hero h1{margin:0 0 10px;font-size:clamp(30px,5vw,46px);line-height:1.08;letter-spacing:-.02em}
+.hero>div:not(.linkbox){font-size:18px;line-height:1.5;color:#eef2f7;max-width:760px}
+.linkbox{display:flex;gap:8px;margin-top:20px}
+.linkbox input{flex:1;min-width:0;padding:13px 14px;border-radius:10px;border:0;font:inherit;color:#101828;background:#fff}
+.copy{background:#fff;color:#111827;border:0;border-radius:10px;padding:0 18px;font-weight:750;cursor:pointer;min-height:48px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.card{background:#fff;border:1px solid #eaecf0;border-radius:16px;padding:20px;min-width:0}
+.label{color:#667085;font-size:15px;line-height:1.35}
+.value{font-size:34px;font-weight:800;line-height:1.15;margin-top:7px;color:#101828}
+.referrals-card{overflow:hidden}
+.referrals-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}
+.referrals-heading h2{margin:0;font-size:30px;letter-spacing:-.02em}
+.table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;min-width:700px;border-collapse:collapse;background:#fff}
+th,td{text-align:left;padding:14px;border-bottom:1px solid #eaecf0;font-size:14px;white-space:nowrap}
+th{color:#667085;background:#f9fafb;font-weight:700}
+.empty{text-align:center;padding:32px;color:#667085;white-space:normal}
+.error{background:#fef3f2;color:#b42318;padding:14px;border-radius:10px;display:none}
+.login-card{background:#fff;border:1px solid #eaecf0;border-radius:18px;padding:30px;text-align:center;max-width:520px;margin:80px auto}
+.login-card h1{margin-top:0}
+.login-card p{color:#667085;line-height:1.6}
+.primary{background:#111827;color:#fff;border-color:#111827;margin-top:12px;width:100%}
+@media(max-width:700px){
+  .wrap{padding:22px 16px 34px}
+  .top{align-items:center}
+  .brand-area{gap:12px}
+  .brand-logo{width:132px;max-height:44px}
+  .brand-divider{height:34px}
+  .brand-title{font-size:18px}
+  .btn{padding:9px 11px}
+  .hero{padding:24px 20px;border-radius:18px}
+  .hero h1{font-size:32px}
+  .hero>div:not(.linkbox){font-size:17px}
+  .linkbox{flex-direction:column}
+  .copy{padding:12px}
+}
+@media(max-width:480px){
+  .top{align-items:flex-start}
+  .brand-area{gap:10px}
+  .brand-logo{width:118px}
+  .brand-divider{display:none}
+  .brand-title{display:none}
+  .hero{padding:22px 18px}
+  .hero h1{font-size:30px}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .card{padding:16px}
+  .label{font-size:14px}
+  .value{font-size:29px}
+  .referrals-heading h2{font-size:27px}
+  .referrals-card{padding:16px}
+}
+</style></head><body><div class="wrap"><div class="top"><div class="brand-area"><img class="brand-logo" src="/jobpilot-logo.png" alt="JobPilot"><span class="brand-divider" aria-hidden="true"></span><span class="brand-title">Promoter</span></div><button id="logout" class="btn">Sign out</button></div><div id="error" class="error"></div><div id="content"></div></div><script type="module">
 import {supabase} from './supabase.js';
 const $=id=>document.getElementById(id),errBox=$('error');
 function fail(e){errBox.textContent=e?.message||String(e);errBox.style.display='block';}
@@ -23,7 +86,7 @@ async function load(){
  const {data:p,error:pe}=await supabase.rpc('get_my_promoter_dashboard'); if(pe) throw pe;
  if(!p?.length){fail(new Error('This JobPilot account has not been set up as a promoter yet. JobPilot needs to link your account to your promoter profile first.'));return;}
  const x=p[0];
- $('content').innerHTML=`<section class="hero"><h1>Welcome, ${x.promoter_name}</h1><div>Share your unique referral link and earn 30% commission on qualifying referred subscriptions.</div><div class="linkbox"><input id="refLink" readonly><button class="copy" id="copy">Copy link</button></div></section><div class="grid"><div class="card"><div class="label">Referrals</div><div class="value">${x.referral_count||0}</div></div><div class="card"><div class="label">Converted</div><div class="value">${x.converted_count||0}</div></div><div class="card"><div class="label">Monthly referred value</div><div class="value">£${Number(x.monthly_value||0).toFixed(2)}</div></div><div class="card"><div class="label">Monthly commission</div><div class="value">£${Number(x.monthly_commission||0).toFixed(2)}</div></div></div><section class="card"><h2>Referrals</h2><table><thead><tr><th>Business</th><th>Plan</th><th>Status</th><th>Monthly value</th><th>Commission</th></tr></thead><tbody id="rows"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody></table></section>`;
+ $('content').innerHTML=`<section class="hero"><h1>Welcome, ${x.promoter_name}</h1><div>Share your unique referral link and earn 30% commission on qualifying referred subscriptions.</div><div class="linkbox"><input id="refLink" readonly><button class="copy" id="copy">Copy link</button></div></section><div class="grid"><div class="card"><div class="label">Referrals</div><div class="value">${x.referral_count||0}</div></div><div class="card"><div class="label">Converted</div><div class="value">${x.converted_count||0}</div></div><div class="card"><div class="label">Monthly referred value</div><div class="value">£${Number(x.monthly_value||0).toFixed(2)}</div></div><div class="card"><div class="label">Monthly commission</div><div class="value">£${Number(x.monthly_commission||0).toFixed(2)}</div></div></div><section class="card referrals-card"><div class="referrals-heading"><h2>Referrals</h2></div><div class="table-wrap"><table><thead><tr><th>Business</th><th>Plan</th><th>Status</th><th>Monthly value</th><th>Commission</th></tr></thead><tbody id="rows"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody></table></div></section>`;
  $('refLink').value=`https://app.jobpilotcrm.com/?ref=${encodeURIComponent(x.code)}`;
  $('copy').onclick=async()=>{await navigator.clipboard.writeText($('refLink').value);$('copy').textContent='Copied!';setTimeout(()=>$('copy').textContent='Copy link',1500)};
  const {data:r,error:re}=await supabase.rpc('get_my_promoter_referrals');if(re) throw re;const rows=$('rows');rows.innerHTML='';

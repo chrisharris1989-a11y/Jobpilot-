@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const CORS={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"GET, POST, OPTIONS"};
 const REDIRECT="https://qxoynttvipducubmczwl.supabase.co/functions/v1/freeagent-connect";
-const APP="https://jobpilot-eosin.vercel.app/?freeagent=connected";
+const APP="https://app.jobpilotcrm.com/?freeagent=connected";
 const USER_AGENT="JobPilot FreeAgent Integration/1.0 (https://jobpilotcrm.co.uk)";
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...CORS,"Content-Type":"application/json"}});
 function uid(req:Request){try{const h=req.headers.get("Authorization");if(!h?.startsWith("Bearer "))return null;const p=JSON.parse(atob(h.slice(7).split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));return p.sub||null;}catch{return null;}}

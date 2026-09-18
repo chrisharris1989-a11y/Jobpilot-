@@ -1,4 +1,4 @@
-import { supabase } from "../supabase.js";
+import { supabase, getCachedUserResponse } from "../supabase.js";
 
 const DEFAULT_USER_PERMISSIONS = {
   customers: true,
@@ -20,7 +20,7 @@ let loaded = false;
 
 export async function loadUserPermissions() {
   try {
-    const { data: { user } = {} } = await supabase.auth.getUser();
+    const { data: { user } = {} } = await getCachedUserResponse();
     if (!user) {
       permissions = { ...DEFAULT_USER_PERMISSIONS };
       loaded = true;

@@ -1,4 +1,4 @@
-import { supabase, getCachedUserResponse } from "./supabase.js";
+import { supabase, getCachedUserResponse, getCachedCompanyMembership } from "./supabase.js";
 import { formatJobPilotMoney } from "./regional-currency.js";
 import { getJobPilotPhoneDigits } from "./regional-phone.js";
 

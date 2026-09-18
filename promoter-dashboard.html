@@ -4,7 +4,7 @@ import {supabase} from './supabase.js';
 const $=id=>document.getElementById(id),errBox=$('error');
 function fail(e){errBox.textContent=e?.message||String(e);errBox.style.display='block';}
 function showLogin(){
- $('content').innerHTML='<section class="login-card"><h1>Promoter Dashboard</h1><p>Your promoter dashboard uses your normal JobPilot account. You do not need a separate promoter signup.</p><p>Sign in to your JobPilot account first, then return to this dashboard.</p><a class="btn primary" href="https://app.jobpilotcrm.com/">Sign in to JobPilot</a></section>';
+ $('content').innerHTML='<section class="login-card"><h1>Promoter Dashboard</h1><p>Your promoter dashboard uses your normal JobPilot account. You do not need a separate promoter signup.</p><p>Sign in to your JobPilot account first, then return to this dashboard.</p><a class="btn primary" href="https://app.jobpilotcrm.com/?return=promoter">Sign in to JobPilot</a></section>';
  $('logout').style.display='none';
 }
 async function load(){

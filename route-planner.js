@@ -1,4 +1,4 @@
-import { supabase, getCachedUserResponse } from "./supabase.js";
+import { supabase, getCachedUserResponse, getCachedCompanyMembership } from "./supabase.js";
 
 const POSTCODE_API = "https://api.postcodes.io/postcodes";
 const OSRM_TABLE_API = "https://router.project-osrm.org/table/v1/driving";
@@ -269,13 +269,7 @@ export async function openTodayRoute() {
     // Resolve the active membership so management roles continue to use the
     // same route-planner path as normal Users. The route itself is always
     // restricted to the signed-in user's assigned jobs.
-    const { data: membership, error: membershipError } = await supabase
-      .from("company_members")
-      .select("company_id, role")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .limit(1)
-      .maybeSingle();
+    const { data: membership, error: membershipError } = await getCachedCompanyMembership(user.id);
 
     if (membershipError) throw membershipError;
 

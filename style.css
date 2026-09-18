@@ -413,14 +413,24 @@ hr {
 .button {
   min-height: 42px;
   padding: 10px 15px;
-  border: 0;
+  border: 1px solid var(--border);
   border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  appearance: none;
+  -webkit-appearance: none;
   font-size: 14px;
   font-weight: 650;
   transition:
     background 0.15s ease,
+    border-color 0.15s ease,
     transform 0.15s ease,
     box-shadow 0.15s ease;
+}
+
+.button:hover {
+  background: var(--surface-soft);
+  border-color: var(--border-dark);
 }
 
 .button:hover {

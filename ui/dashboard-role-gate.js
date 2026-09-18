@@ -1,4 +1,4 @@
-import { supabase } from "../supabase.js";
+import { supabase, getCachedUserResponse } from "../supabase.js";
 
 // Keep the app shell hidden until both authentication/role checks and the
 // first real app render are complete. This prevents the raw header/sidebar
@@ -41,7 +41,7 @@ function hideUserDashboardContent() {
 }
 
 async function getCurrentUser() {
-  const { data: { user } = {} } = await supabase.auth.getUser();
+  const { data: { user } = {} } = await getCachedUserResponse();
   return user || null;
 }
 

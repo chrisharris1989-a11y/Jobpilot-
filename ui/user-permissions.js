@@ -1,4 +1,4 @@
-import { supabase, getCachedUserResponse } from "../supabase.js";
+import { supabase, getCachedUserResponse, getCachedCompanyMembership } from "../supabase.js";
 
 const DEFAULT_USER_PERMISSIONS = {
   customers: true,
@@ -27,13 +27,7 @@ export async function loadUserPermissions() {
       return permissions;
     }
 
-    const { data: membership, error: membershipError } = await supabase
-      .from("company_members")
-      .select("role, permissions")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .limit(1)
-      .maybeSingle();
+    const { data: membership, error: membershipError } = await getCachedCompanyMembership(user.id);
 
     if (membershipError) throw membershipError;
 

@@ -3,20 +3,4 @@ const NAV_PERMISSIONS={customers:"customers",jobs:"jobs",quotes:"quotes",invoice
 const TOOL_PERMISSIONS={"jp-open-business-overview":"business_overview","jp-open-job-planner":"job_planner","jp-open-reports":"reports","jp-open-calculators":"calculators"};
 function hideRestrictedUI(){if(!isRestrictedUser())return;document.querySelectorAll(".nav-item[data-page]").forEach(button=>{const permission=NAV_PERMISSIONS[button.dataset.page];if(permission&&!can(permission))button.style.display="none"});const management=document.getElementById("jobpilot-management-button");if(management&&!can("management"))management.style.display="none";const tools=document.getElementById("jobpilot-tools-button");if(tools&&!can("tools"))tools.style.display="none";document.querySelectorAll("[id^='jp-open-']").forEach(button=>{const permission=TOOL_PERMISSIONS[button.id];if(permission&&!can(permission))button.style.display="none"})}
 function blockRestrictedClicks(event){if(!isRestrictedUser())return;const target=event.target.closest?.("button");if(!target)return;if(target.id==="jobpilot-management-button"&&!can("management")){event.preventDefault();event.stopImmediatePropagation();return}const permission=TOOL_PERMISSIONS[target.id];if(permission&&!can(permission)){event.preventDefault();event.stopImmediatePropagation();return}}
-document.addEventListener("click",blockRestrictedClicks,true);
-const observer=new MutationObserver(hideRestrictedUI);
-observer.observe(document.body,{childList:true,subtree:true});
-
-async function refreshPermissions() {
-  await loadUserPermissions();
-  hideRestrictedUI();
-}
-
-// Auth/session restoration can finish after the initial module evaluation.
-// Re-check permissions whenever Supabase establishes or refreshes a session
-// so owners are never left with the restricted default from an early auth race.
-supabase.auth.onAuthStateChange(() => {
-  void refreshPermissions();
-});
-
-void refreshPermissions();
+document.addEventListener("click",blockRestrictedClicks,true);const observer=new MutationObserver(hideRestrictedUI);observer.observe(document.body,{childList:true,subtree:true});(async()=>{await loadUserPermissions();hideRestrictedUI()})();

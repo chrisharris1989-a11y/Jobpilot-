@@ -1,4 +1,4 @@
-import { supabase } from "../supabase.js";
+import { supabase, getCachedUserResponse } from "../supabase.js";
 
 const MANAGEMENT_ROLES = ["owner", "admin"];
 
@@ -17,7 +17,7 @@ function esc(value) {
 }
 
 async function getAssignedDescriptions() {
-  const { data: { user } = {} } = await supabase.auth.getUser();
+  const { data: { user } = {} } = await getCachedUserResponse();
   if (!user) return [];
 
   const { data: membership, error: membershipError } = await supabase

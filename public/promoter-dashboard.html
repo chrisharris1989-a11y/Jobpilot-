@@ -8,7 +8,7 @@ async function load(){
  if(!session){location.href='/promoter-signup.html';return;}
  const {data:p,error:pe}=await supabase.rpc('get_my_promoter_dashboard'); if(pe) throw pe;
  if(!p?.length){fail(new Error('This account is not registered as a JobPilot promoter yet.'));return;}
- const x=p[0];$('welcome').textContent=`Welcome, ${x.promoter_name}`;$('referrals').textContent=x.referral_count||0;$('converted').textContent=x.converted_count||0;$('value').textContent=`£${Number(x.monthly_value||0).toFixed(2)}`;$('commission').textContent=`£${Number(x.monthly_commission||0).toFixed(2)}`;$('refLink').value=`${location.origin}/?ref=${encodeURIComponent(x.code)}`;
+ const x=p[0];$('welcome').textContent=`Welcome, ${x.promoter_name}`;$('referrals').textContent=x.referral_count||0;$('converted').textContent=x.converted_count||0;$('value').textContent=`£${Number(x.monthly_value||0).toFixed(2)}`;$('commission').textContent=`£${Number(x.monthly_commission||0).toFixed(2)}`;$('refLink').value=`https://app.jobpilotcrm.com/?ref=${encodeURIComponent(x.code)}`;
  const {data:r,error:re}=await supabase.rpc('get_my_promoter_referrals');if(re) throw re;const rows=$('rows');rows.innerHTML='';
  if(!r?.length){rows.innerHTML='<tr><td colspan="5" class="empty">No referrals yet.</td></tr>';return;}
  for(const v of r){const tr=document.createElement('tr');tr.innerHTML=`<td>${v.company_name||'—'}</td><td>${v.plan||'—'}</td><td>${v.subscription_status||v.last_status||'—'}</td><td>£${Number(v.monthly_value||0).toFixed(2)}</td><td>£${Number(v.monthly_commission||0).toFixed(2)}</td>`;rows.appendChild(tr);}

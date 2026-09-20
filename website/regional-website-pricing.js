@@ -102,7 +102,7 @@
     const note = document.querySelector('.note');
     if (note) {
       note.textContent =
-        'Core is free forever with no payment details required. When you need more than 50 customers, upgrade to Solo for ' +
+        'Core is free forever with no payment details required. When you need more than 25 customers, upgrade to Solo for ' +
         data.plans.solo +
         '/month.';
     }
